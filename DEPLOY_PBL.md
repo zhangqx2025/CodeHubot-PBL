@@ -33,8 +33,8 @@
 ## 配置说明
 
 ### 网络配置
-`docker-compose.yml` 中使用了外部网络 `docker_aiot-network`。这是 CodeHubot 默认创建的网络名称。
-如果您的 CodeHubot 使用了不同的网络名称（可以通过 `docker network ls` 查看），请修改 `docker-compose.yml` 中的 `networks` 部分：
+`docker/docker-compose.yml` 中使用了外部网络 `docker_aiot-network`。这是 CodeHubot 默认创建的网络名称。
+如果您的 CodeHubot 使用了不同的网络名称（可以通过 `docker network ls` 查看），请修改 `docker/docker-compose.yml` 中的 `networks` 部分：
 
 ```yaml
 networks:
@@ -44,7 +44,7 @@ networks:
 ```
 
 ### 数据库连接
-后端服务通过容器名称 `codehubot-mysql` 连接到数据库。如果 CodeHubot 的数据库容器名称不同，请修改 `docker-compose.yml` 中的 `DATABASE_URL` 环境变量。
+后端服务通过容器名称 `codehubot-mysql` 连接到数据库。如果 CodeHubot 的数据库容器名称不同，请修改 `docker/docker-compose.yml` 中的 `DATABASE_URL` 环境变量。
 
 ### 端口冲突
-PBL 前端默认占用 **8082** 端口。如果该端口被占用，可以在 `docker-compose.yml` 中修改 `pbl-frontend` 的端口映射。
+PBL 前端默认占用 **8082** 端口。如果该端口被占用，可以在 `docker/docker-compose.yml` 中修改 `pbl-frontend` 的端口映射。
