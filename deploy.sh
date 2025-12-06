@@ -40,7 +40,7 @@ check_network() {
     if ! docker network inspect docker_aiot-network >/dev/null 2>&1; then
         log_warn "网络 'docker_aiot-network' 不存在。"
         log_warn "请确保 CodeHubot 主服务已启动，且网络名称正确。"
-        log_warn "如果 CodeHubot 使用了不同的网络名称，请修改 docker-compose.yml 中的网络名称。"
+        log_warn "如果 CodeHubot 使用了不同的网络名称，请修改 docker/docker-compose.yml 中的网络名称。"
         
         # 尝试查找类似的 aiot 网络
         POSSIBLE_NETWORKS=$(docker network ls --filter name=aiot --format "{{.Name}}")
@@ -60,28 +60,28 @@ check_network() {
 
 build_images() {
     log_info "构建镜像..."
-    docker-compose build
+    docker-compose -f docker/docker-compose.yml build
 }
 
 start_services() {
     log_info "启动服务..."
-    docker-compose up -d
+    docker-compose -f docker/docker-compose.yml up -d
     
     log_info "等待服务启动..."
     sleep 5
     
-    if docker-compose ps | grep -q "Up"; then
+    if docker-compose -f docker/docker-compose.yml ps | grep -q "Up"; then
         log_info "服务启动成功 ✓"
         log_info "前端访问地址: http://localhost:8082"
         log_info "后端API地址: http://localhost:8082/api (通过前端代理)"
     else
-        log_error "服务启动失败，请检查日志: docker-compose logs"
+        log_error "服务启动失败，请检查日志: docker-compose -f docker/docker-compose.yml logs"
     fi
 }
 
 stop_services() {
     log_info "停止服务..."
-    docker-compose down
+    docker-compose -f docker/docker-compose.yml down
 }
 
 # 主逻辑
@@ -108,7 +108,7 @@ case "${ACTION}" in
         start_services
         ;;
     logs)
-        docker-compose logs -f
+        docker-compose -f docker/docker-compose.yml logs -f
         ;;
     *)
         echo "用法: $0 {deploy|start|stop|restart|logs}"

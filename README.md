@@ -14,7 +14,7 @@ CodeHubot 平台的项目式学习子系统。旨在提供以项目为核心的�
 ### Docker 启动
 
 ```bash
-docker-compose up -d
+docker-compose -f docker/docker-compose.yml up -d
 ```
 
 ### 目录结构
