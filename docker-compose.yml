@@ -1,0 +1,43 @@
+services:
+  pbl-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: pbl-backend
+    environment:
+      # Database Connection String
+      # Connecting to codehubot-mysql in the external network
+      DATABASE_URL: mysql+pymysql://${MYSQL_USER:-aiot_user}:${MYSQL_PASSWORD:-aiot_password}@codehubot-mysql:3306/${MYSQL_DATABASE:-aiot_admin}
+      
+      # Redis Connection (if needed in future)
+      REDIS_URL: redis://codehubot-redis:6379/0
+      
+      # CORS Settings
+      BACKEND_CORS_ORIGINS: '["*"]'
+    networks:
+      - aiot-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  pbl-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: pbl-frontend
+    ports:
+      - "${FRONTEND_PORT:-8082}:80"
+    networks:
+      - aiot-network
+    depends_on:
+      pbl-backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+networks:
+  aiot-network:
+    external: true
+    name: docker_aiot-network
