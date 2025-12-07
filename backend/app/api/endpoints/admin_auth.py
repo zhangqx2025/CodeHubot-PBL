@@ -4,9 +4,9 @@ from datetime import timedelta
 
 from ...db.session import SessionLocal
 from ...core.response import success_response, error_response
-from ...core.security import verify_password, get_password_hash, create_access_token
+from ...core.security import verify_password, get_password_hash, create_access_token, create_refresh_token, verify_token
 from ...core.deps import get_db, get_current_admin
-from ...schemas.admin import AdminLogin, AdminCreate, AdminResponse, TokenResponse
+from ...schemas.admin import AdminLogin, AdminCreate, AdminResponse, TokenResponse, RefreshTokenRequest, RefreshTokenResponse
 from ...models.admin import Admin
 
 router = APIRouter()
@@ -34,12 +34,14 @@ def admin_login(login_data: AdminLogin, db: Session = Depends(get_db)):
             status_code=status.HTTP_403_FORBIDDEN
         )
     
-    # 创建访问令牌
+    # 创建访问令牌和刷新令牌
     access_token = create_access_token(data={"sub": str(admin.id)})
+    refresh_token = create_refresh_token(data={"sub": str(admin.id)})
     
     return success_response(
         data={
             "access_token": access_token,
+            "refresh_token": refresh_token,
             "token_type": "bearer",
             "admin": admin
         },
@@ -88,3 +90,60 @@ def admin_register(admin_data: AdminCreate, db: Session = Depends(get_db), curre
     db.refresh(new_admin)
     
     return success_response(data=new_admin, message="平台管理员创建成功")
+
+@router.post("/refresh")
+def refresh_access_token(request: RefreshTokenRequest, db: Session = Depends(get_db)):
+    """
+    使用refresh token刷新access token
+    当access token过期时，客户端可以使用有效的refresh token获取新的access token和refresh token
+    """
+    # 验证refresh token
+    payload = verify_token(request.refresh_token, token_type="refresh")
+    if payload is None:
+        return error_response(
+            message="无效的刷新令牌",
+            code=401,
+            status_code=status.HTTP_401_UNAUTHORIZED
+        )
+    
+    # 获取用户ID
+    admin_id = payload.get("sub")
+    if admin_id is None:
+        return error_response(
+            message="无效的刷新令牌",
+            code=401,
+            status_code=status.HTTP_401_UNAUTHORIZED
+        )
+    
+    # 验证用户是否存在且为平台管理员
+    admin = db.query(Admin).filter(
+        Admin.id == int(admin_id),
+        Admin.role == 'platform_admin'
+    ).first()
+    
+    if admin is None:
+        return error_response(
+            message="用户不存在或不是平台管理员",
+            code=401,
+            status_code=status.HTTP_401_UNAUTHORIZED
+        )
+    
+    if not admin.is_active:
+        return error_response(
+            message="账户已被禁用",
+            code=403,
+            status_code=status.HTTP_403_FORBIDDEN
+        )
+    
+    # 生成新的access token和refresh token
+    new_access_token = create_access_token(data={"sub": str(admin.id)})
+    new_refresh_token = create_refresh_token(data={"sub": str(admin.id)})
+    
+    return success_response(
+        data={
+            "access_token": new_access_token,
+            "refresh_token": new_refresh_token,
+            "token_type": "bearer"
+        },
+        message="令牌刷新成功"
+    )
