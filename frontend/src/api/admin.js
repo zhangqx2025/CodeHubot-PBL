@@ -44,7 +44,7 @@ httpClient.interceptors.response.use(
  */
 export const adminLogin = async (loginData) => {
   try {
-    const response = await httpClient.post('/api/v1/admin/auth/login', loginData)
+    const response = await httpClient.post('/admin/auth/login', loginData)
     return response
   } catch (error) {
     throw new Error(handleApiError(error))
@@ -56,7 +56,7 @@ export const adminLogin = async (loginData) => {
  */
 export const getCurrentAdmin = async () => {
   try {
-    const response = await httpClient.get('/api/v1/admin/auth/me')
+    const response = await httpClient.get('/admin/auth/me')
     return response.data.data || response.data
   } catch (error) {
     throw new Error(handleApiError(error))
@@ -68,7 +68,7 @@ export const getCurrentAdmin = async () => {
  */
 export const getCourses = async (params = {}) => {
   try {
-    const response = await httpClient.get('/api/v1/admin/courses', { params })
+    const response = await httpClient.get('/admin/courses', { params })
     return response.data.data || response.data
   } catch (error) {
     throw new Error(handleApiError(error))
@@ -80,7 +80,7 @@ export const getCourses = async (params = {}) => {
  */
 export const createCourse = async (courseData) => {
   try {
-    const response = await httpClient.post('/api/v1/admin/courses', courseData)
+    const response = await httpClient.post('/admin/courses', courseData)
     return response.data.data || response.data
   } catch (error) {
     throw new Error(handleApiError(error))
@@ -92,7 +92,7 @@ export const createCourse = async (courseData) => {
  */
 export const updateCourse = async (courseId, courseData) => {
   try {
-    const response = await httpClient.put(`/api/v1/admin/courses/${courseId}`, courseData)
+    const response = await httpClient.put(`/admin/courses/${courseId}`, courseData)
     return response.data.data || response.data
   } catch (error) {
     throw new Error(handleApiError(error))
@@ -104,7 +104,7 @@ export const updateCourse = async (courseId, courseData) => {
  */
 export const deleteCourse = async (courseId) => {
   try {
-    const response = await httpClient.delete(`/api/v1/admin/courses/${courseId}`)
+    const response = await httpClient.delete(`/admin/courses/${courseId}`)
     return response.data
   } catch (error) {
     throw new Error(handleApiError(error))
@@ -116,7 +116,7 @@ export const deleteCourse = async (courseId) => {
  */
 export const getUnits = async (courseId) => {
   try {
-    const response = await httpClient.get(`/api/v1/admin/units/course/${courseId}`)
+    const response = await httpClient.get(`/admin/units/course/${courseId}`)
     return response.data.data || response.data
   } catch (error) {
     throw new Error(handleApiError(error))
@@ -128,7 +128,7 @@ export const getUnits = async (courseId) => {
  */
 export const createUnit = async (unitData) => {
   try {
-    const response = await httpClient.post('/api/v1/admin/units', unitData)
+    const response = await httpClient.post('/admin/units', unitData)
     return response.data.data || response.data
   } catch (error) {
     throw new Error(handleApiError(error))
@@ -140,7 +140,7 @@ export const createUnit = async (unitData) => {
  */
 export const updateUnit = async (unitId, unitData) => {
   try {
-    const response = await httpClient.put(`/api/v1/admin/units/${unitId}`, unitData)
+    const response = await httpClient.put(`/admin/units/${unitId}`, unitData)
     return response.data.data || response.data
   } catch (error) {
     throw new Error(handleApiError(error))
@@ -152,7 +152,7 @@ export const updateUnit = async (unitId, unitData) => {
  */
 export const deleteUnit = async (unitId) => {
   try {
-    const response = await httpClient.delete(`/api/v1/admin/units/${unitId}`)
+    const response = await httpClient.delete(`/admin/units/${unitId}`)
     return response.data
   } catch (error) {
     throw new Error(handleApiError(error))
@@ -164,7 +164,7 @@ export const deleteUnit = async (unitId) => {
  */
 export const getResources = async (unitId) => {
   try {
-    const response = await httpClient.get(`/api/v1/admin/resources/unit/${unitId}`)
+    const response = await httpClient.get(`/admin/resources/unit/${unitId}`)
     return response.data.data || response.data
   } catch (error) {
     throw new Error(handleApiError(error))
@@ -176,7 +176,7 @@ export const getResources = async (unitId) => {
  */
 export const createResource = async (resourceData) => {
   try {
-    const response = await httpClient.post('/api/v1/admin/resources', resourceData)
+    const response = await httpClient.post('/admin/resources', resourceData)
     return response.data.data || response.data
   } catch (error) {
     throw new Error(handleApiError(error))
@@ -193,7 +193,7 @@ export const uploadResourceFile = async (unitId, fileType, file) => {
     formData.append('file_type', fileType)
     
     const response = await httpClient.post(
-      `/api/v1/admin/resources/upload?unit_id=${unitId}`,
+      `/admin/resources/upload?unit_id=${unitId}`,
       formData,
       {
         headers: {
@@ -212,7 +212,7 @@ export const uploadResourceFile = async (unitId, fileType, file) => {
  */
 export const updateResource = async (resourceId, resourceData) => {
   try {
-    const response = await httpClient.put(`/api/v1/admin/resources/${resourceId}`, resourceData)
+    const response = await httpClient.put(`/admin/resources/${resourceId}`, resourceData)
     return response.data.data || response.data
   } catch (error) {
     throw new Error(handleApiError(error))
@@ -224,7 +224,7 @@ export const updateResource = async (resourceId, resourceData) => {
  */
 export const deleteResource = async (resourceId) => {
   try {
-    const response = await httpClient.delete(`/api/v1/admin/resources/${resourceId}`)
+    const response = await httpClient.delete(`/admin/resources/${resourceId}`)
     return response.data
   } catch (error) {
     throw new Error(handleApiError(error))
