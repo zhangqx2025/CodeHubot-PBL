@@ -1,7 +1,9 @@
 // API配置文件
 export const API_CONFIG = {
   // 后端API基础URL
-  BASE_URL: import.meta.env.VITE_API_BASE_URL || (import.meta.env.MODE === 'production' ? '' : 'http://localhost:8000'),
+  // 在开发模式下使用相对路径，通过 Vite proxy 转发到后端
+  // 在生产模式下使用空字符串，通过 nginx proxy 转发
+  BASE_URL: import.meta.env.VITE_API_BASE_URL || (import.meta.env.MODE === 'production' ? '' : ''),
   
   // API版本
   API_VERSION: 'v1',
