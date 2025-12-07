@@ -5,16 +5,13 @@ from fastapi.responses import JSONResponse
 from starlette import status
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.api.endpoints import projects
+from app.api.endpoints import projects, admin_auth, admin_courses, admin_units, admin_resources
 from app.core.response import error_response
 from app.db.session import engine
-from app.models import pbl  # Import models to register them
-from fastapi.middleware.cors import CORSMiddleware
-from app.api.endpoints import projects
-from app.db.session import engine
-from app.models import pbl # Import models to register them
+from app.models import pbl, admin  # Import models to register them
 
 # Create tables (for development/sqlite)
+# All models use the same Base, so only need to create once
 pbl.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
@@ -34,6 +31,12 @@ app.add_middleware(
 
 # Include routers
 app.include_router(projects.router, prefix="/api/v1/projects", tags=["projects"])
+
+# Admin routers
+app.include_router(admin_auth.router, prefix="/api/v1/admin/auth", tags=["admin-auth"])
+app.include_router(admin_courses.router, prefix="/api/v1/admin/courses", tags=["admin-courses"])
+app.include_router(admin_units.router, prefix="/api/v1/admin/units", tags=["admin-units"])
+app.include_router(admin_resources.router, prefix="/api/v1/admin/resources", tags=["admin-resources"])
 
 @app.get("/")
 async def root():

@@ -76,6 +76,57 @@ const routes = [
     ]
   },
   {
+    path: '/admin/login',
+    name: 'AdminLogin',
+    component: () => import('../views/AdminLogin.vue'),
+    meta: {
+      title: '管理员登录 - PBL系统管理后台',
+      requiresAuth: false
+    }
+  },
+  {
+    path: '/admin',
+    component: () => import('../views/AdminDashboard.vue'),
+    redirect: '/admin',
+    meta: {
+      requiresAdminAuth: true
+    },
+    children: [
+      {
+        path: '',
+        name: 'AdminHome',
+        component: () => import('../views/AdminCourses.vue'),
+        meta: {
+          title: '概览 - PBL系统管理后台'
+        }
+      },
+      {
+        path: 'courses',
+        name: 'AdminCourses',
+        component: () => import('../views/AdminCourses.vue'),
+        meta: {
+          title: '课程管理 - PBL系统管理后台'
+        }
+      },
+      {
+        path: 'units',
+        name: 'AdminUnits',
+        component: () => import('../views/AdminUnits.vue'),
+        meta: {
+          title: '学习单元 - PBL系统管理后台'
+        }
+      },
+      {
+        path: 'resources',
+        name: 'AdminResources',
+        component: () => import('../views/AdminResources.vue'),
+        meta: {
+          title: '资料管理 - PBL系统管理后台'
+        }
+      }
+    ]
+  },
+  {
     path: '/:pathMatch(.*)*',
     redirect: '/'
   }
@@ -96,10 +147,6 @@ const router = createRouter({
 // 路由守卫
 router.beforeEach(async (to, from, next) => {
   try {
-    // 动态导入认证store以避免循环依赖
-    const { useAuthStore } = await import('@/store/auth')
-    const authStore = useAuthStore()
-    
     // 设置页面标题
     if (to.meta.title) {
       document.title = to.meta.title
@@ -107,12 +154,38 @@ router.beforeEach(async (to, from, next) => {
       document.title = '跨学科项目式学习平台'
     }
     
-    // 检查token是否存在且有效
-    const token = localStorage.getItem('access_token') || localStorage.getItem('student_access_token')
-    const isTokenValid = token && !isTokenExpired(token)
+    // 管理员路由检查
+    if (to.meta.requiresAdminAuth) {
+      const adminToken = localStorage.getItem('admin_access_token')
+      const isAdminTokenValid = adminToken && !isTokenExpired(adminToken)
+      
+      if (!isAdminTokenValid) {
+        localStorage.removeItem('admin_access_token')
+        localStorage.removeItem('admin_info')
+        next('/admin/login')
+        return
+      }
+      
+      // 如果已登录且访问管理员登录页，跳转到管理后台
+      if (to.name === 'AdminLogin' && isAdminTokenValid) {
+        next('/admin')
+        return
+      }
+      
+      next()
+      return
+    }
     
-    // 如果访问需要认证的页面
+    // 学生路由检查
     if (to.meta.requiresAuth !== false) {
+      // 动态导入认证store以避免循环依赖
+      const { useAuthStore } = await import('@/store/auth')
+      const authStore = useAuthStore()
+      
+      // 检查token是否存在且有效
+      const token = localStorage.getItem('access_token') || localStorage.getItem('student_access_token')
+      const isTokenValid = token && !isTokenExpired(token)
+      
       if (!isTokenValid) {
         // 清除无效token
         localStorage.removeItem('access_token')
@@ -134,17 +207,35 @@ router.beforeEach(async (to, from, next) => {
     }
     
     // 如果已登录且访问登录页，跳转到首页
-    if (to.name === 'Login' && isTokenValid && authStore.isLoggedIn) {
-      next('/')
-      return
+    if (to.name === 'Login') {
+      const token = localStorage.getItem('access_token') || localStorage.getItem('student_access_token')
+      const isTokenValid = token && !isTokenExpired(token)
+      if (isTokenValid) {
+        next('/')
+        return
+      }
+    }
+    
+    // 如果已登录且访问管理员登录页，跳转到管理后台
+    if (to.name === 'AdminLogin') {
+      const adminToken = localStorage.getItem('admin_access_token')
+      const isAdminTokenValid = adminToken && !isTokenExpired(adminToken)
+      if (isAdminTokenValid) {
+        next('/admin')
+        return
+      }
     }
     
     next()
   } catch (error) {
     console.error('路由守卫错误:', error)
     // 发生错误时，如果是需要认证的页面，跳转到登录页
-    if (to.meta.requiresAuth !== false) {
-      next('/login')
+    if (to.meta.requiresAuth !== false || to.meta.requiresAdminAuth) {
+      if (to.meta.requiresAdminAuth) {
+        next('/admin/login')
+      } else {
+        next('/login')
+      }
     } else {
       next()
     }
