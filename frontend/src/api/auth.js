@@ -39,7 +39,7 @@ httpClient.interceptors.response.use(
       try {
         const refreshToken = localStorage.getItem('refresh_token') || localStorage.getItem('student_refresh_token')
         if (refreshToken) {
-          const response = await httpClient.post(API_ENDPOINTS.AUTH.REFRESH, {
+          const response = await httpClient.post(API_ENDPOINTS.AUTH.STUDENT_REFRESH, {
             refresh_token: refreshToken
           })
           
@@ -123,37 +123,19 @@ export const login = async (loginData) => {
  * @returns {Promise<Object>} 登录响应数据
  */
 export const studentLogin = async (loginData) => {
-  // 模拟登录成功
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        access_token: 'mock_student_token_' + Date.now(),
-        refresh_token: 'mock_student_refresh_' + Date.now(),
-        user: {
-          id: 1001,
-          username: `${loginData.student_id}@${loginData.school_code}`,
-          full_name: '张三同学',
-          role: 'student',
-          student_id: loginData.student_id,
-          school_code: loginData.school_code,
-          class_name: '2024级1班',
-          avatar: ''
-        },
-        available_tenants: [
-          { tenant_id: 'school_1', name: '第一中学' }
-        ],
-        current_tenant: { tenant_id: 'school_1', name: '第一中学' }
-      })
-    }, 800)
-  })
-  /*
   try {
-    const response = await httpClient.post(API_ENDPOINTS.AUTH.STUDENT_LOGIN, loginData)
+    // 将 student_id@school_code 格式组合成 username
+    const username = `${loginData.student_id}@${loginData.school_code}`
+    
+    const response = await httpClient.post(API_ENDPOINTS.AUTH.STUDENT_LOGIN, {
+      username: username,
+      password: loginData.password
+    })
+    
     return response.data.data || response.data
   } catch (error) {
     throw new Error(handleApiError(error))
   }
-  */
 }
 
 /**
@@ -162,25 +144,14 @@ export const studentLogin = async (loginData) => {
  * @returns {Promise<Object>} 新的令牌数据
  */
 export const refreshToken = async (refreshToken) => {
-  // 模拟刷新成功
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        access_token: 'mock_new_access_token_' + Date.now(),
-        refresh_token: 'mock_new_refresh_token_' + Date.now()
-      })
-    }, 200)
-  })
-  /*
   try {
-    const response = await httpClient.post(API_ENDPOINTS.AUTH.REFRESH, {
+    const response = await httpClient.post(API_ENDPOINTS.AUTH.STUDENT_REFRESH, {
       refresh_token: refreshToken
     })
     return response.data.data || response.data
   } catch (error) {
     throw new Error(handleApiError(error))
   }
-  */
 }
 
 /**
@@ -211,24 +182,8 @@ export const logout = async (token) => {
  * @returns {Promise<Object>} 用户信息
  */
 export const getCurrentUser = async (token) => {
-  // 模拟获取用户信息
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        id: 1001,
-        username: '20240001@DEMO_SCHOOL',
-        full_name: '张三同学',
-        role: 'student',
-        student_id: '20240001',
-        school_code: 'DEMO_SCHOOL',
-        class_name: '2024级1班',
-        avatar: ''
-      })
-    }, 300)
-  })
-  /*
   try {
-    const response = await httpClient.get(API_ENDPOINTS.AUTH.CURRENT_USER, {
+    const response = await httpClient.get(API_ENDPOINTS.AUTH.STUDENT_ME, {
       headers: {
         Authorization: `Bearer ${token}`
       }
@@ -237,7 +192,6 @@ export const getCurrentUser = async (token) => {
   } catch (error) {
     throw new Error(handleApiError(error))
   }
-  */
 }
 
 /**

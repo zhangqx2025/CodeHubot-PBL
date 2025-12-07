@@ -117,17 +117,20 @@ def check_database_config():
             return False
     else:
         print("=" * 70)
-        print("⚠️  MySQL 数据库配置不完整，将使用 SQLite (pbl.db)")
+        print("❌ MySQL 数据库配置不完整")
         print("=" * 70)
         print()
-        print("如需使用 MySQL，请在 .env 文件中配置以下环境变量:")
+        print("本系统只支持 MySQL 数据库，请在 .env 文件中配置以下环境变量:")
         print()
         print("# 数据库配置")
-        print("DB_HOST=localhost          # 数据库主机地址")
-        print("DB_PORT=3306              # 数据库端口")
-        print("DB_NAME=aiot_admin        # 数据库名称")
-        print("DB_USER=aiot_user         # 数据库用户名")
-        print("DB_PASSWORD=your_password # 数据库密码")
+        print("MYSQL_HOST=localhost          # 数据库主机地址")
+        print("MYSQL_PORT=3306               # 数据库端口")
+        print("MYSQL_DATABASE=aiot_admin     # 数据库名称")
+        print("MYSQL_USER=aiot_user          # 数据库用户名")
+        print("MYSQL_PASSWORD=your_password  # 数据库密码")
+        print()
+        print("或者使用 DB_* 前缀的环境变量:")
+        print("DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD")
         print()
         return False
     

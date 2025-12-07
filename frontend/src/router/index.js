@@ -27,12 +27,30 @@ const routes = [
         }
       },
       {
+        path: 'courses',
+        name: 'MyCourses',
+        component: () => import('../views/MyCourses.vue'),
+        meta: {
+          title: '我的课程 - 跨学科项目式学习平台',
+          requiresAuth: true
+        }
+      },
+      {
+        path: 'course/:courseId',
+        name: 'CourseDetail',
+        component: () => import('../views/CourseDetail.vue'),
+        meta: {
+          title: '课程详情 - 跨学科项目式学习平台',
+          requiresAuth: true
+        }
+      },
+      {
         path: 'projects',
         name: 'Projects',
         component: () => import('../views/Projects.vue'),
         meta: { 
           requiresAuth: true,
-          title: '项目列表'
+          title: '我的项目'
         }
       },
       {
