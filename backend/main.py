@@ -7,7 +7,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
 import time
 
-from app.api.endpoints import projects, admin_auth, admin_courses, admin_units, admin_resources
+from app.api.endpoints import projects, admin_auth, admin_courses, admin_units, admin_resources, student_courses, student_auth
 from app.core.response import error_response
 from app.core.logging_config import setup_logging, get_logger
 from app.db.session import engine
@@ -74,6 +74,10 @@ logger.info("CORS 中间件配置完成")
 
 # Include routers
 app.include_router(projects.router, prefix="/api/v1/projects", tags=["projects"])
+
+# Student routers
+app.include_router(student_auth.router, prefix="/api/v1/student/auth", tags=["student-auth"])
+app.include_router(student_courses.router, prefix="/api/v1/student", tags=["student"])
 
 # Admin routers
 app.include_router(admin_auth.router, prefix="/api/v1/admin/auth", tags=["admin-auth"])
