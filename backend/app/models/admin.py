@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Integer, String, Boolean, TIMESTAMP, DateTime
 from sqlalchemy.sql import func
 from ..db.base_class import Base
+from ..utils.timezone import get_beijing_time_naive
 
 class Admin(Base):
     """
@@ -21,8 +22,9 @@ class Admin(Base):
     is_active = Column(Boolean, default=True)
     last_login = Column(DateTime, nullable=True)
     last_login_ip = Column(String(50), nullable=True)
-    created_at = Column(DateTime, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    # 时间戳 - 使用北京时间（与 CodeHubot 保持一致）
+    created_at = Column(DateTime, default=get_beijing_time_naive)
+    updated_at = Column(DateTime, default=get_beijing_time_naive, onupdate=get_beijing_time_naive)
     
     def __repr__(self):
         return f"<Admin(username='{self.username}', email='{self.email}', role='{self.role}')>"

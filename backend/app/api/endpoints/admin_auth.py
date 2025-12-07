@@ -8,31 +8,53 @@ from ...core.security import verify_password, get_password_hash, create_access_t
 from ...core.deps import get_db, get_current_admin
 from ...schemas.admin import AdminLogin, AdminCreate, AdminResponse, TokenResponse, RefreshTokenRequest, RefreshTokenResponse
 from ...models.admin import Admin
+from ...utils.timezone import get_beijing_time_naive
 
 router = APIRouter()
 
 @router.post("/login")
 def admin_login(login_data: AdminLogin, db: Session = Depends(get_db)):
     """管理员登录（必须是 role='platform_admin' 的用户）"""
-    # 查询用户，并且必须是 platform_admin 角色
+    # 先查找用户（不限制role）
     admin = db.query(Admin).filter(
-        Admin.username == login_data.username,
-        Admin.role == 'platform_admin'
+        Admin.username == login_data.username
     ).first()
     
-    if not admin or not verify_password(login_data.password, admin.password_hash):
+    # 检查用户是否存在
+    if not admin:
         return error_response(
-            message="用户名或密码错误，或该用户不是平台管理员",
+            message="用户名或密码错误",
             code=401,
             status_code=status.HTTP_401_UNAUTHORIZED
         )
     
+    # 检查用户角色是否为平台管理员
+    if admin.role != 'platform_admin':
+        return error_response(
+            message="该用户不是平台管理员，无法登录管理后台",
+            code=403,
+            status_code=status.HTTP_403_FORBIDDEN
+        )
+    
+    # 验证密码
+    if not verify_password(login_data.password, admin.password_hash):
+        return error_response(
+            message="用户名或密码错误",
+            code=401,
+            status_code=status.HTTP_401_UNAUTHORIZED
+        )
+    
+    # 检查账户状态
     if not admin.is_active:
         return error_response(
             message="账户已被禁用",
             code=403,
             status_code=status.HTTP_403_FORBIDDEN
         )
+    
+    # 更新最后登录时间
+    admin.last_login = get_beijing_time_naive()
+    db.commit()
     
     # 创建访问令牌和刷新令牌
     access_token = create_access_token(data={"sub": str(admin.id)})
@@ -97,11 +119,13 @@ def refresh_access_token(request: RefreshTokenRequest, db: Session = Depends(get
     使用refresh token刷新access token
     当access token过期时，客户端可以使用有效的refresh token获取新的access token和refresh token
     """
-    # 验证refresh token
-    payload = verify_token(request.refresh_token, token_type="refresh")
-    if payload is None:
+    # 验证refresh token（verify_token 现在会抛出异常）
+    try:
+        payload = verify_token(request.refresh_token, token_type="refresh")
+    except HTTPException as e:
+        # refresh token 无效或已过期
         return error_response(
-            message="无效的刷新令牌",
+            message="无效的刷新令牌或已过期",
             code=401,
             status_code=status.HTTP_401_UNAUTHORIZED
         )

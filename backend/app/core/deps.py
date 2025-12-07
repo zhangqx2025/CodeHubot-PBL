@@ -25,13 +25,15 @@ def get_current_admin(token: str = Depends(oauth2_scheme), db: Session = Depends
         headers={"WWW-Authenticate": "Bearer"},
     )
     
-    payload = verify_token(token)
-    if payload is None:
-        raise credentials_exception
-    
-    admin_id: Optional[int] = payload.get("sub")
-    if admin_id is None:
-        raise credentials_exception
+    try:
+        # verify_token 现在会抛出异常而不是返回 None
+        payload = verify_token(token, token_type="access")
+        admin_id: Optional[int] = payload.get("sub")
+        if admin_id is None:
+            raise credentials_exception
+    except HTTPException:
+        # 重新抛出 HTTPException（token 类型不匹配或已过期）
+        raise
     
     # 查询用户，并且必须是 platform_admin 角色
     admin = db.query(Admin).filter(
