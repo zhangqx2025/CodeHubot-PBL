@@ -54,6 +54,7 @@
           <p class="demo-info">学号: 20240001</p>
           <p class="demo-info">学校代码: DEMO_SCHOOL</p>
           <p class="demo-info">密码: 123456</p>
+          <p class="demo-info">登录格式: 学号@学校代码</p>
           <el-button 
             type="text" 
             size="small" 

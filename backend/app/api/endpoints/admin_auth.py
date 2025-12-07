@@ -8,75 +8,99 @@ from ...core.security import verify_password, get_password_hash, create_access_t
 from ...core.deps import get_db, get_current_admin
 from ...core.logging_config import get_logger
 from ...schemas.admin import AdminLogin, AdminCreate, AdminResponse, TokenResponse, RefreshTokenRequest, RefreshTokenResponse
+from ...schemas.user import InstitutionLoginRequest
 from ...models.admin import Admin
+from ...models.school import School
 from ...utils.timezone import get_beijing_time_naive
 
 router = APIRouter()
 logger = get_logger(__name__)
 
 @router.post("/login")
-def admin_login(login_data: AdminLogin, db: Session = Depends(get_db)):
-    """管理员登录（必须是 role='platform_admin' 的用户）"""
-    logger.info(f"收到管理员登录请求 - 用户名: {login_data.username}")
+def admin_login(login_data: InstitutionLoginRequest, db: Session = Depends(get_db)):
+    """教师/管理员登录 - 机构登录方式（学校代码+工号+密码）"""
+    logger.info(f"收到教师登录请求 - 学校代码: {login_data.school_code}, 工号: {login_data.number}")
     
-    # 先查找用户（不限制role）
+    # 1. 查找学校
+    school = db.query(School).filter(
+        School.school_code == login_data.school_code.upper()
+    ).first()
+    
+    if not school:
+        logger.warning(f"机构登录失败：学校不存在 - {login_data.school_code}")
+        return error_response(
+            message="学校不存在",
+            code=404,
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    
+    if not school.is_active:
+        logger.warning(f"机构登录失败：学校已禁用 - {login_data.school_code}")
+        return error_response(
+            message="学校已禁用",
+            code=400,
+            status_code=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # 2. 查找用户（通过工号，role为teacher或school_admin或platform_admin）
     admin = db.query(Admin).filter(
-        Admin.username == login_data.username
+        Admin.school_id == school.id,
+        Admin.teacher_number == login_data.number
     ).first()
     
     # 检查用户是否存在
     if not admin:
-        logger.warning(f"登录失败 - 用户不存在: {login_data.username}")
+        logger.warning(f"登录失败 - 用户不存在: {login_data.school_code}/{login_data.number}")
         return error_response(
-            message="用户名或密码错误",
+            message="工号或密码错误",
             code=401,
             status_code=status.HTTP_401_UNAUTHORIZED
         )
     
     logger.debug(f"找到用户 - ID: {admin.id}, 用户名: {admin.username}, 角色: {admin.role}, 激活状态: {admin.is_active}")
     
-    # 检查用户角色是否为平台管理员
-    if admin.role != 'platform_admin':
-        logger.warning(f"登录失败 - 用户 {login_data.username} 不是平台管理员，当前角色: {admin.role}")
+    # 检查用户角色是否为教师或管理员（排除学生）
+    if admin.role == 'student':
+        logger.warning(f"登录失败 - 用户 {login_data.number} 是学生用户，不能登录教师端")
         return error_response(
-            message="该用户不是平台管理员，无法登录管理后台",
+            message="该用户不是教师，无法登录教师端",
             code=403,
             status_code=status.HTTP_403_FORBIDDEN
         )
     
-    # 验证密码
-    logger.debug(f"验证用户 {login_data.username} 的密码...")
+    # 3. 验证密码
+    logger.debug(f"验证用户 {login_data.number} 的密码...")
     password_valid = verify_password(login_data.password, admin.password_hash)
     
     if not password_valid:
-        logger.warning(f"登录失败 - 用户 {login_data.username} 密码错误")
+        logger.warning(f"登录失败 - 用户 {login_data.number} 密码错误")
         return error_response(
-            message="用户名或密码错误",
+            message="工号或密码错误",
             code=401,
             status_code=status.HTTP_401_UNAUTHORIZED
         )
     
-    logger.debug(f"用户 {login_data.username} 密码验证通过")
+    logger.debug(f"用户 {login_data.number} 密码验证通过")
     
-    # 检查账户状态
+    # 4. 检查账户状态
     if not admin.is_active:
-        logger.warning(f"登录失败 - 用户 {login_data.username} 账户已被禁用")
+        logger.warning(f"登录失败 - 用户 {login_data.number} 账户已被禁用")
         return error_response(
             message="账户已被禁用",
             code=403,
             status_code=status.HTTP_403_FORBIDDEN
         )
     
-    # 更新最后登录时间
+    # 5. 更新最后登录时间
     admin.last_login = get_beijing_time_naive()
     db.commit()
-    logger.debug(f"已更新用户 {login_data.username} 的最后登录时间")
+    logger.debug(f"已更新用户 {login_data.number} 的最后登录时间")
     
-    # 创建访问令牌和刷新令牌
+    # 6. 创建访问令牌和刷新令牌
     access_token = create_access_token(data={"sub": str(admin.id)})
     refresh_token = create_refresh_token(data={"sub": str(admin.id)})
     
-    logger.info(f"用户 {login_data.username} (ID: {admin.id}) 登录成功")
+    logger.info(f"✅ 教师用户登录成功: {admin.username} ({admin.role}) - {school.school_name} (ID: {admin.id})")
     
     # 将 Admin 模型转换为 AdminResponse schema
     admin_response = AdminResponse.model_validate(admin)

@@ -114,7 +114,7 @@ export const login = async (loginData) => {
 }
 
 /**
- * 学生学号登录
+ * 学生学号登录 - 机构登录方式
  * @param {Object} loginData - 学号登录数据
  * @param {string} loginData.student_id - 学号
  * @param {string} loginData.school_code - 学校代码
@@ -124,11 +124,10 @@ export const login = async (loginData) => {
  */
 export const studentLogin = async (loginData) => {
   try {
-    // 将 student_id@school_code 格式组合成 username
-    const username = `${loginData.student_id}@${loginData.school_code}`
-    
+    // 发送机构登录请求：school_code + number + password
     const response = await httpClient.post(API_ENDPOINTS.AUTH.STUDENT_LOGIN, {
-      username: username,
+      school_code: loginData.school_code,
+      number: loginData.student_id,
       password: loginData.password
     })
     
