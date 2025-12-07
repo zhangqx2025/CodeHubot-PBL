@@ -8,9 +8,10 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-# 密码加密上下文 - 使用pbkdf2_sha256算法（与CodeHubot系统保持一致）
+# 密码加密上下文 - 支持bcrypt和pbkdf2_sha256算法（与CodeHubot系统保持一致）
+# bcrypt 用于新密码（更安全），pbkdf2_sha256 用于兼容旧密码
 pwd_context = CryptContext(
-    schemes=["pbkdf2_sha256"],
+    schemes=["bcrypt", "pbkdf2_sha256"],
     deprecated="auto"
 )
 
