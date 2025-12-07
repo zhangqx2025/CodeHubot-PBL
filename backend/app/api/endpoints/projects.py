@@ -16,12 +16,13 @@ def get_db():
     finally:
         db.close()
 
-@router.get("/", response_model=List[schemas.Project])
+# Use "" to avoid automatic 307 redirects from missing trailing slash
+@router.get("", response_model=List[schemas.Project])
 def read_projects(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     projects = project_service.get_projects(db, skip=skip, limit=limit)
     return projects
 
-@router.post("/", response_model=schemas.Project)
+@router.post("", response_model=schemas.Project)
 def create_project(project: schemas.ProjectCreate, db: Session = Depends(get_db)):
     return project_service.create_project(db=db, project=project)
 
