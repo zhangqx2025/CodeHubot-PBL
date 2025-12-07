@@ -22,7 +22,7 @@ class Course(CourseBase):
     uuid: str
     
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 # --- Project Schemas ---
 
@@ -52,7 +52,7 @@ class ProjectInDBBase(ProjectBase):
     updated_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class Project(ProjectInDBBase):
     course: Optional[Course] = None
