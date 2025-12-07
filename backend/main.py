@@ -19,17 +19,11 @@ logger = get_logger(__name__)
 
 logger.info("正在启动 CodeHubot PBL System API...")
 
-# Create tables (for development/sqlite)
-# All models use the same Base, so only need to create once
-# 注意：生产环境使用 MySQL 时，应该使用 Alembic 进行数据库迁移，而不是直接 create_all
-if "sqlite" in str(engine.url):
-    logger.warning("检测到使用 SQLite 数据库，这仅适用于开发环境")
-    pbl.Base.metadata.create_all(bind=engine)
-    logger.info("SQLite 数据库表初始化完成")
-else:
-    logger.info(f"使用生产数据库: {engine.url.drivername}://{engine.url.host}/{engine.url.database}")
-    # 生产环境不自动创建表，需要手动执行 SQL 脚本
-    logger.info("生产环境请手动执行 SQL/init_database.sql 初始化数据库")
+# 数据库初始化检查
+# 注意：生产环境应该使用手动执行 SQL 脚本进行数据库初始化，而不是使用 create_all
+logger.info(f"使用 MySQL 数据库: {engine.url.drivername}://{engine.url.host}/{engine.url.database}")
+logger.info("请确保已手动执行 SQL/init_database.sql 初始化数据库")
+logger.info("数据库表结构更新请使用 SQL/update/ 目录下的脚本")
 
 app = FastAPI(
     title="CodeHubot PBL System API",

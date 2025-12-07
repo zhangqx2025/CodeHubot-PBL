@@ -2,9 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
-from ...db.session import get_db
 from ...core.response import success_response, error_response
-from ...core.deps import get_current_user
+from ...core.deps import get_db, get_current_user
 from ...models.pbl import PBLCourse, PBLUnit, PBLProject, PBLResource, PBLTask
 
 router = APIRouter()

@@ -27,9 +27,38 @@
       </div>
     </section>
 
-    <!-- 我的学习进度 -->
+    <!-- 我的课程 -->
+    <section class="my-courses-section">
+      <div class="section-header">
+        <h2 class="section-title">我的课程</h2>
+        <el-button type="primary" link @click="viewAllCourses">查看全部 →</el-button>
+      </div>
+      <div class="courses-quick-access">
+        <div 
+          v-for="course in myCourses" 
+          :key="course.id"
+          class="course-quick-card"
+          @click="gotoCourseDetail(course.id)"
+        >
+          <div class="course-icon">📚</div>
+          <div class="course-content">
+            <h3>{{ course.title }}</h3>
+            <div class="course-progress">
+              <el-progress 
+                :percentage="course.progress" 
+                :show-text="false" 
+                :stroke-width="4"
+              />
+              <span class="progress-text">{{ course.progress }}%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 我的项目进度 -->
     <section class="my-progress">
-      <h2 class="section-title">我的学习进度</h2>
+      <h2 class="section-title">进行中的项目</h2>
       <div class="progress-cards">
         <div class="progress-card" v-for="project in myProjects" :key="project.id">
           <div class="project-header">
@@ -138,6 +167,14 @@ const userStats = reactive({
   totalHours: 45
 })
 
+const myCourses = ref([
+  {
+    id: 1,
+    title: '智能家居AI助手项目',
+    progress: 65
+  }
+])
+
 const myProjects = ref([
   {
     id: 'smart-home',
@@ -203,6 +240,13 @@ const viewAllProjects = () => {
   router.push('/projects')
 }
 
+const viewAllCourses = () => {
+  router.push('/courses')
+}
+
+const gotoCourseDetail = (courseId) => {
+  router.push(`/course/${courseId}`)
+}
 
 onMounted(() => {
   // 可以在这里加载用户数据
@@ -280,6 +324,67 @@ onMounted(() => {
   font-weight: 600;
   color: #1e293b;
   margin: 0 0 24px 0;
+}
+
+.my-courses-section {
+  margin-bottom: 48px;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.courses-quick-access {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.course-quick-card {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  gap: 16px;
+}
+
+.course-quick-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.course-icon {
+  font-size: 48px;
+  line-height: 1;
+}
+
+.course-content {
+  flex: 1;
+}
+
+.course-content h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0 0 12px 0;
+}
+
+.course-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.course-progress .progress-text {
+  font-size: 12px;
+  color: #64748b;
+  min-width: 35px;
 }
 
 .my-progress {

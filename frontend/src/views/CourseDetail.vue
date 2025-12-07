@@ -1,0 +1,577 @@
+<template>
+  <div class="course-detail" v-if="course">
+    <!-- 课程头部 -->
+    <div class="course-header">
+      <el-button :icon="ArrowLeft" @click="goBack" class="back-btn">返回课程列表</el-button>
+      
+      <div class="header-content">
+        <div class="header-info">
+          <h1 class="course-title">{{ course.title }}</h1>
+          <p class="course-description">{{ course.description }}</p>
+          
+          <div class="course-stats">
+            <div class="stat-item">
+              <el-icon><Clock /></el-icon>
+              <span>{{ course.duration || '8周' }}</span>
+            </div>
+            <div class="stat-item">
+              <el-icon><TrendCharts /></el-icon>
+              <span>{{ getDifficultyText(course.difficulty) }}</span>
+            </div>
+            <div class="stat-item">
+              <el-icon><Reading /></el-icon>
+              <span>{{ course.units?.length || 0 }}个学习单元</span>
+            </div>
+            <div class="stat-item">
+              <el-icon><Notebook /></el-icon>
+              <span>{{ course.projects?.length || 0 }}个实践项目</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="header-cover" v-if="course.cover_image">
+          <img :src="course.cover_image" :alt="course.title" @error="handleImageError" />
+        </div>
+      </div>
+    </div>
+
+    <!-- 课程进度 -->
+    <div class="course-progress-section">
+      <h3>学习进度</h3>
+      <el-progress 
+        :percentage="courseProgress" 
+        :stroke-width="12"
+        :color="progressColor"
+      >
+        <template #default="{ percentage }">
+          <span class="progress-label">{{ percentage }}%</span>
+        </template>
+      </el-progress>
+      <div class="progress-text">
+        已完成 {{ completedUnits }} / {{ totalUnits }} 个单元
+      </div>
+    </div>
+
+    <!-- 学习单元列表 -->
+    <div class="units-section">
+      <h3 class="section-title">
+        <el-icon><Reading /></el-icon>
+        学习单元
+      </h3>
+      
+      <div class="units-timeline">
+        <div 
+          v-for="(unit, index) in course.units" 
+          :key="unit.id"
+          class="unit-item"
+          :class="{ 
+            'locked': unit.status === 'locked',
+            'completed': unit.status === 'completed',
+            'active': unit.status === 'available'
+          }"
+        >
+          <!-- 时间线连接线 -->
+          <div class="timeline-line" v-if="index < course.units.length - 1"></div>
+          
+          <!-- 单元图标 -->
+          <div class="unit-icon">
+            <el-icon v-if="unit.status === 'completed'"><CircleCheck /></el-icon>
+            <el-icon v-else-if="unit.status === 'locked'"><Lock /></el-icon>
+            <el-icon v-else><VideoPlay /></el-icon>
+          </div>
+          
+          <!-- 单元内容 -->
+          <div class="unit-content">
+            <div class="unit-header">
+              <h4 class="unit-title">{{ unit.title }}</h4>
+              <el-tag 
+                :type="getUnitStatusType(unit.status)" 
+                size="small"
+              >
+                {{ getUnitStatusText(unit.status) }}
+              </el-tag>
+            </div>
+            
+            <p class="unit-description">{{ unit.description }}</p>
+            
+            <div class="unit-meta">
+              <span class="meta-item">
+                <el-icon><Document /></el-icon>
+                {{ unit.resources_count || 0 }}个资料
+              </span>
+              <span class="meta-item">
+                <el-icon><Edit /></el-icon>
+                {{ unit.tasks_count || 0 }}个任务
+              </span>
+            </div>
+            
+            <!-- 单元操作 -->
+            <div class="unit-actions">
+              <el-button 
+                v-if="unit.status !== 'locked'" 
+                type="primary" 
+                size="default"
+                @click="gotoUnitLearning(unit.id)"
+              >
+                {{ unit.status === 'completed' ? '回顾单元' : '开始学习' }}
+              </el-button>
+              <el-button 
+                v-else 
+                disabled
+                size="default"
+              >
+                <el-icon><Lock /></el-icon>
+                尚未解锁
+              </el-button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 课程项目 -->
+    <div class="projects-section" v-if="course.projects && course.projects.length > 0">
+      <h3 class="section-title">
+        <el-icon><Notebook /></el-icon>
+        实践项目
+      </h3>
+      
+      <div class="projects-grid">
+        <div 
+          v-for="project in course.projects" 
+          :key="project.id"
+          class="project-card"
+          @click="gotoProjectDetail(project.id)"
+        >
+          <div class="project-header">
+            <h4>{{ project.title }}</h4>
+            <el-tag :type="getProjectStatusType(project.status)" size="small">
+              {{ getProjectStatusText(project.status) }}
+            </el-tag>
+          </div>
+          <p class="project-description">{{ project.description }}</p>
+          <div class="project-progress">
+            <el-progress :percentage="project.progress" :show-text="false" />
+            <span class="progress-text">{{ project.progress }}%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 加载状态 -->
+  <el-skeleton v-else :loading="loading" :rows="5" animated />
+</template>
+
+<script setup>
+import { ref, computed, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import { ElMessage } from 'element-plus'
+import {
+  ArrowLeft,
+  Clock,
+  TrendCharts,
+  Reading,
+  Notebook,
+  CircleCheck,
+  Lock,
+  VideoPlay,
+  Document,
+  Edit
+} from '@element-plus/icons-vue'
+import { getCourseDetail } from '@/api/student'
+
+const router = useRouter()
+const route = useRoute()
+
+const loading = ref(false)
+const course = ref(null)
+
+// 计算属性
+const totalUnits = computed(() => course.value?.units?.length || 0)
+const completedUnits = computed(() => 
+  course.value?.units?.filter(u => u.status === 'completed').length || 0
+)
+const courseProgress = computed(() => {
+  if (totalUnits.value === 0) return 0
+  return Math.round((completedUnits.value / totalUnits.value) * 100)
+})
+
+const progressColor = computed(() => {
+  const percentage = courseProgress.value
+  if (percentage < 30) return '#f56c6c'
+  if (percentage < 70) return '#e6a23c'
+  return '#67c23a'
+})
+
+// 方法
+const loadCourseDetail = async () => {
+  loading.value = true
+  try {
+    const courseId = route.params.courseId
+    const data = await getCourseDetail(courseId)
+    course.value = data
+  } catch (error) {
+    ElMessage.error('加载课程详情失败: ' + error.message)
+    console.error('Load course detail error:', error)
+  } finally {
+    loading.value = false
+  }
+}
+
+const getDifficultyText = (difficulty) => {
+  const map = {
+    'beginner': '入门级',
+    'intermediate': '中级',
+    'advanced': '高级'
+  }
+  return map[difficulty] || '入门级'
+}
+
+const getUnitStatusType = (status) => {
+  const map = {
+    'locked': 'info',
+    'available': 'warning',
+    'completed': 'success'
+  }
+  return map[status] || 'info'
+}
+
+const getUnitStatusText = (status) => {
+  const map = {
+    'locked': '未解锁',
+    'available': '可学习',
+    'completed': '已完成'
+  }
+  return map[status] || '未知'
+}
+
+const getProjectStatusType = (status) => {
+  const map = {
+    'planning': 'info',
+    'in-progress': 'warning',
+    'review': 'primary',
+    'completed': 'success'
+  }
+  return map[status] || 'info'
+}
+
+const getProjectStatusText = (status) => {
+  const map = {
+    'planning': '计划中',
+    'in-progress': '进行中',
+    'review': '审核中',
+    'completed': '已完成'
+  }
+  return map[status] || '未知'
+}
+
+const handleImageError = (e) => {
+  e.target.src = 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800'
+}
+
+const goBack = () => {
+  router.push('/courses')
+}
+
+const gotoUnitLearning = (unitId) => {
+  router.push(`/unit/${unitId}`)
+}
+
+const gotoProjectDetail = (projectId) => {
+  router.push(`/project/${projectId}`)
+}
+
+onMounted(() => {
+  loadCourseDetail()
+})
+</script>
+
+<style scoped>
+.course-detail {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.course-header {
+  margin-bottom: 32px;
+}
+
+.back-btn {
+  margin-bottom: 16px;
+}
+
+.header-content {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 32px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 40px;
+  border-radius: 16px;
+  color: white;
+}
+
+.header-info {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.course-title {
+  font-size: 32px;
+  font-weight: 700;
+  margin: 0 0 16px 0;
+  color: white;
+}
+
+.course-description {
+  font-size: 16px;
+  line-height: 1.6;
+  margin: 0 0 24px 0;
+  opacity: 0.95;
+}
+
+.course-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.stat-item .el-icon {
+  font-size: 18px;
+}
+
+.header-cover {
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.header-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.course-progress-section {
+  background: white;
+  padding: 24px;
+  border-radius: 12px;
+  margin-bottom: 32px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.course-progress-section h3 {
+  margin: 0 0 16px 0;
+  font-size: 18px;
+  color: #1e293b;
+}
+
+.progress-label {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.progress-text {
+  margin-top: 8px;
+  font-size: 14px;
+  color: #64748b;
+  text-align: right;
+}
+
+.units-section {
+  background: white;
+  padding: 24px;
+  border-radius: 12px;
+  margin-bottom: 32px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 24px 0;
+  font-size: 20px;
+  color: #1e293b;
+}
+
+.units-timeline {
+  position: relative;
+}
+
+.unit-item {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 24px;
+  position: relative;
+  padding: 20px;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+}
+
+.unit-item:hover {
+  background: #f8fafc;
+}
+
+.unit-item.locked {
+  opacity: 0.6;
+}
+
+.unit-item.completed .unit-icon {
+  background: #10b981;
+  color: white;
+}
+
+.unit-item.active .unit-icon {
+  background: #3b82f6;
+  color: white;
+}
+
+.timeline-line {
+  position: absolute;
+  left: 31px;
+  top: 52px;
+  width: 2px;
+  height: calc(100% + 24px);
+  background: #e5e7eb;
+}
+
+.unit-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+  z-index: 2;
+  position: relative;
+}
+
+.unit-content {
+  flex: 1;
+}
+
+.unit-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.unit-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.unit-description {
+  color: #64748b;
+  margin: 0 0 12px 0;
+  line-height: 1.6;
+}
+
+.unit-meta {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.meta-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.unit-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.projects-section {
+  background: white;
+  padding: 24px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.projects-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.project-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 20px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.project-card:hover {
+  border-color: #3b82f6;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1);
+}
+
+.project-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  margin-bottom: 12px;
+}
+
+.project-header h4 {
+  margin: 0;
+  font-size: 16px;
+  color: #1e293b;
+}
+
+.project-description {
+  font-size: 14px;
+  color: #64748b;
+  margin: 0 0 16px 0;
+  line-height: 1.6;
+}
+
+.project-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.project-progress .progress-text {
+  font-size: 13px;
+  color: #64748b;
+  min-width: 40px;
+  text-align: right;
+}
+
+@media (max-width: 768px) {
+  .header-content {
+    grid-template-columns: 1fr;
+  }
+  
+  .header-cover {
+    height: 200px;
+  }
+  
+  .projects-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

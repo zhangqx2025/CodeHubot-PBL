@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings
-from pydantic import Field
+from pydantic import Field, AliasChoices
 from typing import Optional
 import logging
 
@@ -9,11 +9,28 @@ class Settings(BaseSettings):
     """CodeHubot-PBL 配置类"""
     
     # 数据库配置（必须配置）
-    db_host: str
-    db_port: int = 3306
-    db_user: str
-    db_password: str
-    db_name: str
+    # 支持 DB_HOST 或 MYSQL_HOST 两种环境变量名
+    db_host: str = Field(
+        validation_alias=AliasChoices('db_host', 'mysql_host'),
+        description="数据库主机地址"
+    )
+    db_port: int = Field(
+        default=3306,
+        validation_alias=AliasChoices('db_port', 'mysql_port'),
+        description="数据库端口"
+    )
+    db_user: str = Field(
+        validation_alias=AliasChoices('db_user', 'mysql_user'),
+        description="数据库用户名"
+    )
+    db_password: str = Field(
+        validation_alias=AliasChoices('db_password', 'mysql_password'),
+        description="数据库密码"
+    )
+    db_name: str = Field(
+        validation_alias=AliasChoices('db_name', 'mysql_database'),
+        description="数据库名称"
+    )
     
     # 数据库连接URL（自动构建，无需手动配置）
     database_url: Optional[str] = None

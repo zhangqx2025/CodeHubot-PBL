@@ -40,7 +40,9 @@ export const API_ENDPOINTS = {
   // 认证相关
   AUTH: {
     LOGIN: '/auth/login',
-    STUDENT_LOGIN: '/auth/student-login',
+    STUDENT_LOGIN: '/student/auth/login',
+    STUDENT_REFRESH: '/student/auth/refresh',
+    STUDENT_ME: '/student/auth/me',
     REFRESH: '/auth/refresh',
     LOGOUT: '/auth/logout',
     CURRENT_USER: '/auth/me',

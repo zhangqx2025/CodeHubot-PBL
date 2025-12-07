@@ -2,10 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from datetime import timedelta
 
-from ...db.session import get_db
 from ...core.response import success_response, error_response
 from ...core.security import verify_password, get_password_hash, create_access_token, create_refresh_token, verify_token
-from ...core.deps import get_current_user
+from ...core.deps import get_db, get_current_user
 from ...core.logging_config import get_logger
 from ...schemas.user import UserLogin, UserCreate, UserResponse, TokenResponse, RefreshTokenRequest, RefreshTokenResponse
 from ...models.admin import User

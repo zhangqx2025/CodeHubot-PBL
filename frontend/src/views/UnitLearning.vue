@@ -7,7 +7,8 @@
         <div class="unit-info">
           <el-breadcrumb separator="/">
             <el-breadcrumb-item :to="{ path: '/' }">首页</el-breadcrumb-item>
-            <el-breadcrumb-item :to="{ path: '/project/smart-home' }">项目详情</el-breadcrumb-item>
+            <el-breadcrumb-item :to="{ path: '/courses' }">我的课程</el-breadcrumb-item>
+            <el-breadcrumb-item :to="{ path: `/course/${courseId}` }">{{ courseName }}</el-breadcrumb-item>
             <el-breadcrumb-item>{{ currentUnit.title }}</el-breadcrumb-item>
           </el-breadcrumb>
         </div>
@@ -275,6 +276,8 @@ const route = useRoute()
 // 状态管理
 const leftPanelTab = ref('path')
 const currentUnit = ref(null)
+const courseId = ref('1') // 从 API 或路由参数获取
+const courseName = ref('智能家居AI助手项目') // 从 API 获取
 const learningPath = ref([])
 const currentStep = ref(null)
 const submissionContent = ref('')
@@ -558,7 +561,7 @@ const manualUncompleteStep = () => {
   }
 }
 
-const goBack = () => router.push('/project/smart-home')
+const goBack = () => router.push(`/course/${courseId.value}`)
 const goToUnit = (id) => router.push(`/unit/${id}`)
 
 onMounted(() => {
