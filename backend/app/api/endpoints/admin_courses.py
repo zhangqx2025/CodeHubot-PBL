@@ -11,6 +11,14 @@ from ...schemas.pbl import CourseBase, Course
 
 router = APIRouter()
 
+def serialize_course(course: PBLCourse) -> dict:
+    """将 Course 模型转换为字典"""
+    return Course.model_validate(course).model_dump(mode='json')
+
+def serialize_courses(courses: List[PBLCourse]) -> List[dict]:
+    """将 Course 模型列表转换为字典列表"""
+    return [serialize_course(course) for course in courses]
+
 @router.get("")
 def get_courses(
     skip: int = 0,
@@ -26,7 +34,7 @@ def get_courses(
         query = query.filter(PBLCourse.status == status)
     
     courses = query.offset(skip).limit(limit).all()
-    return success_response(data=courses)
+    return success_response(data=serialize_courses(courses))
 
 @router.post("")
 def create_course(
@@ -49,7 +57,7 @@ def create_course(
     db.commit()
     db.refresh(new_course)
     
-    return success_response(data=new_course, message="课程创建成功")
+    return success_response(data=serialize_course(new_course), message="课程创建成功")
 
 @router.get("/{course_id}")
 def get_course(
@@ -66,7 +74,7 @@ def get_course(
             status_code=status.HTTP_404_NOT_FOUND
         )
     
-    return success_response(data=course)
+    return success_response(data=serialize_course(course))
 
 @router.put("/{course_id}")
 def update_course(
@@ -91,7 +99,7 @@ def update_course(
     db.commit()
     db.refresh(course)
     
-    return success_response(data=course, message="课程更新成功")
+    return success_response(data=serialize_course(course), message="课程更新成功")
 
 @router.delete("/{course_id}")
 def delete_course(
@@ -140,4 +148,4 @@ def update_course_status(
     db.commit()
     db.refresh(course)
     
-    return success_response(data=course, message="课程状态更新成功")
+    return success_response(data=serialize_course(course), message="课程状态更新成功")

@@ -78,12 +78,15 @@ def admin_login(login_data: AdminLogin, db: Session = Depends(get_db)):
     
     logger.info(f"用户 {login_data.username} (ID: {admin.id}) 登录成功")
     
+    # 将 Admin 模型转换为 AdminResponse schema
+    admin_response = AdminResponse.model_validate(admin)
+    
     return success_response(
         data={
             "access_token": access_token,
             "refresh_token": refresh_token,
             "token_type": "bearer",
-            "admin": admin
+            "admin": admin_response.model_dump(mode='json')
         },
         message="登录成功"
     )
@@ -92,7 +95,8 @@ def admin_login(login_data: AdminLogin, db: Session = Depends(get_db)):
 def get_current_admin_info(current_admin: Admin = Depends(get_current_admin)):
     """获取当前管理员信息"""
     logger.debug(f"获取管理员信息 - 用户名: {current_admin.username}, ID: {current_admin.id}")
-    return success_response(data=current_admin)
+    admin_response = AdminResponse.model_validate(current_admin)
+    return success_response(data=admin_response.model_dump(mode='json'))
 
 @router.post("/register")
 def admin_register(admin_data: AdminCreate, db: Session = Depends(get_db), current_admin: Admin = Depends(get_current_admin)):
@@ -136,7 +140,9 @@ def admin_register(admin_data: AdminCreate, db: Session = Depends(get_db), curre
     
     logger.info(f"平台管理员创建成功 - 新用户名: {admin_data.username}, ID: {new_admin.id}, 操作者: {current_admin.username}")
     
-    return success_response(data=new_admin, message="平台管理员创建成功")
+    # 将 Admin 模型转换为 AdminResponse schema
+    admin_response = AdminResponse.model_validate(new_admin)
+    return success_response(data=admin_response.model_dump(mode='json'), message="平台管理员创建成功")
 
 @router.post("/refresh")
 def refresh_access_token(request: RefreshTokenRequest, db: Session = Depends(get_db)):

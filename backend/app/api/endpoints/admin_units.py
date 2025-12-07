@@ -11,6 +11,14 @@ from ...schemas.pbl import UnitCreate, UnitUpdate, Unit
 
 router = APIRouter()
 
+def serialize_unit(unit: PBLUnit) -> dict:
+    """将 Unit 模型转换为字典"""
+    return Unit.model_validate(unit).model_dump(mode='json')
+
+def serialize_units(units: List[PBLUnit]) -> List[dict]:
+    """将 Unit 模型列表转换为字典列表"""
+    return [serialize_unit(unit) for unit in units]
+
 @router.get("/course/{course_id}")
 def get_units_by_course(
     course_id: int,
@@ -28,7 +36,7 @@ def get_units_by_course(
         )
     
     units = db.query(PBLUnit).filter(PBLUnit.course_id == course_id).order_by(PBLUnit.order).all()
-    return success_response(data=units)
+    return success_response(data=serialize_units(units))
 
 @router.post("")
 def create_unit(
@@ -59,7 +67,7 @@ def create_unit(
     db.commit()
     db.refresh(new_unit)
     
-    return success_response(data=new_unit, message="学习单元创建成功")
+    return success_response(data=serialize_unit(new_unit), message="学习单元创建成功")
 
 @router.get("/{unit_id}")
 def get_unit(
@@ -76,7 +84,7 @@ def get_unit(
             status_code=status.HTTP_404_NOT_FOUND
         )
     
-    return success_response(data=unit)
+    return success_response(data=serialize_unit(unit))
 
 @router.put("/{unit_id}")
 def update_unit(
@@ -101,7 +109,7 @@ def update_unit(
     db.commit()
     db.refresh(unit)
     
-    return success_response(data=unit, message="学习单元更新成功")
+    return success_response(data=serialize_unit(unit), message="学习单元更新成功")
 
 @router.delete("/{unit_id}")
 def delete_unit(
@@ -150,4 +158,4 @@ def update_unit_status(
     db.commit()
     db.refresh(unit)
     
-    return success_response(data=unit, message="学习单元状态更新成功")
+    return success_response(data=serialize_unit(unit), message="学习单元状态更新成功")

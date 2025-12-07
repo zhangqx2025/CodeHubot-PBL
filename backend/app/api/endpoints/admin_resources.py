@@ -14,6 +14,14 @@ from ...schemas.pbl import ResourceCreate, ResourceUpdate, Resource
 
 router = APIRouter()
 
+def serialize_resource(resource: PBLResource) -> dict:
+    """将 Resource 模型转换为字典"""
+    return Resource.model_validate(resource).model_dump(mode='json')
+
+def serialize_resources(resources: List[PBLResource]) -> List[dict]:
+    """将 Resource 模型列表转换为字典列表"""
+    return [serialize_resource(resource) for resource in resources]
+
 # 修复响应模型问题 - 移除response_model，使用success_response包装
 
 # 文件上传配置
@@ -51,7 +59,7 @@ def get_resources_by_unit(
         )
     
     resources = db.query(PBLResource).filter(PBLResource.unit_id == unit_id).order_by(PBLResource.order).all()
-    return success_response(data=resources)
+    return success_response(data=serialize_resources(resources))
 
 @router.post("")
 def create_resource(
@@ -94,7 +102,7 @@ def create_resource(
     db.commit()
     db.refresh(new_resource)
     
-    return success_response(data=new_resource, message="资料创建成功")
+    return success_response(data=serialize_resource(new_resource), message="资料创建成功")
 
 @router.post("/upload")
 async def upload_resource_file(
@@ -176,7 +184,7 @@ def get_resource(
             status_code=status.HTTP_404_NOT_FOUND
         )
     
-    return success_response(data=resource)
+    return success_response(data=serialize_resource(resource))
 
 @router.put("/{resource_id}")
 def update_resource(
@@ -201,7 +209,7 @@ def update_resource(
     db.commit()
     db.refresh(resource)
     
-    return success_response(data=resource, message="资料更新成功")
+    return success_response(data=serialize_resource(resource), message="资料更新成功")
 
 @router.delete("/{resource_id}")
 def delete_resource(
