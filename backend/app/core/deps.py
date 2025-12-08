@@ -20,7 +20,7 @@ def get_db():
         db.close()
 
 def get_current_admin(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    """获取当前管理员用户（必须是 role='platform_admin' 的用户）"""
+    """获取当前管理员用户（支持 platform_admin、school_admin、teacher 角色）"""
     from ..models.admin import Admin
     
     credentials_exception = HTTPException(
@@ -39,10 +39,10 @@ def get_current_admin(token: str = Depends(oauth2_scheme), db: Session = Depends
         # 重新抛出 HTTPException（token 类型不匹配或已过期）
         raise
     
-    # 查询用户，并且必须是 platform_admin 角色
+    # 查询用户，允许 platform_admin、school_admin、teacher 角色
     admin = db.query(Admin).filter(
         Admin.id == int(admin_id),
-        Admin.role == 'platform_admin'
+        Admin.role.in_(['platform_admin', 'school_admin', 'teacher'])
     ).first()
     if admin is None:
         raise credentials_exception
