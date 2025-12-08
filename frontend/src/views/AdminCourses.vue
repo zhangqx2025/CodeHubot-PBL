@@ -9,7 +9,6 @@
       </template>
 
       <el-table :data="courses" v-loading="loading" stripe>
-        <el-table-column prop="id" label="ID" width="80" />
         <el-table-column prop="title" label="课程标题" />
         <el-table-column prop="difficulty" label="难度" width="100">
           <template #default="{ row }">
@@ -26,8 +25,9 @@
           </template>
         </el-table-column>
         <el-table-column prop="created_at" label="创建时间" width="180" />
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column label="操作" width="280" fixed="right">
           <template #default="{ row }">
+            <el-button size="small" type="primary" @click="handleViewDetail(row)">查看详情</el-button>
             <el-button size="small" @click="handleEdit(row)">编辑</el-button>
             <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
           </template>
@@ -77,8 +77,11 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getCourses, createCourse, updateCourse, deleteCourse } from '@/api/admin'
+
+const router = useRouter()
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -162,7 +165,7 @@ const handleCreate = () => {
 }
 
 const handleEdit = (row) => {
-  editingId.value = row.id
+  editingId.value = row.uuid
   dialogTitle.value = '编辑课程'
   Object.assign(formData, {
     title: row.title,
@@ -200,13 +203,20 @@ const handleSubmit = async () => {
   }
 }
 
+const handleViewDetail = (row) => {
+  router.push({
+    name: 'AdminCourseDetail',
+    params: { courseId: row.uuid }
+  })
+}
+
 const handleDelete = async (row) => {
   try {
     await ElMessageBox.confirm('确定要删除该课程吗？', '提示', {
       type: 'warning'
     })
     
-    await deleteCourse(row.id)
+    await deleteCourse(row.uuid)
     ElMessage.success('删除成功')
     loadCourses()
   } catch (error) {

@@ -136,14 +136,14 @@ def get_my_courses(
         'items': [serialize_course_list_item(course) for course in courses]
     })
 
-@router.get("/courses/{course_id}")
+@router.get("/courses/{course_uuid}")
 def get_course_detail(
-    course_id: int,
+    course_uuid: str,
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
     """获取课程详情（包含单元列表和项目列表）"""
-    course = db.query(PBLCourse).filter(PBLCourse.id == course_id).first()
+    course = db.query(PBLCourse).filter(PBLCourse.uuid == course_uuid).first()
     
     if not course:
         return error_response(
@@ -188,14 +188,14 @@ def get_unit_detail(
     
     return success_response(data=serialize_unit_detail(unit))
 
-@router.get("/courses/{course_id}/units")
+@router.get("/courses/{course_uuid}/units")
 def get_course_units(
-    course_id: int,
+    course_uuid: str,
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
     """获取课程的单元列表"""
-    course = db.query(PBLCourse).filter(PBLCourse.id == course_id).first()
+    course = db.query(PBLCourse).filter(PBLCourse.uuid == course_uuid).first()
     
     if not course:
         return error_response(

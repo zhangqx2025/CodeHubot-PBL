@@ -150,8 +150,8 @@ const loading = ref(false)
 const courseDetail = ref(null)
 const activeUnits = ref([])
 
-// 获取课程ID
-const courseId = ref(route.params.courseUuid)
+// 获取课程UUID
+const courseId = ref(route.params.courseId)
 
 // 辅助函数
 const getDifficultyType = (difficulty) => {

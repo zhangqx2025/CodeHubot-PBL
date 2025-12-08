@@ -32,7 +32,7 @@
           v-for="course in filteredCourses" 
           :key="course.id"
           class="course-card"
-          @click="gotoCourseDetail(course.id)"
+          @click="gotoCourseDetail(course.uuid)"
         >
           <!-- 课程封面 -->
           <div class="course-cover">
@@ -90,7 +90,7 @@
             <el-button 
               type="primary" 
               size="default"
-              @click.stop="gotoCourseDetail(course.id)"
+              @click.stop="gotoCourseDetail(course.uuid)"
             >
               {{ course.progress > 0 ? '继续学习' : '开始学习' }}
             </el-button>
