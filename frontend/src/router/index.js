@@ -150,6 +150,126 @@ const routes = [
         meta: {
           title: '资料管理 - PBL系统管理后台'
         }
+      },
+      {
+        path: 'tasks',
+        name: 'AdminTasks',
+        component: () => import('../views/AdminTasks.vue'),
+        meta: {
+          title: '任务管理 - PBL系统管理后台'
+        }
+      },
+      {
+        path: 'projects',
+        name: 'AdminProjects',
+        component: () => import('../views/AdminProjects.vue'),
+        meta: {
+          title: '项目管理 - PBL系统管理后台'
+        }
+      },
+      {
+        path: 'users',
+        name: 'AdminUsers',
+        component: () => import('../views/AdminUsers.vue'),
+        meta: {
+          title: '用户管理 - PBL系统管理后台'
+        }
+      },
+      {
+        path: 'classes',
+        name: 'AdminClasses',
+        component: () => import('../views/AdminClasses.vue'),
+        meta: {
+          title: '班级小组管理 - PBL系统管理后台'
+        }
+      },
+      {
+        path: 'enrollments',
+        name: 'AdminEnrollments',
+        component: () => import('../views/AdminEnrollments.vue'),
+        meta: {
+          title: '选课管理 - PBL系统管理后台'
+        }
+      },
+      {
+        path: 'progress',
+        name: 'AdminProgress',
+        component: () => import('../views/AdminProgress.vue'),
+        meta: {
+          title: '学习进度 - PBL系统管理后台'
+        }
+      },
+      {
+        path: 'assessments',
+        name: 'AdminAssessments',
+        component: () => import('../views/AdminAssessments.vue'),
+        meta: {
+          title: '评价管理 - PBL系统管理后台'
+        }
+      },
+      {
+        path: 'assessment-templates',
+        name: 'AdminAssessmentTemplates',
+        component: () => import('../views/AdminAssessmentTemplates.vue'),
+        meta: {
+          title: '评价模板 - PBL系统管理后台'
+        }
+      },
+      {
+        path: 'outputs',
+        name: 'AdminOutputs',
+        component: () => import('../views/AdminOutputs.vue'),
+        meta: {
+          title: '成果管理 - PBL系统管理后台'
+        }
+      },
+      {
+        path: 'portfolios',
+        name: 'AdminPortfolios',
+        component: () => import('../views/AdminPortfolios.vue'),
+        meta: {
+          title: '学习档案 - PBL系统管理后台'
+        }
+      },
+      {
+        path: 'datasets',
+        name: 'AdminDatasets',
+        component: () => import('../views/AdminDatasets.vue'),
+        meta: {
+          title: '数据集管理 - PBL系统管理后台'
+        }
+      },
+      {
+        path: 'ethics-cases',
+        name: 'AdminEthicsCases',
+        component: () => import('../views/AdminEthicsCases.vue'),
+        meta: {
+          title: '伦理案例 - PBL系统管理后台'
+        }
+      },
+      {
+        path: 'ethics-activities',
+        name: 'AdminEthicsActivities',
+        component: () => import('../views/AdminEthicsActivities.vue'),
+        meta: {
+          title: '伦理活动 - PBL系统管理后台'
+        }
+      },
+      {
+        path: 'experts',
+        name: 'AdminExperts',
+        component: () => import('../views/AdminExperts.vue'),
+        meta: {
+          title: '专家管理 - PBL系统管理后台'
+        }
+      },
+      {
+        path: 'social-activities',
+        name: 'AdminSocialActivities',
+        component: () => import('../views/AdminSocialActivities.vue'),
+        meta: {
+          title: '社会活动 - PBL系统管理后台'
+        }
       }
     ]
   },

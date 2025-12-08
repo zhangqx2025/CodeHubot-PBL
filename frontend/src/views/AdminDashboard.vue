@@ -46,6 +46,22 @@
             </el-menu-item>
           </el-sub-menu>
           
+          <!-- 项目管理 -->
+          <el-sub-menu index="project-management">
+            <template #title>
+              <el-icon><Operation /></el-icon>
+              <span>项目管理</span>
+            </template>
+            <el-menu-item index="/admin/projects">
+              <el-icon><Files /></el-icon>
+              <span>项目列表</span>
+            </el-menu-item>
+            <el-menu-item index="/admin/outputs">
+              <el-icon><Briefcase /></el-icon>
+              <span>成果管理</span>
+            </el-menu-item>
+          </el-sub-menu>
+          
           <!-- 用户管理 -->
           <el-sub-menu index="user-management">
             <template #title>
@@ -76,7 +92,65 @@
               <el-icon><TrendCharts /></el-icon>
               <span>学习进度</span>
             </el-menu-item>
+            <el-menu-item index="/admin/portfolios">
+              <el-icon><Stamp /></el-icon>
+              <span>学习档案</span>
+            </el-menu-item>
           </el-sub-menu>
+          
+          <!-- 评价管理 -->
+          <el-sub-menu index="assessment-management">
+            <template #title>
+              <el-icon><Edit /></el-icon>
+              <span>评价管理</span>
+            </template>
+            <el-menu-item index="/admin/assessments">
+              <el-icon><DocumentChecked /></el-icon>
+              <span>评价列表</span>
+            </el-menu-item>
+            <el-menu-item index="/admin/assessment-templates">
+              <el-icon><DocumentCopy /></el-icon>
+              <span>评价模板</span>
+            </el-menu-item>
+          </el-sub-menu>
+          
+          <!-- 资源中心 -->
+          <el-sub-menu index="resource-center">
+            <template #title>
+              <el-icon><Box /></el-icon>
+              <span>资源中心</span>
+            </template>
+            <el-menu-item index="/admin/datasets">
+              <el-icon><Coin /></el-icon>
+              <span>数据集库</span>
+            </el-menu-item>
+            <el-menu-item index="/admin/experts">
+              <el-icon><MagicStick /></el-icon>
+              <span>专家管理</span>
+            </el-menu-item>
+          </el-sub-menu>
+          
+          <!-- 伦理教育 -->
+          <el-sub-menu index="ethics-management">
+            <template #title>
+              <el-icon><View /></el-icon>
+              <span>伦理教育</span>
+            </template>
+            <el-menu-item index="/admin/ethics-cases">
+              <el-icon><Memo /></el-icon>
+              <span>伦理案例</span>
+            </el-menu-item>
+            <el-menu-item index="/admin/ethics-activities">
+              <el-icon><ChatDotRound /></el-icon>
+              <span>伦理活动</span>
+            </el-menu-item>
+          </el-sub-menu>
+          
+          <!-- 社会实践 -->
+          <el-menu-item index="/admin/social-activities">
+            <el-icon><MapLocation /></el-icon>
+            <template #title>社会活动</template>
+          </el-menu-item>
         </el-menu>
         
         <div class="admin-user">
@@ -152,7 +226,21 @@ import {
   TrendCharts,
   Fold,
   Expand,
-  SwitchButton
+  SwitchButton,
+  Operation,
+  Files,
+  Briefcase,
+  Stamp,
+  Edit,
+  DocumentChecked,
+  DocumentCopy,
+  Box,
+  Coin,
+  MagicStick,
+  View,
+  Memo,
+  ChatDotRound,
+  MapLocation
 } from '@element-plus/icons-vue'
 import { getCurrentAdmin } from '@/api/admin'
 
@@ -170,10 +258,20 @@ const pageTitle = computed(() => {
     '/admin/units': '学习单元',
     '/admin/resources': '资料管理',
     '/admin/tasks': '任务管理',
+    '/admin/projects': '项目管理',
+    '/admin/outputs': '成果管理',
     '/admin/users': '用户管理',
     '/admin/classes': '班级小组管理',
     '/admin/enrollments': '选课管理',
-    '/admin/progress': '学习进度'
+    '/admin/progress': '学习进度',
+    '/admin/portfolios': '学习档案',
+    '/admin/assessments': '评价管理',
+    '/admin/assessment-templates': '评价模板',
+    '/admin/datasets': '数据集管理',
+    '/admin/experts': '专家管理',
+    '/admin/ethics-cases': '伦理案例',
+    '/admin/ethics-activities': '伦理活动',
+    '/admin/social-activities': '社会活动'
   }
   return titles[route.path] || '管理后台'
 })
