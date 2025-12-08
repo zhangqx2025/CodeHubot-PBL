@@ -7,10 +7,15 @@ const httpClient = axios.create({
   headers: API_CONFIG.DEFAULT_HEADERS
 })
 
-// 请求拦截器（同 auth.js，建议提取公共 request.js）
+// 请求拦截器（支持学生端和管理端）
 httpClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('access_token') || localStorage.getItem('student_access_token')
+    // 检查当前路径，如果是管理端则使用管理员token
+    const isAdminPath = window.location.pathname.startsWith('/admin')
+    const token = isAdminPath 
+      ? localStorage.getItem('admin_access_token')
+      : (localStorage.getItem('access_token') || localStorage.getItem('student_access_token'))
+    
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
