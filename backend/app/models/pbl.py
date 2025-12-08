@@ -164,3 +164,48 @@ class PBLProjectOutput(Base):
     like_count = Column(Integer, default=0)
     created_at = Column(TIMESTAMP, server_default=func.now())
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+
+
+class PBLClass(Base):
+    __tablename__ = "pbl_classes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    uuid = Column(String(36), unique=True, default=generate_uuid, nullable=False)
+    school_id = Column(Integer, nullable=False)
+    name = Column(String(100), nullable=False)
+    grade = Column(String(50))
+    academic_year = Column(String(20))
+    class_teacher_id = Column(Integer)
+    max_students = Column(Integer, default=50)
+    is_active = Column(Integer, default=1)
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+
+
+class PBLGroup(Base):
+    __tablename__ = "pbl_groups"
+
+    id = Column(Integer, primary_key=True, index=True)
+    uuid = Column(String(36), unique=True, default=generate_uuid, nullable=False)
+    class_id = Column(Integer, ForeignKey("pbl_classes.id"))
+    course_id = Column(Integer, ForeignKey("pbl_courses.id"))
+    name = Column(String(100), nullable=False)
+    description = Column(Text)
+    leader_id = Column(Integer)
+    max_members = Column(Integer, default=6)
+    is_active = Column(Integer, default=1)
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+
+
+class PBLGroupMember(Base):
+    __tablename__ = "pbl_group_members"
+
+    id = Column(Integer, primary_key=True, index=True)
+    group_id = Column(Integer, ForeignKey("pbl_groups.id"), nullable=False)
+    user_id = Column(Integer, nullable=False)
+    role = Column(Enum('member', 'leader', 'deputy_leader'), default='member')
+    joined_at = Column(TIMESTAMP, server_default=func.now())
+    is_active = Column(Integer, default=1)
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
