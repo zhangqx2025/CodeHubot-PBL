@@ -183,3 +183,27 @@ export const getUnitProgress = async (unitId) => {
     throw error
   }
 }
+
+/**
+ * 学生端 - 视频播放相关 API
+ */
+
+// 获取视频播放凭证
+export const getVideoPlayAuth = async (resourceUuid) => {
+  try {
+    const data = await httpClient.get(`/video/play-auth/${resourceUuid}`)
+    return data
+  } catch (error) {
+    throw error
+  }
+}
+
+// 获取视频信息
+export const getVideoInfo = async (resourceUuid) => {
+  try {
+    const data = await httpClient.get(`/video/info/${resourceUuid}`)
+    return data
+  } catch (error) {
+    throw error
+  }
+}

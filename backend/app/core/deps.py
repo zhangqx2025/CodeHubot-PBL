@@ -135,3 +135,49 @@ def get_current_user_flexible(
         raise
     except Exception as e:
         raise credentials_exception
+
+def get_current_user_or_admin(
+    db: Session = Depends(get_db),
+    admin_token: Optional[str] = Depends(oauth2_scheme),
+    user_token: Optional[str] = Depends(oauth2_scheme_user)
+):
+    """
+    获取当前用户（学生或管理员）
+    优先验证管理员token，如果失败则验证学生token
+    """
+    from ..models.admin import User, Admin
+    
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="无效的认证凭据",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    
+    # 优先尝试管理员token
+    if admin_token:
+        try:
+            payload = verify_token(admin_token, token_type="access")
+            admin_id: Optional[int] = payload.get("sub")
+            if admin_id:
+                admin = db.query(Admin).filter(
+                    Admin.id == int(admin_id),
+                    Admin.role.in_(['platform_admin', 'school_admin', 'teacher'])
+                ).first()
+                if admin and admin.is_active:
+                    return admin
+        except:
+            pass  # 继续尝试学生token
+    
+    # 尝试学生token
+    if user_token:
+        try:
+            payload = verify_token(user_token, token_type="access")
+            user_id: Optional[int] = payload.get("sub")
+            if user_id:
+                user = db.query(User).filter(User.id == int(user_id)).first()
+                if user and user.is_active:
+                    return user
+        except:
+            pass
+    
+    raise credentials_exception
