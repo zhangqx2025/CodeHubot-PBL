@@ -1,12 +1,17 @@
 <template>
   <div class="project-detail">
-    <div class="project-header">
-      <el-button :icon="ArrowLeft" @click="goBack" class="back-btn">返回</el-button>
-      <h1>{{ project.title }}</h1>
-      <p class="description">{{ project.description }}</p>
+    <div v-if="loading" class="loading-container">
+      <el-skeleton :rows="10" animated />
     </div>
+    
+    <template v-else>
+      <div class="project-header">
+        <el-button :icon="ArrowLeft" @click="goBack" class="back-btn">返回</el-button>
+        <h1>{{ project.title }}</h1>
+        <p class="description">{{ project.description }}</p>
+      </div>
 
-    <div class="project-content">
+      <div class="project-content">
       <el-tabs v-model="activeTab">
         <el-tab-pane label="课程概览" name="overview">
           <div class="overview-section">
@@ -92,6 +97,7 @@
         </el-tab-pane>
       </el-tabs>
     </div>
+    </template>
   </div>
 </template>
 
@@ -99,11 +105,14 @@
 import { ref, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ArrowLeft } from '@element-plus/icons-vue'
+import { getProjectDetail } from '../api/project'
+import { ElMessage } from 'element-plus'
 
 const router = useRouter()
 const route = useRoute()
 
 const activeTab = ref('overview')
+const loading = ref(false)
 
 const project = ref({
   id: '',
@@ -230,14 +239,40 @@ const defaultProject = {
   ]
 }
 
-const loadProjectData = () => {
+const loadProjectData = async () => {
   const projectId = route.params.id
+  
+  // 如果是演示项目，使用硬编码数据
   if (projectId === 'smart-home') {
     project.value = smartHomeProject
-  } else {
-    // 默认显示演示数据，实际项目中应从 API 获取
-    project.value = defaultProject
-    project.value.id = projectId
+    return
+  }
+  
+  // 从API获取真实项目数据
+  loading.value = true
+  try {
+    const data = await getProjectDetail(projectId)
+    project.value = {
+      id: data.uuid || data.id,
+      title: data.title || '未命名项目',
+      description: data.description || '',
+      learningGoals: data.learning_goals || [],
+      units: data.units || [],
+      tasks: data.tasks || [],
+      teamName: data.team_name || '',
+      teamSlogan: data.team_slogan || '',
+      teamMembers: data.team_members || [],
+      status: data.status,
+      progress: data.progress,
+      course: data.course
+    }
+  } catch (error) {
+    console.error('获取项目详情失败:', error)
+    ElMessage.error('获取项目详情失败，请稍后重试')
+    // 如果获取失败，使用默认数据
+    project.value = { ...defaultProject, id: projectId }
+  } finally {
+    loading.value = false
   }
 }
 
@@ -299,6 +334,11 @@ watch(() => route.params.id, () => {
   padding: 24px;
   max-width: 1200px;
   margin: 0 auto;
+}
+
+.loading-container {
+  padding: 40px;
+  text-align: center;
 }
 
 .project-header {
