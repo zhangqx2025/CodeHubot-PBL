@@ -7,10 +7,9 @@ from sqlalchemy import and_, or_, desc
 from typing import Optional, List
 from datetime import datetime
 
-from app.db.database import get_db
+from app.core.deps import get_db, get_current_admin
 from app.models.pbl import PBLProjectOutput, PBLProject
-from app.models.user import User
-from app.api.dependencies import get_current_admin_user
+from app.models.admin import User
 from pydantic import BaseModel, Field
 
 router = APIRouter(prefix="/admin/outputs", tags=["管理员-成果管理"])
@@ -59,7 +58,7 @@ class OutputReviewRequest(BaseModel):
 @router.get("", response_model=dict)
 async def get_outputs(
     db: Session = Depends(get_db),
-    current_admin: User = Depends(get_current_admin_user),
+    current_admin: User = Depends(get_current_admin),
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(20, ge=1, le=100, description="每页数量"),
     output_type: Optional[str] = Query(None, description="成果类型"),
@@ -151,7 +150,7 @@ async def get_outputs(
 async def get_output_detail(
     uuid: str,
     db: Session = Depends(get_db),
-    current_admin: User = Depends(get_current_admin_user)
+    current_admin: User = Depends(get_current_admin)
 ):
     """
     获取成果详情
@@ -200,7 +199,7 @@ async def update_output_status(
     uuid: str,
     request: UpdateOutputStatusRequest,
     db: Session = Depends(get_db),
-    current_admin: User = Depends(get_current_admin_user)
+    current_admin: User = Depends(get_current_admin)
 ):
     """
     更新成果公开状态
@@ -227,7 +226,7 @@ async def review_output(
     uuid: str,
     request: OutputReviewRequest,
     db: Session = Depends(get_db),
-    current_admin: User = Depends(get_current_admin_user)
+    current_admin: User = Depends(get_current_admin)
 ):
     """
     评审成果
@@ -254,7 +253,7 @@ async def review_output(
 async def delete_output(
     uuid: str,
     db: Session = Depends(get_db),
-    current_admin: User = Depends(get_current_admin_user)
+    current_admin: User = Depends(get_current_admin)
 ):
     """
     删除成果
@@ -280,7 +279,7 @@ async def delete_output(
 @router.get("/statistics/overview")
 async def get_output_statistics(
     db: Session = Depends(get_db),
-    current_admin: User = Depends(get_current_admin_user)
+    current_admin: User = Depends(get_current_admin)
 ):
     """
     获取成果统计数据

@@ -122,3 +122,45 @@ class PBLTaskProgress(Base):
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
 
     task = relationship("PBLTask", back_populates="progress")
+
+
+class PBLCourseEnrollment(Base):
+    __tablename__ = "pbl_course_enrollments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    course_id = Column(Integer, ForeignKey("pbl_courses.id"), nullable=False)
+    user_id = Column(Integer, nullable=False) # Foreign Key to aiot_core_users
+    enrollment_status = Column(Enum('enrolled', 'dropped', 'completed'), default='enrolled')
+    enrolled_at = Column(TIMESTAMP)
+    dropped_at = Column(TIMESTAMP)
+    completed_at = Column(TIMESTAMP)
+    progress = Column(Integer, default=0)
+    final_score = Column(Integer)
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+
+
+class PBLProjectOutput(Base):
+    __tablename__ = "pbl_project_outputs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    uuid = Column(String(36), unique=True, default=generate_uuid, nullable=False)
+    project_id = Column(Integer, ForeignKey("pbl_projects.id"), nullable=False)
+    task_id = Column(Integer, ForeignKey("pbl_tasks.id"))
+    user_id = Column(Integer, nullable=False) # Foreign Key to aiot_core_users
+    group_id = Column(Integer) # Foreign Key to aiot_course_groups
+    output_type = Column(Enum('report', 'code', 'design', 'video', 'presentation', 'model', 'dataset', 'other'), nullable=False)
+    title = Column(String(200), nullable=False)
+    description = Column(Text)
+    file_url = Column(String(500))
+    file_size = Column(Integer)
+    file_type = Column(String(50))
+    repo_url = Column(String(500))
+    demo_url = Column(String(500))
+    thumbnail = Column(String(500))
+    meta_data = Column(JSON)
+    is_public = Column(Integer, default=0)
+    view_count = Column(Integer, default=0)
+    like_count = Column(Integer, default=0)
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
