@@ -5,21 +5,21 @@
         <div class="card-header">
           <span>学习单元管理</span>
           <div>
-            <el-select v-model="selectedCourseId" placeholder="选择课程" style="width: 200px; margin-right: 10px;" @change="loadUnits">
+            <el-select v-model="selectedCourseUuid" placeholder="选择课程" style="width: 200px; margin-right: 10px;" @change="loadUnits">
               <el-option
                 v-for="course in courses"
-                :key="course.id"
+                :key="course.uuid"
                 :label="course.title"
-                :value="course.id"
+                :value="course.uuid"
               />
             </el-select>
-            <el-button type="primary" @click="handleCreate" :disabled="!selectedCourseId">创建单元</el-button>
+            <el-button type="primary" @click="handleCreate" :disabled="!selectedCourseUuid">创建单元</el-button>
           </div>
         </div>
       </template>
 
-      <el-table :data="units" v-loading="loading" stripe v-if="selectedCourseId">
-        <el-table-column prop="id" label="ID" width="80" />
+      <el-table :data="units" v-loading="loading" stripe v-if="selectedCourseUuid">
+        <el-table-column prop="uuid" label="UUID" width="180" />
         <el-table-column prop="title" label="单元标题" />
         <el-table-column prop="order" label="顺序" width="100" />
         <el-table-column prop="status" label="状态" width="100">
@@ -91,8 +91,8 @@ const dialogTitle = ref('创建学习单元')
 const formRef = ref(null)
 const courses = ref([])
 const units = ref([])
-const selectedCourseId = ref(null)
-const editingId = ref(null)
+const selectedCourseUuid = ref(null)
+const editingUuid = ref(null)
 
 const formData = reactive({
   title: '',
@@ -133,11 +133,11 @@ const loadCourses = async () => {
 }
 
 const loadUnits = async () => {
-  if (!selectedCourseId.value) return
+  if (!selectedCourseUuid.value) return
   
   loading.value = true
   try {
-    const data = await getUnits(selectedCourseId.value)
+    const data = await getUnits(selectedCourseUuid.value)
     units.value = Array.isArray(data) ? data : []
   } catch (error) {
     ElMessage.error('加载单元列表失败')
@@ -147,7 +147,7 @@ const loadUnits = async () => {
 }
 
 const handleCreate = () => {
-  editingId.value = null
+  editingUuid.value = null
   dialogTitle.value = '创建学习单元'
   Object.assign(formData, {
     title: '',
@@ -159,7 +159,7 @@ const handleCreate = () => {
 }
 
 const handleEdit = (row) => {
-  editingId.value = row.id
+  editingUuid.value = row.uuid
   dialogTitle.value = '编辑学习单元'
   Object.assign(formData, {
     title: row.title,
@@ -181,11 +181,11 @@ const handleSubmit = async () => {
     
     const submitData = {
       ...formData,
-      course_id: selectedCourseId.value
+      course_uuid: selectedCourseUuid.value
     }
     
-    if (editingId.value) {
-      await updateUnit(editingId.value, formData)
+    if (editingUuid.value) {
+      await updateUnit(editingUuid.value, formData)
       ElMessage.success('单元更新成功')
     } else {
       await createUnit(submitData)
@@ -207,7 +207,7 @@ const handleDelete = async (row) => {
       type: 'warning'
     })
     
-    await deleteUnit(row.id)
+    await deleteUnit(row.uuid)
     ElMessage.success('删除成功')
     loadUnits()
   } catch (error) {

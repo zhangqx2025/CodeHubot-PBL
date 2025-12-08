@@ -19,15 +19,15 @@ def serialize_units(units: List[PBLUnit]) -> List[dict]:
     """将 Unit 模型列表转换为字典列表"""
     return [serialize_unit(unit) for unit in units]
 
-@router.get("/course/{course_id}")
+@router.get("/course/{course_uuid}")
 def get_units_by_course(
-    course_id: int,
+    course_uuid: str,
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(get_current_admin)
 ):
     """获取课程下的所有学习单元"""
     # 验证课程是否存在
-    course = db.query(PBLCourse).filter(PBLCourse.id == course_id).first()
+    course = db.query(PBLCourse).filter(PBLCourse.uuid == course_uuid).first()
     if not course:
         return error_response(
             message="课程不存在",
@@ -35,7 +35,7 @@ def get_units_by_course(
             status_code=status.HTTP_404_NOT_FOUND
         )
     
-    units = db.query(PBLUnit).filter(PBLUnit.course_id == course_id).order_by(PBLUnit.order).all()
+    units = db.query(PBLUnit).filter(PBLUnit.course_id == course.id).order_by(PBLUnit.order).all()
     return success_response(data=serialize_units(units))
 
 @router.post("")
@@ -46,7 +46,7 @@ def create_unit(
 ):
     """创建学习单元"""
     # 验证课程是否存在
-    course = db.query(PBLCourse).filter(PBLCourse.id == unit_data.course_id).first()
+    course = db.query(PBLCourse).filter(PBLCourse.uuid == unit_data.course_uuid).first()
     if not course:
         return error_response(
             message="课程不存在",
@@ -55,7 +55,7 @@ def create_unit(
         )
     
     new_unit = PBLUnit(
-        course_id=unit_data.course_id,
+        course_id=course.id,
         title=unit_data.title,
         description=unit_data.description,
         order=unit_data.order or 0,
@@ -69,14 +69,14 @@ def create_unit(
     
     return success_response(data=serialize_unit(new_unit), message="学习单元创建成功")
 
-@router.get("/{unit_id}")
+@router.get("/{unit_uuid}")
 def get_unit(
-    unit_id: int,
+    unit_uuid: str,
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(get_current_admin)
 ):
     """获取学习单元详情"""
-    unit = db.query(PBLUnit).filter(PBLUnit.id == unit_id).first()
+    unit = db.query(PBLUnit).filter(PBLUnit.uuid == unit_uuid).first()
     if not unit:
         return error_response(
             message="学习单元不存在",
@@ -86,15 +86,15 @@ def get_unit(
     
     return success_response(data=serialize_unit(unit))
 
-@router.put("/{unit_id}")
+@router.put("/{unit_uuid}")
 def update_unit(
-    unit_id: int,
+    unit_uuid: str,
     unit_data: UnitUpdate,
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(get_current_admin)
 ):
     """更新学习单元"""
-    unit = db.query(PBLUnit).filter(PBLUnit.id == unit_id).first()
+    unit = db.query(PBLUnit).filter(PBLUnit.uuid == unit_uuid).first()
     if not unit:
         return error_response(
             message="学习单元不存在",
@@ -111,14 +111,14 @@ def update_unit(
     
     return success_response(data=serialize_unit(unit), message="学习单元更新成功")
 
-@router.delete("/{unit_id}")
+@router.delete("/{unit_uuid}")
 def delete_unit(
-    unit_id: int,
+    unit_uuid: str,
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(get_current_admin)
 ):
     """删除学习单元"""
-    unit = db.query(PBLUnit).filter(PBLUnit.id == unit_id).first()
+    unit = db.query(PBLUnit).filter(PBLUnit.uuid == unit_uuid).first()
     if not unit:
         return error_response(
             message="学习单元不存在",
@@ -131,9 +131,9 @@ def delete_unit(
     
     return success_response(message="学习单元删除成功")
 
-@router.patch("/{unit_id}/status")
+@router.patch("/{unit_uuid}/status")
 def update_unit_status(
-    unit_id: int,
+    unit_uuid: str,
     new_status: str,
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(get_current_admin)
@@ -146,7 +146,7 @@ def update_unit_status(
             status_code=status.HTTP_400_BAD_REQUEST
         )
     
-    unit = db.query(PBLUnit).filter(PBLUnit.id == unit_id).first()
+    unit = db.query(PBLUnit).filter(PBLUnit.uuid == unit_uuid).first()
     if not unit:
         return error_response(
             message="学习单元不存在",

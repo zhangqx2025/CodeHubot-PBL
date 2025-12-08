@@ -101,9 +101,9 @@ export const deleteCourse = async (courseId) => {
 /**
  * 获取学习单元列表
  */
-export const getUnits = async (courseId) => {
+export const getUnits = async (courseUuid) => {
   try {
-    const response = await request.get(`/admin/units/course/${courseId}`)
+    const response = await request.get(`/admin/units/course/${courseUuid}`)
     return response.data.data || response.data
   } catch (error) {
     throw new Error(handleApiError(error))
@@ -125,9 +125,9 @@ export const createUnit = async (unitData) => {
 /**
  * 更新学习单元
  */
-export const updateUnit = async (unitId, unitData) => {
+export const updateUnit = async (unitUuid, unitData) => {
   try {
-    const response = await request.put(`/admin/units/${unitId}`, unitData)
+    const response = await request.put(`/admin/units/${unitUuid}`, unitData)
     return response.data.data || response.data
   } catch (error) {
     throw new Error(handleApiError(error))
@@ -137,9 +137,9 @@ export const updateUnit = async (unitId, unitData) => {
 /**
  * 删除学习单元
  */
-export const deleteUnit = async (unitId) => {
+export const deleteUnit = async (unitUuid) => {
   try {
-    const response = await request.delete(`/admin/units/${unitId}`)
+    const response = await request.delete(`/admin/units/${unitUuid}`)
     return response.data
   } catch (error) {
     throw new Error(handleApiError(error))

@@ -70,7 +70,7 @@ class UnitBase(BaseModel):
     learning_guide: Optional[Any] = None  # 支持 dict 或 list 类型
 
 class UnitCreate(UnitBase):
-    course_id: int
+    course_uuid: str
 
 class UnitUpdate(BaseModel):
     title: Optional[str] = None
