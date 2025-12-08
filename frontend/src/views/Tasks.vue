@@ -119,7 +119,7 @@
           </el-button>
           <el-button 
             size="small"
-            @click="viewUnit(task.unitId)"
+            @click="viewUnit(task.unitUuid || task.unitId)"
           >
             查看单元
           </el-button>
@@ -245,8 +245,8 @@ const goToTask = (taskId) => {
   router.push(`/tasks/${taskId}`)
 }
 
-const viewUnit = (unitId) => {
-  router.push(`/unit/${unitId}`)
+const viewUnit = (unitIdOrUuid) => {
+  router.push(`/unit/${unitIdOrUuid}`)
 }
 </script>
 

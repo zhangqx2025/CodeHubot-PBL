@@ -1,9 +1,13 @@
 <template>
   <div class="profile-page">
-    <div class="page-header">
-      <h1>个人信息</h1>
-      <p>管理你的个人资料和学习设置</p>
-    </div>
+    <el-card class="page-header" shadow="never">
+      <div class="header-content">
+        <div>
+          <h1>个人信息</h1>
+          <p>管理你的个人资料和学习设置</p>
+        </div>
+      </div>
+    </el-card>
 
     <div class="profile-content">
       <el-row :gutter="24">
@@ -161,26 +165,37 @@ onMounted(() => {
 
 <style scoped>
 .profile-page {
-  padding: 24px;
-  max-width: 1200px;
-  margin: 0 auto;
+  padding: 0;
 }
 
 .page-header {
-  margin-bottom: 32px;
+  margin-bottom: 20px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+}
+
+.page-header :deep(.el-card__body) {
+  padding: 32px;
+}
+
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .page-header h1 {
-  font-size: 32px;
-  font-weight: 700;
-  color: #1e293b;
+  font-size: 28px;
+  font-weight: 600;
   margin: 0 0 8px 0;
 }
 
 .page-header p {
-  color: #64748b;
-  font-size: 16px;
+  font-size: 14px;
   margin: 0;
+  opacity: 0.9;
 }
 
 .profile-content {
@@ -188,6 +203,7 @@ onMounted(() => {
   border-radius: 12px;
   padding: 24px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: none;
 }
 
 .profile-card {

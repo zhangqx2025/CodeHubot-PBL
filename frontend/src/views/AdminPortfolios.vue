@@ -57,8 +57,10 @@ const loadPortfolios = async () => {
       limit: pageSize.value
     }
     const response = await getAdminPortfolios(params)
-    portfolios.value = response.items || []
-    total.value = response.total || 0
+    if (response && response.data) {
+      portfolios.value = response.data.items || []
+      total.value = response.data.total || 0
+    }
   } catch (error) {
     console.error('加载成长档案失败:', error)
     ElMessage.error('加载成长档案失败')

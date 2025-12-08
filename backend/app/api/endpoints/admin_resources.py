@@ -42,15 +42,15 @@ def is_allowed_file(filename: str, file_type: str) -> bool:
     ext = get_file_extension(filename)
     return ext in ALLOWED_EXTENSIONS.get(file_type, [])
 
-@router.get("/unit/{unit_id}")
+@router.get("/unit/{unit_uuid}")
 def get_resources_by_unit(
-    unit_id: int,
+    unit_uuid: str,
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(get_current_admin)
 ):
     """获取学习单元下的所有资料"""
     # 验证单元是否存在
-    unit = db.query(PBLUnit).filter(PBLUnit.id == unit_id).first()
+    unit = db.query(PBLUnit).filter(PBLUnit.uuid == unit_uuid).first()
     if not unit:
         return error_response(
             message="学习单元不存在",
@@ -58,7 +58,7 @@ def get_resources_by_unit(
             status_code=status.HTTP_404_NOT_FOUND
         )
     
-    resources = db.query(PBLResource).filter(PBLResource.unit_id == unit_id).order_by(PBLResource.order).all()
+    resources = db.query(PBLResource).filter(PBLResource.unit_id == unit.id).order_by(PBLResource.order).all()
     return success_response(data=serialize_resources(resources))
 
 @router.post("")
@@ -68,8 +68,13 @@ def create_resource(
     current_admin: Admin = Depends(get_current_admin)
 ):
     """创建资料"""
-    # 验证单元是否存在
-    unit = db.query(PBLUnit).filter(PBLUnit.id == resource_data.unit_id).first()
+    # 支持通过 unit_id 或 unit_uuid 来创建资源
+    unit = None
+    if hasattr(resource_data, 'unit_uuid') and resource_data.unit_uuid:
+        unit = db.query(PBLUnit).filter(PBLUnit.uuid == resource_data.unit_uuid).first()
+    elif hasattr(resource_data, 'unit_id') and resource_data.unit_id:
+        unit = db.query(PBLUnit).filter(PBLUnit.id == resource_data.unit_id).first()
+    
     if not unit:
         return error_response(
             message="学习单元不存在",
@@ -86,7 +91,7 @@ def create_resource(
         )
     
     new_resource = PBLResource(
-        unit_id=resource_data.unit_id,
+        unit_id=unit.id,
         type=resource_data.type,
         title=resource_data.title,
         description=resource_data.description,
@@ -106,7 +111,7 @@ def create_resource(
 
 @router.post("/upload")
 async def upload_resource_file(
-    unit_id: int,
+    unit_uuid: str,
     file_type: str,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
@@ -114,7 +119,7 @@ async def upload_resource_file(
 ):
     """上传资料文件"""
     # 验证单元是否存在
-    unit = db.query(PBLUnit).filter(PBLUnit.id == unit_id).first()
+    unit = db.query(PBLUnit).filter(PBLUnit.uuid == unit_uuid).first()
     if not unit:
         return error_response(
             message="学习单元不存在",

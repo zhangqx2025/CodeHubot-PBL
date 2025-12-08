@@ -102,7 +102,8 @@ class ResourceBase(BaseModel):
     video_cover_url: Optional[str] = None
 
 class ResourceCreate(ResourceBase):
-    unit_id: int
+    unit_id: Optional[int] = None
+    unit_uuid: Optional[str] = None
 
 class ResourceUpdate(BaseModel):
     type: Optional[str] = None

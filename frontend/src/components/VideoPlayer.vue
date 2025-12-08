@@ -36,6 +36,8 @@ const props = defineProps({
   }
 })
 
+const emit = defineEmits(['ready', 'play', 'pause', 'ended'])
+
 const playerId = `aliplayer-${Math.random().toString(36).substr(2, 9)}`
 let player = null
 
@@ -75,8 +77,6 @@ const initPlayer = () => {
   player = new Aliplayer(options, function (player) {
     console.log('播放器创建成功')
   })
-
-const emit = defineEmits(['ready', 'play', 'pause', 'ended'])
 
   // 监听事件
   player.on('ready', () => {

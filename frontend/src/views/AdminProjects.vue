@@ -232,13 +232,13 @@ const loadProjects = async () => {
       group_id: searchForm.group_id || undefined
     })
     
-    if (response && response.data) {
-      projects.value = response.data.items || []
-      pagination.total = response.data.total || 0
+    if (response) {
+      projects.value = response.items || []
+      pagination.total = response.total || 0
     }
   } catch (error) {
     console.error('加载项目列表失败:', error)
-    ElMessage.error(error.response?.data?.detail || '加载数据失败')
+    ElMessage.error(error.message || '加载数据失败')
     projects.value = []
     pagination.total = 0
   } finally {
@@ -249,8 +249,8 @@ const loadProjects = async () => {
 const loadCourses = async () => {
   try {
     const response = await getCourses()
-    if (response && response.data) {
-      courses.value = response.data.items || response.data || []
+    if (response) {
+      courses.value = response.items || response || []
     }
   } catch (error) {
     console.error('加载课程列表失败:', error)

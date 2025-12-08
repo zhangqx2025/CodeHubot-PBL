@@ -28,7 +28,8 @@ async def get_ethics_cases(
     """
     获取伦理案例列表
     """
-    query = db.query(PBLEthicsCase).filter(PBLEthicsCase.is_published == True)
+    # 管理员可以查看所有案例（包括未发布的）
+    query = db.query(PBLEthicsCase)
     
     if difficulty:
         query = query.filter(PBLEthicsCase.difficulty == difficulty)
@@ -56,6 +57,7 @@ async def get_ethics_cases(
             "source": case.source,
             "view_count": case.view_count,
             "like_count": case.like_count,
+            "is_published": case.is_published,
             "created_at": case.created_at.isoformat() if case.created_at else None
         })
     
