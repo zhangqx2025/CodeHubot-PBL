@@ -204,10 +204,10 @@ def get_unit_progress(
 
 @router.post("/track")
 def track_learning_activity(
-    course_id: int,
-    unit_id: Optional[int] = None,
-    resource_id: Optional[int] = None,
-    task_id: Optional[int] = None,
+    course_uuid: str,
+    unit_uuid: Optional[str] = None,
+    resource_uuid: Optional[str] = None,
+    task_uuid: Optional[str] = None,
     progress_type: str = 'resource_view',
     progress_value: int = 0,
     time_spent: int = 0,
@@ -215,15 +215,34 @@ def track_learning_activity(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """记录学习行为"""
+    """记录学习行为（使用UUID）"""
     # 验证课程是否存在
-    course = db.query(PBLCourse).filter(PBLCourse.id == course_id).first()
+    course = db.query(PBLCourse).filter(PBLCourse.uuid == course_uuid).first()
     if not course:
         return error_response(
             message="课程不存在",
             code=404,
             status_code=status.HTTP_404_NOT_FOUND
         )
+    
+    # 根据UUID查找对应的ID
+    unit_id = None
+    if unit_uuid:
+        unit = db.query(PBLUnit).filter(PBLUnit.uuid == unit_uuid).first()
+        if unit:
+            unit_id = unit.id
+    
+    resource_id = None
+    if resource_uuid:
+        resource = db.query(PBLResource).filter(PBLResource.uuid == resource_uuid).first()
+        if resource:
+            resource_id = resource.id
+    
+    task_id = None
+    if task_uuid:
+        task = db.query(PBLTask).filter(PBLTask.uuid == task_uuid).first()
+        if task:
+            task_id = task.id
     
     # 判断完成状态
     is_completed = progress_value >= 100
@@ -232,7 +251,7 @@ def track_learning_activity(
     # 插入学习进度记录
     learning_progress = PBLLearningProgress(
         user_id=current_user.id,
-        course_id=course_id,
+        course_id=course.id,
         unit_id=unit_id,
         resource_id=resource_id,
         task_id=task_id,
@@ -247,7 +266,7 @@ def track_learning_activity(
     
     # 更新选课表的进度
     enrollment = db.query(PBLCourseEnrollment).filter(
-        PBLCourseEnrollment.course_id == course_id,
+        PBLCourseEnrollment.course_id == course.id,
         PBLCourseEnrollment.user_id == current_user.id,
         PBLCourseEnrollment.enrollment_status == 'enrolled'
     ).first()
@@ -257,17 +276,18 @@ def track_learning_activity(
     
     db.commit()
     
-    logger.debug(f"学习行为追踪 - 用户: {current_user.id}, 课程: {course_id}, 类型: {progress_type}")
+    logger.debug(f"学习行为追踪 - 用户: {current_user.id}, 课程: {course_uuid}, 类型: {progress_type}")
     
     return success_response(
         data={
             'tracked': True,
             'user_id': current_user.id,
-            'course_id': course_id,
-            'unit_id': unit_id,
-            'resource_id': resource_id,
-            'task_id': task_id,
+            'course_uuid': course_uuid,
+            'unit_uuid': unit_uuid,
+            'resource_uuid': resource_uuid,
+            'task_uuid': task_uuid,
             'progress_type': progress_type,
+            'progress_value': progress_value,
             'status': 'completed' if is_completed else 'in_progress',
             'time_spent': time_spent
         },

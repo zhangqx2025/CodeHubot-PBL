@@ -632,8 +632,8 @@ const loadLearningProgress = async (unitUuid) => {
 const saveProgress = async (step, progressType, progressValue = 100) => {
   try {
     const progressData = {
-      course_id: parseInt(courseId.value),
-      unit_id: currentUnit.value.id,
+      course_uuid: courseId.value,
+      unit_uuid: currentUnit.value.uuid,
       progress_type: progressType,
       progress_value: progressValue,
       time_spent: 0
@@ -641,9 +641,9 @@ const saveProgress = async (step, progressType, progressValue = 100) => {
     
     // 判断是资源还是任务
     if (step.type === 'task') {
-      progressData.task_id = parseInt(step.id.split('-')[1])
+      progressData.task_uuid = step.uuid
     } else {
-      progressData.resource_id = parseInt(step.id.split('-')[1])
+      progressData.resource_uuid = step.uuid
     }
     
     await trackLearningProgress(progressData)

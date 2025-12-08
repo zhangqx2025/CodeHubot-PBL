@@ -125,6 +125,14 @@ export const getTaskProgress = async (taskId) => {
  */
 
 // 记录学习行为（视频观看、文档阅读、任务提交等）
+// progressData 参数应包含以下字段（使用UUID）:
+// - course_uuid: 课程UUID（必填）
+// - unit_uuid: 单元UUID（可选）
+// - resource_uuid: 资源UUID（可选）
+// - task_uuid: 任务UUID（可选）
+// - progress_type: 进度类型，如 'video_watch', 'document_read' 等
+// - progress_value: 进度值，0-100
+// - time_spent: 花费时间（秒）
 export const trackLearningProgress = async (progressData) => {
   try {
     const data = await httpClient.post('/student/learning-progress/track', null, {
