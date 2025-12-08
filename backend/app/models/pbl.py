@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, Enum, ForeignKey, TIMESTAMP, JSON
+from sqlalchemy import Column, Integer, String, Text, Enum, ForeignKey, TIMESTAMP, JSON, DECIMAL, BigInteger
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import uuid
@@ -209,3 +209,229 @@ class PBLGroupMember(Base):
     is_active = Column(Integer, default=1)
     created_at = Column(TIMESTAMP, server_default=func.now())
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+
+
+class PBLLearningProgress(Base):
+    __tablename__ = "pbl_learning_progress"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, nullable=False)
+    course_id = Column(Integer, ForeignKey("pbl_courses.id"), nullable=False)
+    unit_id = Column(Integer, ForeignKey("pbl_units.id"))
+    resource_id = Column(Integer, ForeignKey("pbl_resources.id"))
+    progress_type = Column(Enum('resource_view', 'video_watch', 'document_read', 'task_submit', 'unit_complete'), nullable=False)
+    progress_value = Column(Integer, default=0)
+    time_spent = Column(Integer, default=0)
+    meta_data = Column(JSON)
+    created_at = Column(TIMESTAMP, server_default=func.now())
+
+
+class PBLAssessment(Base):
+    __tablename__ = "pbl_assessments"
+
+    id = Column(BigInteger, primary_key=True, index=True)
+    uuid = Column(String(36), unique=True, default=generate_uuid, nullable=False)
+    assessor_id = Column(Integer, nullable=False)
+    assessor_role = Column(Enum('teacher', 'student', 'expert', 'self'), nullable=False)
+    target_type = Column(Enum('project', 'task', 'output', 'student'), nullable=False)
+    target_id = Column(BigInteger, nullable=False)
+    student_id = Column(Integer, nullable=False)
+    group_id = Column(Integer)
+    assessment_type = Column(Enum('formative', 'summative'), default='formative')
+    dimensions = Column(JSON, nullable=False)
+    total_score = Column(DECIMAL(5, 2))
+    max_score = Column(DECIMAL(5, 2), default=100.00)
+    comments = Column(Text)
+    strengths = Column(Text)
+    improvements = Column(Text)
+    tags = Column(JSON)
+    is_public = Column(Integer, default=0)
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+
+
+class PBLAssessmentTemplate(Base):
+    __tablename__ = "pbl_assessment_templates"
+
+    id = Column(BigInteger, primary_key=True, index=True)
+    uuid = Column(String(36), unique=True, default=generate_uuid, nullable=False)
+    name = Column(String(100), nullable=False)
+    description = Column(Text)
+    applicable_to = Column(Enum('project', 'task', 'output'), nullable=False)
+    grade_level = Column(String(50))
+    dimensions = Column(JSON, nullable=False)
+    created_by = Column(Integer)
+    is_system = Column(Integer, default=0)
+    is_active = Column(Integer, default=1)
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+
+
+class PBLDataset(Base):
+    __tablename__ = "pbl_datasets"
+
+    id = Column(BigInteger, primary_key=True, index=True)
+    uuid = Column(String(36), unique=True, default=generate_uuid, nullable=False)
+    name = Column(String(100), nullable=False)
+    description = Column(Text)
+    data_type = Column(Enum('image', 'text', 'audio', 'video', 'tabular', 'mixed'), nullable=False)
+    category = Column(String(50))
+    file_url = Column(String(500))
+    file_size = Column(BigInteger)
+    sample_count = Column(Integer)
+    class_count = Column(Integer)
+    classes = Column(JSON)
+    is_labeled = Column(Integer, default=0)
+    label_format = Column(String(50))
+    split_ratio = Column(JSON)
+    grade_level = Column(String(50))
+    applicable_projects = Column(JSON)
+    source = Column(String(200))
+    license = Column(String(100))
+    preview_images = Column(JSON)
+    download_count = Column(Integer, default=0)
+    creator_id = Column(Integer)
+    school_id = Column(Integer)
+    is_public = Column(Integer, default=1)
+    quality_score = Column(DECIMAL(3, 2))
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+
+
+class PBLEthicsCase(Base):
+    __tablename__ = "pbl_ethics_cases"
+
+    id = Column(BigInteger, primary_key=True, index=True)
+    uuid = Column(String(36), unique=True, default=generate_uuid, nullable=False)
+    title = Column(String(200), nullable=False)
+    description = Column(Text, nullable=False)
+    content = Column(Text)
+    grade_level = Column(String(50))
+    ethics_topics = Column(JSON, nullable=False)
+    difficulty = Column(Enum('basic', 'intermediate', 'advanced'), default='basic')
+    discussion_questions = Column(JSON)
+    reference_links = Column(JSON)
+    cover_image = Column(String(255))
+    author = Column(String(100))
+    source = Column(String(200))
+    is_published = Column(Integer, default=1)
+    view_count = Column(Integer, default=0)
+    like_count = Column(Integer, default=0)
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+
+
+class PBLEthicsActivity(Base):
+    __tablename__ = "pbl_ethics_activities"
+
+    id = Column(BigInteger, primary_key=True, index=True)
+    uuid = Column(String(36), unique=True, default=generate_uuid, nullable=False)
+    case_id = Column(BigInteger, ForeignKey("pbl_ethics_cases.id"))
+    course_id = Column(BigInteger, ForeignKey("pbl_courses.id"))
+    unit_id = Column(BigInteger, ForeignKey("pbl_units.id"))
+    activity_type = Column(Enum('debate', 'case_analysis', 'role_play', 'discussion', 'reflection'), nullable=False)
+    title = Column(String(200), nullable=False)
+    description = Column(Text)
+    participants = Column(JSON)
+    group_id = Column(Integer)
+    facilitator_id = Column(Integer)
+    status = Column(Enum('planned', 'ongoing', 'completed', 'cancelled'), default='planned')
+    discussion_records = Column(JSON)
+    conclusions = Column(Text)
+    reflections = Column(JSON)
+    scheduled_at = Column(TIMESTAMP)
+    completed_at = Column(TIMESTAMP)
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+
+
+class PBLExternalExpert(Base):
+    __tablename__ = "pbl_external_experts"
+
+    id = Column(BigInteger, primary_key=True, index=True)
+    uuid = Column(String(36), unique=True, default=generate_uuid, nullable=False)
+    name = Column(String(100), nullable=False)
+    organization = Column(String(200))
+    title = Column(String(100))
+    expertise_areas = Column(JSON)
+    bio = Column(Text)
+    email = Column(String(255))
+    phone = Column(String(20))
+    avatar = Column(String(255))
+    is_active = Column(Integer, default=1)
+    participated_projects = Column(Integer, default=0)
+    avg_rating = Column(DECIMAL(3, 2))
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+
+
+class PBLSocialActivity(Base):
+    __tablename__ = "pbl_social_activities"
+
+    id = Column(BigInteger, primary_key=True, index=True)
+    uuid = Column(String(36), unique=True, default=generate_uuid, nullable=False)
+    title = Column(String(200), nullable=False)
+    description = Column(Text)
+    activity_type = Column(Enum('company_visit', 'lab_tour', 'workshop', 'competition', 'exhibition', 'volunteer', 'lecture'), nullable=False)
+    organizer = Column(String(200))
+    partner_organization = Column(String(200))
+    location = Column(String(500))
+    scheduled_at = Column(TIMESTAMP)
+    duration = Column(Integer)
+    max_participants = Column(Integer)
+    current_participants = Column(Integer, default=0)
+    participants = Column(JSON)
+    facilitators = Column(JSON)
+    status = Column(Enum('planned', 'registration', 'ongoing', 'completed', 'cancelled'), default='planned')
+    photos = Column(JSON)
+    summary = Column(Text)
+    feedback = Column(JSON)
+    created_by = Column(Integer)
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+
+
+class PBLStudentPortfolio(Base):
+    __tablename__ = "pbl_student_portfolios"
+
+    id = Column(BigInteger, primary_key=True, index=True)
+    uuid = Column(String(36), unique=True, default=generate_uuid, nullable=False)
+    student_id = Column(Integer, nullable=False)
+    school_year = Column(String(20), nullable=False)
+    grade_level = Column(String(50), nullable=False)
+    completed_projects = Column(JSON)
+    achievements = Column(JSON)
+    skill_assessment = Column(JSON)
+    growth_trajectory = Column(JSON)
+    highlights = Column(JSON)
+    total_learning_hours = Column(Integer, default=0)
+    projects_count = Column(Integer, default=0)
+    avg_score = Column(DECIMAL(5, 2))
+    teacher_comments = Column(Text)
+    self_reflection = Column(Text)
+    parent_feedback = Column(Text)
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+
+
+class PBLAchievement(Base):
+    __tablename__ = "pbl_achievements"
+
+    id = Column(BigInteger, primary_key=True, index=True)
+    uuid = Column(String(36), unique=True, default=generate_uuid, nullable=False)
+    name = Column(String(100), nullable=False)
+    description = Column(Text)
+    icon = Column(String(255))
+    condition = Column(JSON)
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+
+
+class PBLUserAchievement(Base):
+    __tablename__ = "pbl_user_achievements"
+
+    id = Column(BigInteger, primary_key=True, index=True)
+    user_id = Column(Integer, nullable=False)
+    achievement_id = Column(BigInteger, ForeignKey("pbl_achievements.id"), nullable=False)
+    unlocked_at = Column(TIMESTAMP, server_default=func.now())
+    created_at = Column(TIMESTAMP, server_default=func.now())
