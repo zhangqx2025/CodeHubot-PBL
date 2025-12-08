@@ -1,9 +1,13 @@
 <template>
   <div class="progress-page">
-    <div class="page-header">
-      <h1>学习进度</h1>
-      <p>查看你的学习统计和成就</p>
-    </div>
+    <el-card class="page-header" shadow="never">
+      <div class="header-content">
+        <div>
+          <h1>学习进度</h1>
+          <p>查看你的学习统计和成就</p>
+        </div>
+      </div>
+    </el-card>
 
     <div class="stats-overview">
       <div class="stat-card">
@@ -139,33 +143,44 @@ const continueCourse = (courseId) => {
 
 <style scoped>
 .progress-page {
-  padding: 24px;
-  max-width: 1200px;
-  margin: 0 auto;
+  padding: 0;
 }
 
 .page-header {
-  margin-bottom: 32px;
+  margin-bottom: 20px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+}
+
+.page-header :deep(.el-card__body) {
+  padding: 32px;
+}
+
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .page-header h1 {
-  font-size: 32px;
-  font-weight: 700;
-  color: #1e293b;
+  font-size: 28px;
+  font-weight: 600;
   margin: 0 0 8px 0;
 }
 
 .page-header p {
-  color: #64748b;
-  font-size: 16px;
+  font-size: 14px;
   margin: 0;
+  opacity: 0.9;
 }
 
 .stats-overview {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 24px;
-  margin-bottom: 32px;
+  gap: 20px;
+  margin-bottom: 20px;
 }
 
 .stat-card {
@@ -176,6 +191,12 @@ const continueCourse = (courseId) => {
   align-items: center;
   gap: 16px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
 
 .stat-icon {
@@ -201,7 +222,7 @@ const continueCourse = (courseId) => {
 .progress-sections {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 24px;
+  gap: 20px;
 }
 
 .section-card {
@@ -209,6 +230,7 @@ const continueCourse = (courseId) => {
   border-radius: 12px;
   padding: 24px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: none;
 }
 
 .section-card h2 {

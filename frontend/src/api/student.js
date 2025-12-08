@@ -119,3 +119,59 @@ export const getTaskProgress = async (taskId) => {
     throw error
   }
 }
+
+/**
+ * 学习进度相关 API
+ */
+
+// 记录学习行为（视频观看、文档阅读、任务提交等）
+export const trackLearningProgress = async (progressData) => {
+  try {
+    const data = await httpClient.post('/student/learning-progress/track', null, {
+      params: progressData
+    })
+    return data
+  } catch (error) {
+    throw error
+  }
+}
+
+// 获取单元内所有资源和任务的完成状态
+export const getUnitResourcesProgress = async (unitUuid) => {
+  try {
+    const data = await httpClient.get(`/student/learning-progress/unit/${unitUuid}/resources-progress`)
+    return data
+  } catch (error) {
+    throw error
+  }
+}
+
+// 获取我的学习进度概览
+export const getMyLearningProgress = async () => {
+  try {
+    const data = await httpClient.get('/student/learning-progress/my-progress')
+    return data
+  } catch (error) {
+    throw error
+  }
+}
+
+// 获取课程进度
+export const getCourseProgress = async (courseId) => {
+  try {
+    const data = await httpClient.get(`/student/learning-progress/course/${courseId}/progress`)
+    return data
+  } catch (error) {
+    throw error
+  }
+}
+
+// 获取单元进度
+export const getUnitProgress = async (unitId) => {
+  try {
+    const data = await httpClient.get(`/student/learning-progress/unit/${unitId}/progress`)
+    return data
+  } catch (error) {
+    throw error
+  }
+}

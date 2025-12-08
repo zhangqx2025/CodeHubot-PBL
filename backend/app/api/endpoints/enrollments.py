@@ -7,7 +7,7 @@ from ...db.session import SessionLocal
 from ...core.response import success_response, error_response
 from ...core.deps import get_db, get_current_admin, get_current_user
 from ...models.admin import Admin, User
-from ...models.pbl import PBLCourse, PBLCourseEnrollment
+from ...models.pbl import PBLCourse, PBLCourseEnrollment, PBLSchoolCourse
 from ...core.logging_config import get_logger
 
 router = APIRouter()
@@ -37,6 +37,30 @@ def enroll_course(
             status_code=status.HTTP_400_BAD_REQUEST
         )
     
+    # ★ 新增：检查课程是否已分配给学生所属学校
+    if current_user.school_id:
+        school_course = db.query(PBLSchoolCourse).filter(
+            PBLSchoolCourse.school_id == current_user.school_id,
+            PBLSchoolCourse.course_id == course_id,
+            PBLSchoolCourse.status == 'active'
+        ).first()
+        
+        if not school_course:
+            return error_response(
+                message="该课程未开放给您所在的学校",
+                code=403,
+                status_code=status.HTTP_403_FORBIDDEN
+            )
+        
+        # 检查是否超过学生数限制
+        if school_course.max_students:
+            if school_course.current_students >= school_course.max_students:
+                return error_response(
+                    message="该课程选课人数已满",
+                    code=400,
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+    
     # 检查是否已经选课
     existing_enrollment = db.query(PBLCourseEnrollment).filter(
         PBLCourseEnrollment.course_id == course_id,
@@ -59,6 +83,16 @@ def enroll_course(
         enrolled_at=datetime.now()
     )
     db.add(enrollment)
+    
+    # ★ 新增：更新学校课程的当前学生数
+    if current_user.school_id:
+        school_course = db.query(PBLSchoolCourse).filter(
+            PBLSchoolCourse.school_id == current_user.school_id,
+            PBLSchoolCourse.course_id == course_id
+        ).first()
+        if school_course:
+            school_course.current_students += 1
+    
     db.commit()
     db.refresh(enrollment)
     
@@ -107,6 +141,16 @@ def unenroll_course(
     # 更新选课状态为已退课
     enrollment.enrollment_status = 'dropped'
     enrollment.dropped_at = datetime.now()
+    
+    # ★ 新增：更新学校课程的当前学生数
+    if current_user.school_id:
+        school_course = db.query(PBLSchoolCourse).filter(
+            PBLSchoolCourse.school_id == current_user.school_id,
+            PBLSchoolCourse.course_id == course_id
+        ).first()
+        if school_course and school_course.current_students > 0:
+            school_course.current_students -= 1
+    
     db.commit()
     
     logger.info(f"学生退课 - 用户: {current_user.username}, 课程: {course.title}")
@@ -202,7 +246,7 @@ def batch_enroll_students(
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(get_current_admin)
 ):
-    """批量为学生选课（管理员）"""
+    """批量为学生选课（学校管理员）"""
     # 检查课程是否存在
     course = db.query(PBLCourse).filter(PBLCourse.id == course_id).first()
     if not course:
@@ -220,8 +264,26 @@ def batch_enroll_students(
             status_code=status.HTTP_403_FORBIDDEN
         )
     
+    # ★ 新增：学校管理员只能为本校学生分配本校课程
+    if current_admin.role in ['school_admin', 'teacher'] and current_admin.school_id:
+        # 检查课程是否已分配给学校
+        school_course = db.query(PBLSchoolCourse).filter(
+            PBLSchoolCourse.school_id == current_admin.school_id,
+            PBLSchoolCourse.course_id == course_id,
+            PBLSchoolCourse.status == 'active'
+        ).first()
+        
+        if not school_course:
+            return error_response(
+                message="该课程未分配给您的学校",
+                code=403,
+                status_code=status.HTTP_403_FORBIDDEN
+            )
+    
     # 批量创建选课记录
     enrolled_count = 0
+    school_courses_to_update = {}  # 记录需要更新的学校课程
+    
     for student_id in student_ids:
         # 检查学生是否存在
         student = db.query(User).filter(
@@ -231,6 +293,11 @@ def batch_enroll_students(
         
         if not student:
             continue
+        
+        # ★ 新增：学校管理员只能为本校学生分配课程
+        if current_admin.role in ['school_admin', 'teacher']:
+            if student.school_id != current_admin.school_id:
+                continue
         
         # 检查是否已经选课
         existing_enrollment = db.query(PBLCourseEnrollment).filter(
@@ -251,6 +318,21 @@ def batch_enroll_students(
         )
         db.add(enrollment)
         enrolled_count += 1
+        
+        # ★ 新增：记录需要更新的学校课程
+        if student.school_id:
+            if student.school_id not in school_courses_to_update:
+                school_courses_to_update[student.school_id] = 0
+            school_courses_to_update[student.school_id] += 1
+    
+    # ★ 新增：更新学校课程的当前学生数
+    for school_id, count in school_courses_to_update.items():
+        school_course = db.query(PBLSchoolCourse).filter(
+            PBLSchoolCourse.school_id == school_id,
+            PBLSchoolCourse.course_id == course_id
+        ).first()
+        if school_course:
+            school_course.current_students += count
     
     db.commit()
     

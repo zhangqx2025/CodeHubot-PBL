@@ -87,3 +87,51 @@ def get_current_user(token: str = Depends(oauth2_scheme_user), db: Session = Dep
         )
     
     return user
+
+def get_current_user_flexible(
+    token: Optional[str] = Depends(oauth2_scheme_user),
+    db: Session = Depends(get_db)
+):
+    """
+    灵活的用户认证：支持学生用户和管理员用户
+    优先尝试作为学生用户认证，如果失败则尝试作为管理员认证
+    """
+    from ..models.admin import User, Admin
+    
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="无效的认证凭据",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    
+    if not token:
+        raise credentials_exception
+    
+    try:
+        # 验证token
+        payload = verify_token(token, token_type="access")
+        user_id: Optional[int] = payload.get("sub")
+        if user_id is None:
+            raise credentials_exception
+        
+        # 首先尝试作为学生用户查询
+        user = db.query(User).filter(User.id == int(user_id)).first()
+        if user and user.is_active:
+            return user
+        
+        # 如果不是学生用户，尝试作为管理员查询
+        admin = db.query(Admin).filter(
+            Admin.id == int(user_id),
+            Admin.role.in_(['platform_admin', 'school_admin', 'teacher'])
+        ).first()
+        if admin and admin.is_active:
+            # 将管理员对象转换为用户对象格式，以便兼容现有代码
+            # 管理员也可以查看项目，但没有group_id限制
+            return admin
+        
+        raise credentials_exception
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise credentials_exception

@@ -83,8 +83,11 @@ const loadCases = async () => {
   loading.value = true
   try {
     const response = await getEthicsCases()
-    console.log('伦理案例数据:', response)
-    cases.value = response.items || []
+    console.log('伦理案例原始响应:', response)
+    // 兼容不同的响应格式
+    const data = response.data || response
+    console.log('伦理案例数据:', data)
+    cases.value = data.items || []
     if (cases.value.length === 0) {
       console.log('提示：数据库中暂无伦理案例数据')
     }

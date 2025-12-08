@@ -65,3 +65,12 @@ export const exportPortfolio = (portfolioUuid) => {
     responseType: 'blob'
   })
 }
+
+// 管理员获取所有学生成长档案列表
+export const getAdminPortfolios = (params) => {
+  return request({
+    url: '/pbl/admin/portfolios',
+    method: 'get',
+    params
+  })
+}

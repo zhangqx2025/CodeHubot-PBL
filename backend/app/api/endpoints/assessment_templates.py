@@ -49,7 +49,6 @@ async def get_assessment_templates(
             "dimensions": template.dimensions,
             "is_system": template.is_system,
             "is_active": template.is_active,
-            "usage_count": template.usage_count,
             "created_at": template.created_at.isoformat() if template.created_at else None
         })
     
@@ -123,7 +122,6 @@ async def get_assessment_template_detail(
         "dimensions": template.dimensions,
         "is_system": template.is_system,
         "is_active": template.is_active,
-        "usage_count": template.usage_count,
         "created_by": template.created_by,
         "creator_name": creator.full_name if creator else None,
         "created_at": template.created_at.isoformat() if template.created_at else None,

@@ -38,7 +38,7 @@
           v-for="course in myCourses" 
           :key="course.id"
           class="course-quick-card"
-          @click="gotoCourseDetail(course.id)"
+          @click="gotoCourseDetail(course.uuid)"
         >
           <div class="course-icon">📚</div>
           <div class="course-content">

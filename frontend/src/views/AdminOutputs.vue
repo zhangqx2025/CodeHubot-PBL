@@ -40,7 +40,13 @@
         <el-table-column prop="project_title" label="所属项目" min-width="180" show-overflow-tooltip />
         <el-table-column prop="is_public" label="公开展示" width="100">
           <template #default="{ row }">
-            <el-switch v-model="row.is_public" @change="handlePublicChange(row)" />
+            <el-switch 
+              :model-value="row.is_public"
+              :active-value="true"
+              :inactive-value="false"
+              :loading="row.statusUpdating" 
+              @update:model-value="(val) => handlePublicChange(row, val)" 
+            />
           </template>
         </el-table-column>
         <el-table-column prop="view_count" label="浏览" width="80" />
@@ -178,7 +184,12 @@ const loadOutputs = async () => {
     })
     
     const response = await getOutputs(params)
-    outputs.value = response.items || []
+    // 为每条记录添加状态更新标志，并确保 is_public 是布尔类型
+    outputs.value = (response.items || []).map(item => ({
+      ...item,
+      is_public: Boolean(item.is_public), // 确保转换为布尔类型
+      statusUpdating: false
+    }))
     pagination.total = response.total || 0
   } catch (error) {
     ElMessage.error('加载成果列表失败: ' + error.message)
@@ -187,14 +198,33 @@ const loadOutputs = async () => {
   }
 }
 
-const handlePublicChange = async (row) => {
+const handlePublicChange = async (row, newValue) => {
+  // 如果正在更新或值没有变化，忽略请求
+  if (row.statusUpdating || row.is_public === newValue) {
+    return
+  }
+  
+  // 保存原始状态，用于失败时恢复
+  const originalStatus = row.is_public
+  
+  // 先更新UI显示
+  row.is_public = newValue
+  
+  // 设置加载状态
+  row.statusUpdating = true
+  
   try {
-    await updateOutputStatus(row.uuid, row.is_public)
-    ElMessage.success('状态更新成功')
+    await updateOutputStatus(row.uuid, newValue)
+    ElMessage.success(`已${newValue ? '公开' : '取消公开'}该成果`)
   } catch (error) {
     ElMessage.error('状态更新失败: ' + error.message)
     // 恢复原状态
-    row.is_public = !row.is_public
+    row.is_public = originalStatus
+  } finally {
+    // 延迟移除加载状态，避免过快的重复点击
+    setTimeout(() => {
+      row.statusUpdating = false
+    }, 300)
   }
 }
 

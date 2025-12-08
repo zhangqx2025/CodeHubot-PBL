@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, File, UploadFile, 
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
 
-from app.core.deps import get_db, get_current_user
+from app.core.deps import get_db, get_current_user, get_current_user_flexible
 from app.models.pbl import PBLProject, PBLProjectOutput, PBLCourse
 from app.models.admin import User
 
@@ -23,7 +23,7 @@ async def get_projects(
     status: Optional[str] = None,
     group_id: Optional[int] = None,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user_flexible)
 ):
     """
     获取项目列表
@@ -121,7 +121,7 @@ async def get_my_projects(
 async def get_project_detail(
     project_uuid: str,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user_flexible)
 ):
     """
     获取项目详情
@@ -340,7 +340,7 @@ async def update_project_progress(
 async def get_project_outputs(
     project_uuid: str,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user_flexible)
 ):
     """
     获取项目成果列表
