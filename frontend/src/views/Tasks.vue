@@ -40,7 +40,15 @@
       />
     </div>
 
-    <div class="tasks-list">
+    <div class="tasks-list" v-if="loading">
+      <el-skeleton :rows="5" animated />
+    </div>
+
+    <div class="tasks-list" v-else-if="filteredTasks.length === 0">
+      <el-empty description="暂无任务" />
+    </div>
+
+    <div class="tasks-list" v-else>
       <div 
         class="task-card" 
         v-for="task in filteredTasks" 
@@ -130,9 +138,11 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Search, Clock, Star, Document, User, UserFilled } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
+import { getMyCourses, getCourseDetail, getMyLearningProgress } from '@/api/student'
 
 const router = useRouter()
 
@@ -142,64 +152,99 @@ const selectedMode = ref('')
 const selectedProject = ref('')
 const searchText = ref('')
 
-const tasks = ref([
-  {
-    id: 'task-1',
-    title: '创建第一个智能体',
-    projectName: '智能家居系统开发',
-    description: '在平台上创建你的第一个AI智能体，熟悉基本操作流程',
-    status: 'completed',
-    progress: 100,
-    estimatedTime: '30分钟',
-    difficulty: '简单',
-    type: '实践',
-    unitId: 'unit-1',
-    isGroupTask: false
-  },
-  {
-    id: 'task-2',
-    title: '优化提示词设计',
-    projectName: '智能家居系统开发',
-    description: '学习提示词工程，优化智能体的对话效果',
-    status: 'completed',
-    progress: 100,
-    estimatedTime: '45分钟',
-    difficulty: '中等',
-    type: '分析',
-    unitId: 'unit-2',
-    isGroupTask: true,
-    submittedBy: {
-      name: '李明',
-      time: '2023-12-06 14:30'
+const tasks = ref([])
+const loading = ref(true)
+
+// 加载学生的所有任务
+const loadTasks = async () => {
+  try {
+    loading.value = true
+    
+    // 获取我的课程列表
+    const courses = await getMyCourses()
+    
+    // 获取我的学习进度概览
+    const progressData = await getMyLearningProgress()
+    const progressMap = {}
+    progressData.forEach(item => {
+      progressMap[item.course_id] = item
+    })
+    
+    // 遍历每个课程，获取任务列表
+    const allTasks = []
+    
+    for (const course of courses) {
+      try {
+        const courseDetail = await getCourseDetail(course.uuid || course.id)
+        const courseProgress = progressMap[course.id] || {}
+        
+        // 遍历单元，提取任务
+        if (courseDetail.units) {
+          for (const unit of courseDetail.units) {
+            if (unit.tasks && unit.tasks.length > 0) {
+              unit.tasks.forEach(task => {
+                allTasks.push({
+                  id: task.id,
+                  uuid: task.uuid,
+                  title: task.title,
+                  projectName: courseDetail.title,
+                  description: task.description,
+                  status: task.status || 'pending', // 从后端获取的任务状态
+                  progress: task.progress || 0,
+                  estimatedTime: task.estimated_time || '未知',
+                  difficulty: getDifficultyText(task.difficulty),
+                  type: getTaskTypeText(task.type),
+                  unitId: unit.uuid || unit.id,
+                  unitUuid: unit.uuid,
+                  isGroupTask: task.is_group_task || false,
+                  submittedBy: task.submitted_by || null
+                })
+              })
+            }
+          }
+        }
+      } catch (error) {
+        console.error(`获取课程${course.id}详情失败:`, error)
+      }
     }
-  },
-  {
-    id: 'task-3',
-    title: '构建知识库',
-    projectName: '智能家居系统开发',
-    description: '创建知识库并上传相关文档，实现RAG功能',
-    status: 'in-progress', // 小组任务未完成状态
-    progress: 45,
-    estimatedTime: '60分钟',
-    difficulty: '中等',
-    type: '编程',
-    unitId: 'unit-3',
-    isGroupTask: true
-  },
-  {
-    id: 'task-4',
-    title: '环保主题调研',
-    projectName: '校园环保卫士',
-    description: '调研校园内的垃圾分类现状，收集数据并形成报告',
-    status: 'pending',
-    progress: 0,
-    estimatedTime: '120分钟',
-    difficulty: '简单',
-    type: '调研',
-    unitId: 'unit-env-1',
-    isGroupTask: true
+    
+    tasks.value = allTasks
+    loading.value = false
+  } catch (error) {
+    console.error('加载任务列表失败:', error)
+    ElMessage.error('加载任务列表失败')
+    loading.value = false
+    
+    // 如果API失败，显示空列表而不是硬编码数据
+    tasks.value = []
   }
-])
+}
+
+// 难度文本转换
+const getDifficultyText = (difficulty) => {
+  const map = {
+    'easy': '简单',
+    'medium': '中等',
+    'hard': '困难'
+  }
+  return map[difficulty] || difficulty
+}
+
+// 任务类型文本转换
+const getTaskTypeText = (type) => {
+  const map = {
+    'analysis': '分析',
+    'coding': '编程',
+    'design': '设计',
+    'deployment': '部署'
+  }
+  return map[type] || type
+}
+
+// 页面加载时获取任务
+onMounted(() => {
+  loadTasks()
+})
 
 const uniqueProjects = computed(() => {
   return [...new Set(tasks.value.map(t => t.projectName))]

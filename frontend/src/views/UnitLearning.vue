@@ -279,7 +279,13 @@ import { ArrowLeft, ArrowRight, Check, Lock, VideoPlay } from '@element-plus/ico
 import { ElMessage, ElMessageBox } from 'element-plus'
 import ChatPanel from '@/components/ChatPanel.vue'
 import VideoPlayer from '@/components/VideoPlayer.vue'
-import { getUnitDetail, getCourseDetail, getCourseUnits } from '@/api/student'
+import { 
+  getUnitDetail, 
+  getCourseDetail, 
+  getCourseUnits, 
+  trackLearningProgress,
+  getUnitResourcesProgress 
+} from '@/api/student'
 
 const router = useRouter()
 const route = useRoute()
@@ -392,6 +398,9 @@ const loadUnitData = async (unitUuid) => {
         learningPath.value.push(step)
       })
     }
+    
+    // 加载学习进度，更新各步骤的完成状态
+    await loadLearningProgress(unitUuid)
     
     loading.value = false
     
@@ -577,19 +586,94 @@ const unlockNextStep = (currentStepId) => {
   }
 }
 
+// 加载学习进度
+const loadLearningProgress = async (unitUuid) => {
+  try {
+    const progressData = await getUnitResourcesProgress(unitUuid)
+    
+    // 更新资源完成状态
+    if (progressData.resource_progress) {
+      Object.keys(progressData.resource_progress).forEach(key => {
+        const progress = progressData.resource_progress[key]
+        const step = learningPath.value.find(s => s.id === key)
+        if (step && progress.status === 'completed') {
+          step.status = 'completed'
+        }
+      })
+    }
+    
+    // 更新任务完成状态
+    if (progressData.task_progress) {
+      Object.keys(progressData.task_progress).forEach(key => {
+        const progress = progressData.task_progress[key]
+        const step = learningPath.value.find(s => s.id === key)
+        if (step && progress.status === 'completed') {
+          step.status = 'completed'
+        }
+      })
+    }
+    
+    // 根据完成状态解锁后续步骤
+    learningPath.value.forEach((step, index) => {
+      if (step.status === 'completed' && index < learningPath.value.length - 1) {
+        const nextStep = learningPath.value[index + 1]
+        if (nextStep.status === 'locked') {
+          nextStep.status = 'available'
+        }
+      }
+    })
+  } catch (error) {
+    console.error('加载学习进度失败:', error)
+    // 不显示错误消息，静默失败
+  }
+}
+
+// 记录学习进度到后端
+const saveProgress = async (step, progressType, progressValue = 100) => {
+  try {
+    const progressData = {
+      course_id: parseInt(courseId.value),
+      unit_id: currentUnit.value.id,
+      progress_type: progressType,
+      progress_value: progressValue,
+      time_spent: 0
+    }
+    
+    // 判断是资源还是任务
+    if (step.type === 'task') {
+      progressData.task_id = parseInt(step.id.split('-')[1])
+    } else {
+      progressData.resource_id = parseInt(step.id.split('-')[1])
+    }
+    
+    await trackLearningProgress(progressData)
+  } catch (error) {
+    console.error('保存学习进度失败:', error)
+    // 不影响用户体验，静默失败
+  }
+}
+
 // 视频播放结束处理
-const handleVideoEnded = () => {
+const handleVideoEnded = async () => {
   if (currentStep.value.status !== 'completed') {
     currentStep.value.status = 'completed'
     ElMessage.success('视频观看完成！')
+    
+    // 保存进度到后端
+    await saveProgress(currentStep.value, 'video_watch', 100)
+    
     unlockNextStep(currentStep.value.id)
   }
 }
 
 // 文档阅读完成处理
-const completeCurrentStep = () => {
+const completeCurrentStep = async () => {
   if (currentStep.value.status !== 'completed') {
     currentStep.value.status = 'completed'
+    
+    // 保存进度到后端
+    await saveProgress(currentStep.value, 'document_read', 100)
+    
     unlockNextStep(currentStep.value.id)
     
     // 自动跳转到下一步
@@ -610,13 +694,25 @@ const submitTask = async () => {
   }
   
   submitting.value = true
-  // 模拟API调用
-  await new Promise(resolve => setTimeout(resolve, 1000))
-  
-  submitting.value = false
-  currentStep.value.status = 'completed'
-  ElMessage.success('作业提交成功！')
-  unlockNextStep(currentStep.value.id)
+  try {
+    // 这里可以调用实际的任务提交API
+    // await submitTaskToBackend(currentStep.value.id, submissionContent.value)
+    
+    // 模拟API调用
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    
+    currentStep.value.status = 'completed'
+    
+    // 保存进度到后端
+    await saveProgress(currentStep.value, 'task_submit', 100)
+    
+    ElMessage.success('作业提交成功！')
+    unlockNextStep(currentStep.value.id)
+  } catch (error) {
+    ElMessage.error('提交失败，请重试')
+  } finally {
+    submitting.value = false
+  }
 }
 
 // 提交测验处理
@@ -649,9 +745,23 @@ const submitQuiz = async () => {
 }
 
 // 手动标记完成
-const manualCompleteStep = () => {
+const manualCompleteStep = async () => {
   if (currentStep.value) {
     currentStep.value.status = 'completed'
+    
+    // 根据步骤类型确定进度类型
+    let progressType = 'resource_view'
+    if (currentStep.value.type === 'video') {
+      progressType = 'video_watch'
+    } else if (currentStep.value.type === 'document') {
+      progressType = 'document_read'
+    } else if (currentStep.value.type === 'task') {
+      progressType = 'task_submit'
+    }
+    
+    // 保存进度到后端
+    await saveProgress(currentStep.value, progressType, 100)
+    
     ElMessage.success('已手动标记为完成')
     unlockNextStep(currentStep.value.id)
   }
@@ -662,6 +772,8 @@ const manualUncompleteStep = () => {
   if (currentStep.value) {
     currentStep.value.status = 'available'
     ElMessage.info('已撤销完成状态')
+    // 注意：这里不删除后端记录，只是前端状态变化
+    // 如果需要删除后端记录，需要添加相应的API
   }
 }
 

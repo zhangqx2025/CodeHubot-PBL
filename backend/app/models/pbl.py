@@ -124,7 +124,28 @@ class PBLTaskProgress(Base):
     task = relationship("PBLTask", back_populates="progress")
 
 
+class PBLSchoolCourse(Base):
+    """学校课程分配表：平台管理员为学校分配课程"""
+    __tablename__ = "pbl_school_courses"
+
+    id = Column(BigInteger, primary_key=True, index=True)
+    uuid = Column(String(36), unique=True, default=generate_uuid, nullable=False)
+    school_id = Column(Integer, nullable=False)  # Foreign Key to aiot_schools
+    course_id = Column(BigInteger, ForeignKey("pbl_courses.id"), nullable=False)
+    assigned_by = Column(Integer)  # Foreign Key to aiot_core_users (平台管理员)
+    assigned_at = Column(TIMESTAMP, server_default=func.now())
+    status = Column(Enum('active', 'inactive', 'archived'), default='active')
+    start_date = Column(TIMESTAMP)
+    end_date = Column(TIMESTAMP)
+    max_students = Column(Integer)  # NULL表示无限制
+    current_students = Column(Integer, default=0)
+    remarks = Column(Text)
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+
+
 class PBLCourseEnrollment(Base):
+    """学生选课表：学校管理员为学生分配课程"""
     __tablename__ = "pbl_course_enrollments"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -435,3 +456,22 @@ class PBLUserAchievement(Base):
     achievement_id = Column(BigInteger, ForeignKey("pbl_achievements.id"), nullable=False)
     unlocked_at = Column(TIMESTAMP, server_default=func.now())
     created_at = Column(TIMESTAMP, server_default=func.now())
+
+
+class PBLLearningProgress(Base):
+    __tablename__ = "pbl_learning_progress"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, nullable=False)  # Foreign Key to aiot_core_users
+    course_id = Column(BigInteger, ForeignKey("pbl_courses.id"), nullable=False)
+    unit_id = Column(BigInteger, ForeignKey("pbl_units.id"))
+    resource_id = Column(BigInteger, ForeignKey("pbl_resources.id"))
+    task_id = Column(BigInteger, ForeignKey("pbl_tasks.id"))
+    progress_type = Column(Enum('resource_view', 'video_watch', 'document_read', 'task_submit', 'unit_complete'), nullable=False)
+    progress_value = Column(Integer, default=0)
+    status = Column(Enum('in_progress', 'completed'), default='in_progress')
+    completed_at = Column(TIMESTAMP)
+    time_spent = Column(Integer, default=0)
+    meta_data = Column(JSON)
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())

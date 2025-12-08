@@ -207,6 +207,7 @@ def track_learning_activity(
     course_id: int,
     unit_id: Optional[int] = None,
     resource_id: Optional[int] = None,
+    task_id: Optional[int] = None,
     progress_type: str = 'resource_view',
     progress_value: int = 0,
     time_spent: int = 0,
@@ -224,14 +225,21 @@ def track_learning_activity(
             status_code=status.HTTP_404_NOT_FOUND
         )
     
+    # 判断完成状态
+    is_completed = progress_value >= 100
+    completed_at = datetime.now() if is_completed else None
+    
     # 插入学习进度记录
     learning_progress = PBLLearningProgress(
         user_id=current_user.id,
         course_id=course_id,
         unit_id=unit_id,
         resource_id=resource_id,
+        task_id=task_id,
         progress_type=progress_type,
         progress_value=progress_value,
+        status='completed' if is_completed else 'in_progress',
+        completed_at=completed_at,
         time_spent=time_spent,
         meta_data=metadata
     )
@@ -258,11 +266,74 @@ def track_learning_activity(
             'course_id': course_id,
             'unit_id': unit_id,
             'resource_id': resource_id,
+            'task_id': task_id,
             'progress_type': progress_type,
+            'status': 'completed' if is_completed else 'in_progress',
             'time_spent': time_spent
         },
         message="学习行为记录成功"
     )
+
+@router.get("/unit/{unit_uuid}/resources-progress")
+def get_unit_resources_progress(
+    unit_uuid: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """获取单元内所有资源和任务的完成状态"""
+    # 根据UUID查询单元
+    unit = db.query(PBLUnit).filter(PBLUnit.uuid == unit_uuid).first()
+    if not unit:
+        return error_response(
+            message="单元不存在",
+            code=404,
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    
+    # 获取该单元下所有资源的最新进度
+    resources = db.query(PBLResource).filter(PBLResource.unit_id == unit.id).all()
+    resource_progress = {}
+    
+    for resource in resources:
+        # 获取该资源的最新进度记录
+        latest_progress = db.query(PBLLearningProgress).filter(
+            PBLLearningProgress.user_id == current_user.id,
+            PBLLearningProgress.resource_id == resource.id
+        ).order_by(PBLLearningProgress.created_at.desc()).first()
+        
+        if latest_progress:
+            resource_progress[f"resource-{resource.id}"] = {
+                'status': latest_progress.status,
+                'progress_value': latest_progress.progress_value,
+                'completed_at': latest_progress.completed_at.isoformat() if latest_progress.completed_at else None,
+                'time_spent': latest_progress.time_spent
+            }
+    
+    # 获取该单元下所有任务的最新进度
+    tasks = db.query(PBLTask).filter(PBLTask.unit_id == unit.id).all()
+    task_progress = {}
+    
+    for task in tasks:
+        # 获取该任务的最新进度记录
+        latest_progress = db.query(PBLLearningProgress).filter(
+            PBLLearningProgress.user_id == current_user.id,
+            PBLLearningProgress.task_id == task.id
+        ).order_by(PBLLearningProgress.created_at.desc()).first()
+        
+        if latest_progress:
+            task_progress[f"task-{task.id}"] = {
+                'status': latest_progress.status,
+                'progress_value': latest_progress.progress_value,
+                'completed_at': latest_progress.completed_at.isoformat() if latest_progress.completed_at else None,
+                'time_spent': latest_progress.time_spent
+            }
+    
+    return success_response(data={
+        'unit_id': unit.id,
+        'unit_uuid': unit.uuid,
+        'resource_progress': resource_progress,
+        'task_progress': task_progress
+    })
 
 # ===== 管理员端：查看学生进度 =====
 
