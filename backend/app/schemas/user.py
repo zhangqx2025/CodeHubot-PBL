@@ -18,6 +18,7 @@ class UserBase(BaseModel):
     school_name: Optional[str] = None
     student_number: Optional[str] = None
     teacher_number: Optional[str] = None
+    subject: Optional[str] = None
 
 class UserLogin(BaseModel):
     """用户登录 Schema"""
@@ -33,6 +34,26 @@ class InstitutionLoginRequest(BaseModel):
 class UserCreate(UserBase):
     """用户创建 Schema"""
     password: str
+
+class UserUpdate(BaseModel):
+    """用户更新 Schema - 所有字段可选"""
+    username: Optional[str] = None
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = None
+    nickname: Optional[str] = None
+    name: Optional[str] = None
+    real_name: Optional[str] = None
+    gender: Optional[str] = None
+    role: Optional[str] = None
+    school_id: Optional[int] = None
+    class_id: Optional[int] = None
+    group_id: Optional[int] = None
+    school_name: Optional[str] = None
+    student_number: Optional[str] = None
+    teacher_number: Optional[str] = None
+    subject: Optional[str] = None
+    password: Optional[str] = None
+    is_active: Optional[bool] = None
 
 class UserResponse(UserBase):
     """用户响应 Schema"""
