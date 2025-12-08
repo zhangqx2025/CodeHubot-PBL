@@ -7,7 +7,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
 import time
 
-from app.api.endpoints import projects, admin_auth, admin_courses, admin_units, admin_resources, student_courses, student_auth
+from app.api.endpoints import projects, admin_auth, admin_courses, admin_units, admin_resources, student_courses, student_auth, admin_tasks, student_tasks, admin_users, enrollments, classes_groups, learning_progress, assessments, assessment_templates, datasets, ethics, experts, social_activities, admin_outputs, portfolios
 from app.core.response import error_response
 from app.core.logging_config import setup_logging, get_logger
 from app.db.session import engine
@@ -67,17 +67,34 @@ app.add_middleware(
 logger.info("CORS 中间件配置完成")
 
 # Include routers
-app.include_router(projects.router, prefix="/api/v1/projects", tags=["projects"])
-
 # Student routers
 app.include_router(student_auth.router, prefix="/api/v1/student/auth", tags=["student-auth"])
 app.include_router(student_courses.router, prefix="/api/v1/student", tags=["student"])
+app.include_router(student_tasks.router, prefix="/api/v1/student", tags=["student-tasks"])
+app.include_router(enrollments.router, prefix="/api/v1/student/enrollments", tags=["enrollments"])
+app.include_router(learning_progress.router, prefix="/api/v1/student/learning-progress", tags=["learning-progress"])
 
 # Admin routers
 app.include_router(admin_auth.router, prefix="/api/v1/admin/auth", tags=["admin-auth"])
 app.include_router(admin_courses.router, prefix="/api/v1/admin/courses", tags=["admin-courses"])
 app.include_router(admin_units.router, prefix="/api/v1/admin/units", tags=["admin-units"])
 app.include_router(admin_resources.router, prefix="/api/v1/admin/resources", tags=["admin-resources"])
+app.include_router(admin_tasks.router, prefix="/api/v1/admin/tasks", tags=["admin-tasks"])
+app.include_router(admin_users.router, prefix="/api/v1/admin/users", tags=["admin-users"])
+app.include_router(admin_outputs.router, prefix="/api/v1", tags=["admin-outputs"])
+app.include_router(classes_groups.router, prefix="/api/v1/admin/classes-groups", tags=["classes-groups"])
+app.include_router(enrollments.router, prefix="/api/v1/admin/enrollments", tags=["admin-enrollments"])
+app.include_router(learning_progress.router, prefix="/api/v1/admin/learning-progress", tags=["admin-learning-progress"])
+
+# PBL routers
+app.include_router(projects.router, prefix="/api/v1/pbl", tags=["pbl-projects"])
+app.include_router(assessments.router, prefix="/api/v1/pbl", tags=["pbl-assessments"])
+app.include_router(assessment_templates.router, prefix="/api/v1/pbl", tags=["pbl-assessment-templates"])
+app.include_router(datasets.router, prefix="/api/v1/pbl", tags=["pbl-datasets"])
+app.include_router(ethics.router, prefix="/api/v1/pbl", tags=["pbl-ethics"])
+app.include_router(experts.router, prefix="/api/v1/pbl", tags=["pbl-experts"])
+app.include_router(social_activities.router, prefix="/api/v1/pbl", tags=["pbl-social-activities"])
+app.include_router(portfolios.router, prefix="/api/v1/pbl", tags=["pbl-portfolios"])
 
 logger.info("所有路由注册完成")
 

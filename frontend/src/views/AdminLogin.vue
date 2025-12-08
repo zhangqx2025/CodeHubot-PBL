@@ -127,8 +127,11 @@ const handleLogin = async () => {
     
     // 保存token和管理员信息
     if (response.data && response.data.data) {
-      const { access_token, admin } = response.data.data
+      const { access_token, refresh_token, admin } = response.data.data
       localStorage.setItem('admin_access_token', access_token)
+      if (refresh_token) {
+        localStorage.setItem('admin_refresh_token', refresh_token)
+      }
       localStorage.setItem('admin_info', JSON.stringify(admin))
     }
     
