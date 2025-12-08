@@ -1,0 +1,127 @@
+// 班级和小组管理相关API
+import request from './request'
+import { handleApiError } from './config'
+
+// ===== 班级管理 =====
+
+/**
+ * 获取班级列表
+ */
+export const getClassList = async (params = {}) => {
+  try {
+    const response = await request.get('/admin/classes-groups/classes', { params })
+    return response.data.data || response.data
+  } catch (error) {
+    throw new Error(handleApiError(error))
+  }
+}
+
+/**
+ * 创建班级
+ */
+export const createClass = async (classData) => {
+  try {
+    const response = await request.post('/admin/classes-groups/classes', null, {
+      params: classData
+    })
+    return response.data.data || response.data
+  } catch (error) {
+    throw new Error(handleApiError(error))
+  }
+}
+
+/**
+ * 获取班级学生列表
+ */
+export const getClassStudents = async (classId) => {
+  try {
+    const response = await request.get(`/admin/classes-groups/classes/${classId}/students`)
+    return response.data.data || response.data
+  } catch (error) {
+    throw new Error(handleApiError(error))
+  }
+}
+
+/**
+ * 批量添加学生到班级
+ */
+export const addStudentsToClass = async (classId, studentIds) => {
+  try {
+    const response = await request.post(
+      `/admin/classes-groups/classes/${classId}/add-students`,
+      studentIds
+    )
+    return response.data
+  } catch (error) {
+    throw new Error(handleApiError(error))
+  }
+}
+
+// ===== 小组管理 =====
+
+/**
+ * 获取小组列表
+ */
+export const getGroupList = async (params = {}) => {
+  try {
+    const response = await request.get('/admin/classes-groups/groups', { params })
+    return response.data.data || response.data
+  } catch (error) {
+    throw new Error(handleApiError(error))
+  }
+}
+
+/**
+ * 创建小组
+ */
+export const createGroup = async (groupData) => {
+  try {
+    const response = await request.post('/admin/classes-groups/groups', null, {
+      params: groupData
+    })
+    return response.data.data || response.data
+  } catch (error) {
+    throw new Error(handleApiError(error))
+  }
+}
+
+/**
+ * 获取小组成员列表
+ */
+export const getGroupMembers = async (groupId) => {
+  try {
+    const response = await request.get(`/admin/classes-groups/groups/${groupId}/members`)
+    return response.data.data || response.data
+  } catch (error) {
+    throw new Error(handleApiError(error))
+  }
+}
+
+/**
+ * 批量添加成员到小组
+ */
+export const addMembersToGroup = async (groupId, studentIds) => {
+  try {
+    const response = await request.post(
+      `/admin/classes-groups/groups/${groupId}/add-members`,
+      studentIds
+    )
+    return response.data
+  } catch (error) {
+    throw new Error(handleApiError(error))
+  }
+}
+
+/**
+ * 从小组移除成员
+ */
+export const removeMemberFromGroup = async (groupId, studentId) => {
+  try {
+    const response = await request.delete(
+      `/admin/classes-groups/groups/${groupId}/members/${studentId}`
+    )
+    return response.data
+  } catch (error) {
+    throw new Error(handleApiError(error))
+  }
+}
