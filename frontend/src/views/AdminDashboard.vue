@@ -41,6 +41,10 @@
               <el-icon><FolderOpened /></el-icon>
               <span>资料管理</span>
             </el-menu-item>
+            <el-menu-item index="/admin/video-permissions">
+              <el-icon><VideoPlay /></el-icon>
+              <span>视频权限</span>
+            </el-menu-item>
             <el-menu-item index="/admin/tasks">
               <el-icon><Tickets /></el-icon>
               <span>任务管理</span>
@@ -292,7 +296,8 @@ import {
   MapLocation,
   ArrowDown,
   Message,
-  Phone
+  Phone,
+  VideoPlay
 } from '@element-plus/icons-vue'
 import { getCurrentAdmin } from '@/api/admin'
 
@@ -309,6 +314,7 @@ const pageTitle = computed(() => {
     '/admin/courses': '课程管理',
     '/admin/units': '学习单元',
     '/admin/resources': '资料管理',
+    '/admin/video-permissions': '视频权限管理',
     '/admin/tasks': '任务管理',
     '/admin/projects': '项目管理',
     '/admin/outputs': '成果管理',
