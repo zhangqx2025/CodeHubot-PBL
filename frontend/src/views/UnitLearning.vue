@@ -1,5 +1,10 @@
 <template>
-  <div class="unit-learning" v-if="currentUnit">
+  <div class="unit-learning" v-if="loading">
+    <div class="loading-container">
+      <el-skeleton :rows="10" animated />
+    </div>
+  </div>
+  <div class="unit-learning" v-else-if="currentUnit">
     <!-- 单元导航栏 -->
     <nav class="unit-nav">
       <div class="nav-content">
@@ -16,7 +21,7 @@
           <el-button-group>
             <el-button 
               v-if="previousUnit" 
-              @click="goToUnit(previousUnit.id)"
+              @click="goToUnit(previousUnit.uuid || previousUnit.id)"
               :icon="ArrowLeft"
               size="small"
             >
@@ -24,7 +29,7 @@
             </el-button>
             <el-button 
               v-if="nextUnit && nextUnit.status !== 'locked'" 
-              @click="goToUnit(nextUnit.id)"
+              @click="goToUnit(nextUnit.uuid || nextUnit.id)"
               size="small"
             >
               下一节
@@ -76,7 +81,12 @@
               <div class="step-content">
                 <div class="step-title">{{ step.title }}</div>
                 <div class="step-type">
-                  <el-tag size="small" :type="getStepTypeTag(step.type)">{{ getStepTypeName(step.type) }}</el-tag>
+                  <el-tag 
+                    size="small" 
+                    :type="getStepTypeTag(step.type) || undefined"
+                  >
+                    {{ getStepTypeName(step.type) }}
+                  </el-tag>
                   <el-tag 
                     v-if="step.type === 'task' && step.taskCategory" 
                     size="small" 
@@ -269,6 +279,7 @@ import { ArrowLeft, ArrowRight, Check, Lock, VideoPlay } from '@element-plus/ico
 import { ElMessage, ElMessageBox } from 'element-plus'
 import ChatPanel from '@/components/ChatPanel.vue'
 import VideoPlayer from '@/components/VideoPlayer.vue'
+import { getUnitDetail, getCourseDetail, getCourseUnits } from '@/api/student'
 
 const router = useRouter()
 const route = useRoute()
@@ -276,30 +287,125 @@ const route = useRoute()
 // 状态管理
 const leftPanelTab = ref('path')
 const currentUnit = ref(null)
-const courseId = ref('1') // 从 API 或路由参数获取
-const courseName = ref('智能家居AI助手项目') // 从 API 获取
+const courseId = ref('') // 从单元数据中获取
+const courseName = ref('') // 从 API 获取
 const learningPath = ref([])
 const currentStep = ref(null)
 const submissionContent = ref('')
 const submitting = ref(false)
 const quizAnswers = ref({})
-
-// 智能家居项目 - 单元列表
-const smartHomeUnits = [
-  { id: 'unit-1', title: '第一单元：智能体基础与扣子平台入门', status: 'active', duration: '1周' },
-  { id: 'unit-2', title: '第二单元：硬件设备接入与通信协议', status: 'locked', duration: '1周' },
-  { id: 'unit-3', title: '第三单元：智能体框架与决策引擎', status: 'locked', duration: '1.5周' },
-  { id: 'unit-4', title: '第四单元：自然语言处理与语音交互', status: 'locked', duration: '1.5周' },
-  { id: 'unit-5', title: '第五单元：用户界面与交互设计', status: 'locked', duration: '1周' },
-  { id: 'unit-6', title: '第六单元：场景联动与自动化', status: 'locked', duration: '1周' },
-  { id: 'unit-7', title: '第七单元：安全与隐私保护', status: 'locked', duration: '1周' },
-  { id: 'unit-8', title: '第八单元：系统集成与项目部署', status: 'locked', duration: '1周' }
-]
+const loading = ref(true)
 
 const courseUnits = ref([])
+const previousUnit = ref(null)
+const nextUnit = ref(null)
 
-// 智能家居项目 - 第一单元详细内容
-const smartHomeUnit1Steps = [
+// 从后端API加载单元数据
+const loadUnitData = async (unitUuid) => {
+  try {
+    loading.value = true
+    
+    // 获取单元详情
+    const unitData = await getUnitDetail(unitUuid)
+    
+    currentUnit.value = {
+      id: unitData.id,
+      uuid: unitData.uuid,
+      title: unitData.title,
+      description: unitData.description,
+      status: unitData.status,
+      order: unitData.order
+    }
+    
+    // 设置课程信息
+    if (unitData.course_uuid) {
+      courseId.value = unitData.course_uuid
+      courseName.value = unitData.course_title || ''
+      
+      // 获取课程的所有单元列表
+      try {
+        const units = await getCourseUnits(unitData.course_uuid)
+        courseUnits.value = units.map(u => ({
+          id: u.id,
+          uuid: u.uuid,
+          title: u.title,
+          status: u.status,
+          duration: '', // 可以后续计算
+          order: u.order
+        }))
+        
+        // 找到当前单元在列表中的位置
+        const currentIndex = courseUnits.value.findIndex(u => u.uuid === unitUuid)
+        if (currentIndex > 0) {
+          previousUnit.value = courseUnits.value[currentIndex - 1]
+        }
+        if (currentIndex < courseUnits.value.length - 1) {
+          nextUnit.value = courseUnits.value[currentIndex + 1]
+        }
+      } catch (error) {
+        console.error('获取课程单元列表失败:', error)
+      }
+    }
+    
+    // 构建学习路径：合并资料和任务
+    learningPath.value = []
+    
+    // 添加学习资料到路径
+    if (unitData.resources && unitData.resources.length > 0) {
+      unitData.resources.forEach(resource => {
+        const step = {
+          id: `resource-${resource.id}`,
+          uuid: resource.uuid,
+          title: resource.title,
+          type: resource.type, // video, document, link
+          status: 'available', // 后续根据学习进度设置
+          duration: resource.duration ? `${resource.duration}分钟` : '',
+          data: {
+            url: resource.url,
+            content: resource.content,
+            cover: resource.video_cover_url,
+            description: resource.description,
+            video_id: resource.video_id
+          }
+        }
+        learningPath.value.push(step)
+      })
+    }
+    
+    // 添加任务到路径
+    if (unitData.tasks && unitData.tasks.length > 0) {
+      unitData.tasks.forEach(task => {
+        const step = {
+          id: `task-${task.id}`,
+          uuid: task.uuid,
+          title: task.title,
+          type: 'task',
+          taskCategory: task.type, // analysis, coding, design, deployment
+          status: 'available', // 后续根据任务完成状态设置
+          duration: task.estimated_time || '',
+          data: {
+            description: task.description,
+            requirements: typeof task.requirements === 'string' ? JSON.parse(task.requirements) : (task.requirements || []),
+            prerequisites: task.prerequisites
+          }
+        }
+        learningPath.value.push(step)
+      })
+    }
+    
+    loading.value = false
+    
+  } catch (error) {
+    console.error('加载单元数据失败:', error)
+    ElMessage.error(error.message || '加载单元数据失败')
+    loading.value = false
+    // 返回到课程列表
+    router.push('/courses')
+  }
+}
+
+// 以下是保留的硬编码数据，用于开发测试（将被删除）
+const _oldSmartHomeUnit1Steps = [
   {
     id: 101,
     title: 'Agent 101：从 ChatGPT 到智能体',
@@ -406,9 +512,6 @@ const smartHomeUnit1Steps = [
   }
 ]
 
-const previousUnit = ref(null)
-const nextUnit = ref({ id: 'unit-2', title: '第二单元', status: 'locked' })
-
 // 计算属性
 const completedSteps = computed(() => {
   return learningPath.value.filter(s => s.status === 'completed').length
@@ -428,8 +531,9 @@ const switchUnit = (unit) => {
   // 如果是当前单元，不做操作
   if (unit.id === currentUnit.value.id) return
   
-  // 切换单元
-  router.push(`/unit/${unit.id}`)
+  // 切换单元，优先使用uuid
+  const identifier = unit.uuid || unit.id
+  router.push(`/unit/${identifier}`)
   ElMessage.success(`切换到: ${unit.title}`)
 }
 
@@ -562,33 +666,22 @@ const manualUncompleteStep = () => {
 }
 
 const goBack = () => router.push(`/course/${courseId.value}`)
-const goToUnit = (id) => router.push(`/unit/${id}`)
+const goToUnit = (unitIdOrUuid) => router.push(`/unit/${unitIdOrUuid}`)
 
-onMounted(() => {
+onMounted(async () => {
   const unitId = route.params.unitId
   
-  // 根据 ID 加载不同数据
-  // 这里简单判断，实际应调用 API
-  if (unitId.startsWith('unit-')) {
-    courseUnits.value = smartHomeUnits
-    // 假设只实现了 Unit 1 的内容
-    if (unitId === 'unit-1') {
-      learningPath.value = smartHomeUnit1Steps
-      currentUnit.value = smartHomeUnits[0]
-      nextUnit.value = smartHomeUnits[1]
-      previousUnit.value = null
-    } else {
-      // 其他单元显示占位
-      learningPath.value = []
-      currentUnit.value = smartHomeUnits.find(u => u.id === unitId) || smartHomeUnits[0]
-    }
-  }
-
+  // 从后端API加载单元数据
+  await loadUnitData(unitId)
+  
   // 默认选中第一个可用的步骤
   if (learningPath.value.length > 0) {
-    const firstAvailable = learningPath.value.find(s => s.status !== 'locked')
+    const firstAvailable = learningPath.value.find(s => s.status !== 'locked' && s.status !== 'completed')
     if (firstAvailable) {
       selectStep(firstAvailable)
+    } else {
+      // 如果没有可用的，选择第一个
+      selectStep(learningPath.value[0])
     }
   }
 })
@@ -998,5 +1091,11 @@ onMounted(() => {
   .learning-layout {
     grid-template-columns: 240px 1fr 280px;
   }
+}
+
+.loading-container {
+  padding: 40px;
+  background: white;
+  height: 100vh;
 }
 </style>

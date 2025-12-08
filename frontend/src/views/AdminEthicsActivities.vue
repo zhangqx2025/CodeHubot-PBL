@@ -90,8 +90,11 @@ const loadActivities = async () => {
   loading.value = true
   try {
     const response = await getEthicsActivities()
-    console.log('思辨活动数据:', response)
-    activities.value = response.items || []
+    console.log('思辨活动原始响应:', response)
+    // 兼容不同的响应格式
+    const data = response.data || response
+    console.log('思辨活动数据:', data)
+    activities.value = data.items || []
     if (activities.value.length === 0) {
       console.log('提示：数据库中暂无思辨活动数据')
     }

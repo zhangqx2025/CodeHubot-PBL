@@ -29,7 +29,7 @@
                 class="unit-item" 
                 v-for="unit in project.units" 
                 :key="unit.id"
-                @click="goToUnit(unit.id)"
+                @click="goToUnit(unit.uuid || unit.id)"
               >
                 <div class="unit-left">
                   <div class="unit-number">第{{ unit.order }}单元</div>
@@ -309,10 +309,10 @@ const goBack = () => {
   router.push('/')
 }
 
-const goToUnit = (unitId) => {
-  if (unitId) {
+const goToUnit = (unitIdOrUuid) => {
+  if (unitIdOrUuid) {
     // 实际项目中可能需要传递 projectId
-    router.push(`/unit/${unitId}`)
+    router.push(`/unit/${unitIdOrUuid}`)
   }
 }
 

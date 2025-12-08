@@ -20,3 +20,4 @@ CREATE TABLE IF NOT EXISTS `pbl_course_enrollments` (
   CONSTRAINT `fk_pbl_enrollments_course` FOREIGN KEY (`course_id`) REFERENCES `pbl_courses` (`id`) ON DELETE CASCADE,
   CONSTRAINT `uk_course_user` UNIQUE (`course_id`, `user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='PBL课程选课表';
+

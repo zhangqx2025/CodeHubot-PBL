@@ -111,7 +111,7 @@
                 v-if="unit.status !== 'locked'" 
                 type="primary" 
                 size="default"
-                @click="gotoUnitLearning(unit.id)"
+                @click="gotoUnitLearning(unit.id, unit.uuid)"
               >
                 {{ unit.status === 'completed' ? '回顾单元' : '开始学习' }}
               </el-button>
@@ -274,8 +274,10 @@ const goBack = () => {
   router.push('/courses')
 }
 
-const gotoUnitLearning = (unitId) => {
-  router.push(`/unit/${unitId}`)
+const gotoUnitLearning = (unitId, unitUuid) => {
+  // 优先使用uuid，如果没有uuid则使用id（向后兼容）
+  const identifier = unitUuid || unitId
+  router.push(`/unit/${identifier}`)
 }
 
 const gotoProjectDetail = (projectId) => {

@@ -16,6 +16,7 @@
           :collapse-transition="false"
           router
           class="admin-menu"
+          @select="handleMenuSelect"
         >
           <el-menu-item index="/admin">
             <el-icon><HomeFilled /></el-icon>
@@ -152,33 +153,6 @@
             <template #title>社会活动</template>
           </el-menu-item>
         </el-menu>
-        
-        <div class="admin-user">
-          <el-dropdown @command="handleCommand" :hide-on-click="true">
-            <span class="admin-user-info">
-              <el-avatar :size="32" style="background-color: #409eff;">
-                <el-icon><User /></el-icon>
-              </el-avatar>
-              <transition name="fade">
-                <span v-if="!isCollapse" class="admin-user-name">
-                  {{ adminInfo?.full_name || adminInfo?.username || '管理员' }}
-                </span>
-              </transition>
-            </span>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item command="profile">
-                  <el-icon><User /></el-icon>
-                  个人信息
-                </el-dropdown-item>
-                <el-dropdown-item command="logout" divided>
-                  <el-icon><SwitchButton /></el-icon>
-                  退出登录
-                </el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
-        </div>
       </el-aside>
 
       <!-- 主内容区 -->
@@ -194,9 +168,33 @@
             <h3>{{ pageTitle }}</h3>
           </div>
           <div class="header-right">
-            <el-tag type="success" effect="plain">
-              {{ adminInfo?.full_name || '管理员' }}
-            </el-tag>
+            <!-- 个人信息下拉菜单 -->
+            <el-dropdown @command="handleCommand" :hide-on-click="true">
+              <div class="admin-user-info">
+                <el-avatar :size="36" style="background-color: #409eff;">
+                  <el-icon><User /></el-icon>
+                </el-avatar>
+                <div class="admin-user-details">
+                  <div class="admin-user-name">
+                    {{ adminInfo?.full_name || adminInfo?.username || '管理员' }}
+                  </div>
+                  <div class="admin-user-role">管理员</div>
+                </div>
+                <el-icon class="dropdown-icon"><ArrowDown /></el-icon>
+              </div>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="profile">
+                    <el-icon><User /></el-icon>
+                    个人信息
+                  </el-dropdown-item>
+                  <el-dropdown-item command="logout" divided>
+                    <el-icon><SwitchButton /></el-icon>
+                    退出登录
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
           </div>
         </el-header>
         <el-main class="admin-main" :style="{ marginLeft: isCollapse ? '64px' : '250px' }">
@@ -204,6 +202,57 @@
         </el-main>
       </el-container>
     </el-container>
+
+    <!-- 个人信息对话框 -->
+    <el-dialog
+      v-model="profileDialogVisible"
+      title="个人信息"
+      width="500px"
+      :close-on-click-modal="false"
+    >
+      <div class="profile-content">
+        <div class="profile-avatar-section">
+          <el-avatar :size="80" style="background-color: #409eff;">
+            <el-icon :size="40"><User /></el-icon>
+          </el-avatar>
+        </div>
+        
+        <el-descriptions :column="1" border class="profile-descriptions">
+          <el-descriptions-item label="用户名">
+            <el-tag type="primary">{{ adminInfo?.username || '-' }}</el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="姓名">
+            {{ adminInfo?.full_name || '-' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="邮箱">
+            <el-icon style="margin-right: 4px;"><Message /></el-icon>
+            {{ adminInfo?.email || '-' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="电话">
+            <el-icon style="margin-right: 4px;"><Phone /></el-icon>
+            {{ adminInfo?.phone || '-' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="角色">
+            <el-tag type="success">管理员</el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="账号状态">
+            <el-tag :type="adminInfo?.is_active ? 'success' : 'danger'">
+              {{ adminInfo?.is_active ? '正常' : '已禁用' }}
+            </el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="创建时间">
+            {{ adminInfo?.created_at ? new Date(adminInfo.created_at).toLocaleString('zh-CN') : '-' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="最后登录">
+            {{ adminInfo?.last_login ? new Date(adminInfo.last_login).toLocaleString('zh-CN') : '-' }}
+          </el-descriptions-item>
+        </el-descriptions>
+      </div>
+      
+      <template #footer>
+        <el-button @click="profileDialogVisible = false">关闭</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -240,7 +289,10 @@ import {
   View,
   Memo,
   ChatDotRound,
-  MapLocation
+  MapLocation,
+  ArrowDown,
+  Message,
+  Phone
 } from '@element-plus/icons-vue'
 import { getCurrentAdmin } from '@/api/admin'
 
@@ -282,6 +334,15 @@ const toggleCollapse = () => {
   localStorage.setItem('admin_sidebar_collapse', isCollapse.value)
 }
 
+const handleMenuSelect = (index) => {
+  // 确保路由正确导航
+  if (index && index !== route.path) {
+    router.push(index)
+  }
+}
+
+const profileDialogVisible = ref(false)
+
 const handleCommand = (command) => {
   if (command === 'logout') {
     localStorage.removeItem('admin_access_token')
@@ -289,7 +350,7 @@ const handleCommand = (command) => {
     ElMessage.success('已退出登录')
     router.push('/admin/login')
   } else if (command === 'profile') {
-    ElMessage.info('个人信息功能开发中...')
+    profileDialogVisible.value = true
   }
 }
 
@@ -538,6 +599,65 @@ onMounted(async () => {
   opacity: 0;
 }
 
+/* 个人信息样式 */
+.admin-user-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.4;
+}
+
+.admin-user-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #303133;
+}
+
+.admin-user-role {
+  font-size: 12px;
+  color: #909399;
+}
+
+.dropdown-icon {
+  margin-left: 4px;
+  transition: transform 0.3s ease;
+  color: #909399;
+}
+
+.admin-user-info:hover .dropdown-icon {
+  transform: translateY(2px);
+  color: #409eff;
+}
+
+/* 个人信息对话框样式 */
+.profile-content {
+  padding: 10px 0;
+}
+
+.profile-avatar-section {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 24px;
+  padding: 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 8px;
+}
+
+.profile-descriptions {
+  margin-top: 16px;
+}
+
+.profile-descriptions :deep(.el-descriptions__label) {
+  width: 100px;
+  font-weight: 500;
+  color: #606266;
+}
+
+.profile-descriptions :deep(.el-descriptions__content) {
+  color: #303133;
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
   .admin-sidebar {
@@ -553,6 +673,10 @@ onMounted(async () => {
   }
   
   .collapse-btn {
+    display: none;
+  }
+  
+  .admin-user-details {
     display: none;
   }
 }

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, ConfigDict, Field
+from pydantic import BaseModel, EmailStr, ConfigDict, Field, field_validator
 from typing import Optional
 from datetime import datetime
 
@@ -19,6 +19,14 @@ class UserBase(BaseModel):
     student_number: Optional[str] = None
     teacher_number: Optional[str] = None
     subject: Optional[str] = None
+    
+    @field_validator('email', mode='before')
+    @classmethod
+    def empty_string_to_none(cls, v):
+        """将空字符串转换为 None"""
+        if v == '':
+            return None
+        return v
 
 class UserLogin(BaseModel):
     """用户登录 Schema"""
@@ -54,6 +62,14 @@ class UserUpdate(BaseModel):
     subject: Optional[str] = None
     password: Optional[str] = None
     is_active: Optional[bool] = None
+    
+    @field_validator('email', mode='before')
+    @classmethod
+    def empty_string_to_none(cls, v):
+        """将空字符串转换为 None"""
+        if v == '':
+            return None
+        return v
 
 class UserResponse(UserBase):
     """用户响应 Schema"""

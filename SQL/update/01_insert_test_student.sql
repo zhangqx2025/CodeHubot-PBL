@@ -129,3 +129,4 @@ ORDER BY id;
 -- 提示信息
 SELECT '测试学生用户插入完成！' AS message;
 SELECT '登录信息：用户名=20240001@DEMO_SCHOOL, 密码=123456' AS login_info;
+

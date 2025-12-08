@@ -1,28 +1,34 @@
 <template>
   <div class="my-courses">
     <!-- 页面标题 -->
-    <div class="page-header">
-      <h1>我的课程</h1>
-      <p class="subtitle">开始你的学习之旅，探索项目式学习的乐趣</p>
-    </div>
+    <el-card class="page-header" shadow="never">
+      <div class="header-content">
+        <div>
+          <h1>我的课程</h1>
+          <p class="subtitle">开始你的学习之旅，探索项目式学习的乐趣</p>
+        </div>
+      </div>
+    </el-card>
 
     <!-- 课程筛选 -->
-    <div class="course-filters">
-      <el-radio-group v-model="filterStatus" @change="loadCourses">
-        <el-radio-button label="all">全部课程</el-radio-button>
-        <el-radio-button label="in-progress">进行中</el-radio-button>
-        <el-radio-button label="completed">已完成</el-radio-button>
-      </el-radio-group>
-      
-      <el-input
-        v-model="searchQuery"
-        placeholder="搜索课程..."
-        :prefix-icon="Search"
-        class="search-input"
-        clearable
-        @input="handleSearch"
-      />
-    </div>
+    <el-card class="filter-card" shadow="never">
+      <div class="course-filters">
+        <el-radio-group v-model="filterStatus" @change="loadCourses">
+          <el-radio-button label="all">全部课程</el-radio-button>
+          <el-radio-button label="in-progress">进行中</el-radio-button>
+          <el-radio-button label="completed">已完成</el-radio-button>
+        </el-radio-group>
+        
+        <el-input
+          v-model="searchQuery"
+          placeholder="搜索课程..."
+          :prefix-icon="Search"
+          class="search-input"
+          clearable
+          @input="handleSearch"
+        />
+      </div>
+    </el-card>
 
     <!-- 加载状态 -->
     <el-skeleton :loading="loading" :rows="3" animated>
@@ -196,33 +202,49 @@ onMounted(() => {
 
 <style scoped>
 .my-courses {
-  padding: 24px;
-  max-width: 1400px;
-  margin: 0 auto;
+  padding: 0;
 }
 
 .page-header {
-  margin-bottom: 32px;
+  margin-bottom: 20px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+}
+
+.page-header :deep(.el-card__body) {
+  padding: 32px;
+}
+
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .page-header h1 {
-  font-size: 32px;
-  font-weight: 700;
-  color: #1e293b;
+  font-size: 28px;
+  font-weight: 600;
   margin: 0 0 8px 0;
 }
 
 .subtitle {
-  font-size: 16px;
-  color: #64748b;
+  font-size: 14px;
   margin: 0;
+  opacity: 0.9;
+}
+
+.filter-card {
+  margin-bottom: 20px;
+  border-radius: 12px;
+  border: none;
 }
 
 .course-filters {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
   gap: 16px;
 }
 
@@ -233,7 +255,7 @@ onMounted(() => {
 .courses-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-  gap: 24px;
+  gap: 20px;
 }
 
 .course-card {
@@ -245,11 +267,12 @@ onMounted(() => {
   cursor: pointer;
   display: flex;
   flex-direction: column;
+  border: none;
 }
 
 .course-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
 
 .course-cover {

@@ -5,28 +5,28 @@
         <div class="card-header">
           <span>资料管理</span>
           <div>
-            <el-select v-model="selectedCourseId" placeholder="选择课程" style="width: 200px; margin-right: 10px;" @change="loadUnits">
+            <el-select v-model="selectedCourseUuid" placeholder="选择课程" style="width: 200px; margin-right: 10px;" @change="loadUnits">
               <el-option
                 v-for="course in courses"
-                :key="course.id"
+                :key="course.uuid"
                 :label="course.title"
-                :value="course.id"
+                :value="course.uuid"
               />
             </el-select>
-            <el-select v-model="selectedUnitId" placeholder="选择单元" style="width: 200px; margin-right: 10px;" @change="loadResources" :disabled="!selectedCourseId">
+            <el-select v-model="selectedUnitUuid" placeholder="选择单元" style="width: 200px; margin-right: 10px;" @change="loadResources" :disabled="!selectedCourseUuid">
               <el-option
                 v-for="unit in units"
-                :key="unit.id"
+                :key="unit.uuid"
                 :label="unit.title"
-                :value="unit.id"
+                :value="unit.uuid"
               />
             </el-select>
-            <el-button type="primary" @click="handleCreate" :disabled="!selectedUnitId">创建资料</el-button>
+            <el-button type="primary" @click="handleCreate" :disabled="!selectedUnitUuid">创建资料</el-button>
           </div>
         </div>
       </template>
 
-      <el-table :data="resources" v-loading="loading" stripe v-if="selectedUnitId">
+      <el-table :data="resources" v-loading="loading" stripe v-if="selectedUnitUuid">
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column prop="title" label="资料标题" />
         <el-table-column prop="type" label="类型" width="100">
@@ -135,8 +135,9 @@ const formRef = ref(null)
 const courses = ref([])
 const units = ref([])
 const resources = ref([])
-const selectedCourseId = ref(null)
-const selectedUnitId = ref(null)
+const selectedCourseUuid = ref(null)
+const selectedUnitUuid = ref(null)
+const selectedUnitId = ref(null)  // 保留用于旧 API
 const editingId = ref(null)
 
 const formData = reactive({
@@ -156,8 +157,8 @@ const formRules = {
 }
 
 const uploadUrl = computed(() => {
-  if (!selectedUnitId.value) return ''
-  return `/api/v1/admin/resources/upload?unit_id=${selectedUnitId.value}&file_type=${formData.type}`
+  if (!selectedUnitUuid.value) return ''
+  return `/api/v1/admin/resources/upload?unit_uuid=${selectedUnitUuid.value}&file_type=${formData.type}`
 })
 
 const getTypeType = (type) => {
@@ -188,11 +189,12 @@ const loadCourses = async () => {
 }
 
 const loadUnits = async () => {
-  if (!selectedCourseId.value) return
+  if (!selectedCourseUuid.value) return
   
   try {
-    const data = await getUnits(selectedCourseId.value)
+    const data = await getUnits(selectedCourseUuid.value)
     units.value = Array.isArray(data) ? data : []
+    selectedUnitUuid.value = null
     selectedUnitId.value = null
     resources.value = []
   } catch (error) {
@@ -201,11 +203,17 @@ const loadUnits = async () => {
 }
 
 const loadResources = async () => {
-  if (!selectedUnitId.value) return
+  if (!selectedUnitUuid.value) return
+  
+  // 从 units 中查找对应的 unit_id（用于旧 API）
+  const selectedUnit = units.value.find(u => u.uuid === selectedUnitUuid.value)
+  if (selectedUnit) {
+    selectedUnitId.value = selectedUnit.id
+  }
   
   loading.value = true
   try {
-    const data = await getResources(selectedUnitId.value)
+    const data = await getResources(selectedUnitUuid.value)
     resources.value = Array.isArray(data) ? data : []
   } catch (error) {
     ElMessage.error('加载资料列表失败')
@@ -285,7 +293,7 @@ const handleSubmit = async () => {
     
     const submitData = {
       ...formData,
-      unit_id: selectedUnitId.value
+      unit_uuid: selectedUnitUuid.value
     }
     
     if (editingId.value) {

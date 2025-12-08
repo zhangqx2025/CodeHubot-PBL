@@ -61,3 +61,30 @@ export const getProjectProgress = async (id) => {
   }
 }
 
+export const deleteProject = async (uuid) => {
+  try {
+    const response = await httpClient.delete(API_ENDPOINTS.PROJECTS.DELETE(uuid))
+    return response.data
+  } catch (error) {
+    throw handleApiError(error)
+  }
+}
+
+export const createProject = async (data) => {
+  try {
+    const response = await httpClient.post(API_ENDPOINTS.PROJECTS.LIST, data)
+    return response.data
+  } catch (error) {
+    throw handleApiError(error)
+  }
+}
+
+export const updateProject = async (uuid, data) => {
+  try {
+    const response = await httpClient.put(API_ENDPOINTS.PROJECTS.UPDATE(uuid), data)
+    return response.data
+  } catch (error) {
+    throw handleApiError(error)
+  }
+}
+

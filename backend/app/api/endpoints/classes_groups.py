@@ -288,14 +288,23 @@ def create_group(
 
 @router.get("/groups/{group_id}/members")
 def get_group_members(
-    group_id: int,
+    group_id: str,
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(get_current_admin)
 ):
     """获取小组成员列表"""
+    # 查询小组
+    group = db.query(PBLGroup).filter(PBLGroup.uuid == group_id).first()
+    if not group:
+        return error_response(
+            message="小组不存在",
+            code=404,
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    
     # 查询小组成员
     group_members = db.query(PBLGroupMember).filter(
-        PBLGroupMember.group_id == group_id,
+        PBLGroupMember.group_id == group.id,
         PBLGroupMember.is_active == True
     ).all()
     
@@ -321,7 +330,7 @@ def get_group_members(
 
 @router.post("/groups/{group_id}/add-members")
 def add_members_to_group(
-    group_id: int,
+    group_id: str,
     student_ids: List[int],
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(get_current_admin)
@@ -336,7 +345,7 @@ def add_members_to_group(
         )
     
     # 检查小组是否存在
-    group = db.query(PBLGroup).filter(PBLGroup.id == group_id).first()
+    group = db.query(PBLGroup).filter(PBLGroup.uuid == group_id).first()
     if not group:
         return error_response(
             message="小组不存在",
@@ -361,7 +370,7 @@ def add_members_to_group(
         
         # 检查是否已经在小组中
         existing_member = db.query(PBLGroupMember).filter(
-            PBLGroupMember.group_id == group_id,
+            PBLGroupMember.group_id == group.id,
             PBLGroupMember.user_id == student_id,
             PBLGroupMember.is_active == True
         ).first()
@@ -371,7 +380,7 @@ def add_members_to_group(
         
         # 添加成员
         member = PBLGroupMember(
-            group_id=group_id,
+            group_id=group.id,
             user_id=student_id,
             role='member',
             is_active=True
@@ -381,7 +390,7 @@ def add_members_to_group(
     
     db.commit()
     
-    logger.info(f"添加成员到小组 - 小组ID: {group_id}, 成功: {success_count}, 操作者: {current_admin.username}")
+    logger.info(f"添加成员到小组 - 小组UUID: {group_id}, 成功: {success_count}, 操作者: {current_admin.username}")
     
     return success_response(
         data={'added_count': success_count},
@@ -390,15 +399,24 @@ def add_members_to_group(
 
 @router.delete("/groups/{group_id}/members/{student_id}")
 def remove_member_from_group(
-    group_id: int,
+    group_id: str,
     student_id: int,
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(get_current_admin)
 ):
     """从小组移除成员"""
+    # 查询小组
+    group = db.query(PBLGroup).filter(PBLGroup.uuid == group_id).first()
+    if not group:
+        return error_response(
+            message="小组不存在",
+            code=404,
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    
     # 查找小组成员记录
     member = db.query(PBLGroupMember).filter(
-        PBLGroupMember.group_id == group_id,
+        PBLGroupMember.group_id == group.id,
         PBLGroupMember.user_id == student_id,
         PBLGroupMember.is_active == True
     ).first()
@@ -422,6 +440,6 @@ def remove_member_from_group(
     member.is_active = False
     db.commit()
     
-    logger.info(f"从小组移除成员 - 小组ID: {group_id}, 学生ID: {student_id}, 操作者: {current_admin.username}")
+    logger.info(f"从小组移除成员 - 小组UUID: {group_id}, 学生ID: {student_id}, 操作者: {current_admin.username}")
     
     return success_response(message="成员已从小组移除")
