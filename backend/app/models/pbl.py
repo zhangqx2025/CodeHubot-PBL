@@ -232,21 +232,6 @@ class PBLGroupMember(Base):
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
 
 
-class PBLLearningProgress(Base):
-    __tablename__ = "pbl_learning_progress"
-
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, nullable=False)
-    course_id = Column(Integer, ForeignKey("pbl_courses.id"), nullable=False)
-    unit_id = Column(Integer, ForeignKey("pbl_units.id"))
-    resource_id = Column(Integer, ForeignKey("pbl_resources.id"))
-    progress_type = Column(Enum('resource_view', 'video_watch', 'document_read', 'task_submit', 'unit_complete'), nullable=False)
-    progress_value = Column(Integer, default=0)
-    time_spent = Column(Integer, default=0)
-    meta_data = Column(JSON)
-    created_at = Column(TIMESTAMP, server_default=func.now())
-
-
 class PBLAssessment(Base):
     __tablename__ = "pbl_assessments"
 
