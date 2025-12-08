@@ -157,3 +157,90 @@ class Task(TaskBase):
     
     class Config:
         from_attributes = True
+
+# --- School Course Schemas ---
+class SchoolCourseStatus(str, Enum):
+    """学校课程状态"""
+    active = 'active'
+    inactive = 'inactive'
+    archived = 'archived'
+
+class SchoolCourseBase(BaseModel):
+    """学校课程基础模型"""
+    school_id: int
+    course_id: int
+    status: Optional[SchoolCourseStatus] = SchoolCourseStatus.active
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+    max_students: Optional[int] = None
+    remarks: Optional[str] = None
+
+class SchoolCourseCreate(SchoolCourseBase):
+    """创建学校课程分配"""
+    pass
+
+class SchoolCourseUpdate(BaseModel):
+    """更新学校课程分配"""
+    status: Optional[SchoolCourseStatus] = None
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+    max_students: Optional[int] = None
+    remarks: Optional[str] = None
+
+class SchoolCourse(SchoolCourseBase):
+    """学校课程返回模型"""
+    id: int
+    uuid: str
+    assigned_by: Optional[int] = None
+    assigned_at: datetime
+    current_students: int
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+class SchoolCourseWithDetails(SchoolCourse):
+    """学校课程详情（包含课程信息）"""
+    course: Optional[Course] = None
+
+# --- Course Enrollment Schemas ---
+class EnrollmentStatus(str, Enum):
+    """学生选课状态"""
+    enrolled = 'enrolled'
+    dropped = 'dropped'
+    completed = 'completed'
+
+class CourseEnrollmentBase(BaseModel):
+    """学生选课基础模型"""
+    course_id: int
+    user_id: int
+    enrollment_status: Optional[EnrollmentStatus] = EnrollmentStatus.enrolled
+
+class CourseEnrollmentCreate(CourseEnrollmentBase):
+    """创建学生选课"""
+    pass
+
+class CourseEnrollmentUpdate(BaseModel):
+    """更新学生选课"""
+    enrollment_status: Optional[EnrollmentStatus] = None
+    progress: Optional[int] = None
+    final_score: Optional[int] = None
+
+class CourseEnrollment(CourseEnrollmentBase):
+    """学生选课返回模型"""
+    id: int
+    enrolled_at: Optional[datetime] = None
+    dropped_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    progress: int
+    final_score: Optional[int] = None
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+class CourseEnrollmentWithDetails(CourseEnrollment):
+    """学生选课详情（包含课程信息）"""
+    course: Optional[Course] = None
