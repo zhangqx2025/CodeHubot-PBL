@@ -1,22 +1,22 @@
 <template>
-  <div class="admin-login-container">
-    <div class="admin-login-card">
-      <div class="admin-login-header">
+  <div class="platform-admin-login-container">
+    <div class="platform-admin-login-card">
+      <div class="platform-admin-login-header">
         <h1>PBL系统管理后台</h1>
-        <p>管理员登录</p>
+        <p>平台管理员登录</p>
       </div>
       
       <el-form 
         ref="loginFormRef" 
         :model="loginData" 
         :rules="loginRules" 
-        class="admin-login-form"
+        class="platform-admin-login-form"
         @submit.prevent="handleLogin"
       >
         <el-form-item prop="username">
           <el-input
             v-model="loginData.username"
-            placeholder="请输入工号@学校代码 (如: T001@school001)"
+            placeholder="请输入用户名"
             :prefix-icon="User"
             size="large"
             clearable
@@ -39,7 +39,7 @@
           <el-button 
             type="primary" 
             size="large" 
-            class="admin-login-button"
+            class="platform-admin-login-button"
             :loading="loading"
             @click="handleLogin"
           >
@@ -50,24 +50,22 @@
       
       <div class="login-tips">
         <div class="demo-account">
-          <p class="demo-title">演示账号</p>
-          <p class="demo-info">工号: T001</p>
-          <p class="demo-info">学校代码: DEMO_SCHOOL</p>
-          <p class="demo-info">密码: 123456</p>
-          <p class="demo-info">登录格式: 工号@学校代码</p>
+          <p class="demo-title">测试账号</p>
+          <p class="demo-info">用户名: admin</p>
+          <p class="demo-info">密码: admin123</p>
           <el-button 
             type="text" 
             size="small" 
             @click="fillDemoAccount"
             class="demo-button"
           >
-            一键填入演示账号
+            一键填入测试账号
           </el-button>
         </div>
       </div>
       
-      <div class="admin-login-footer">
-        <el-link type="primary" @click="goToPlatformAdminLogin">切换到平台管理员登录</el-link>
+      <div class="platform-admin-login-footer">
+        <el-link type="primary" @click="goToInstitutionLogin">切换到机构登录</el-link>
         <span class="divider">|</span>
         <el-link type="primary" @click="goToStudentLogin">返回学生登录</el-link>
       </div>
@@ -80,7 +78,7 @@ import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { User, Lock } from '@element-plus/icons-vue'
-import { adminLogin } from '@/api/admin'
+import { platformAdminLogin } from '@/api/admin'
 
 const router = useRouter()
 
@@ -94,12 +92,8 @@ const loginData = reactive({
 
 const loginRules = {
   username: [
-    { required: true, message: '请输入工号@学校代码', trigger: 'blur' },
-    {
-      pattern: /^[a-zA-Z0-9_]+@[a-zA-Z0-9_]+$/,
-      message: '请输入正确的工号@学校代码格式',
-      trigger: 'blur'
-    }
+    { required: true, message: '请输入用户名', trigger: 'blur' },
+    { min: 3, message: '用户名长度不能少于3位', trigger: 'blur' }
   ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
@@ -116,12 +110,8 @@ const handleLogin = async () => {
     
     loading.value = true
     
-    // 解析工号@学校代码格式
-    const [teacherNumber, schoolCode] = loginData.username.split('@')
-    
-    const response = await adminLogin({
-      school_code: schoolCode,
-      number: teacherNumber,
+    const response = await platformAdminLogin({
+      username: loginData.username,
       password: loginData.password
     })
     
@@ -153,13 +143,13 @@ const handleLogin = async () => {
 }
 
 const fillDemoAccount = () => {
-  loginData.username = 'T001@DEMO_SCHOOL'
-  loginData.password = '123456'
-  ElMessage.success('演示账号已自动填充！')
+  loginData.username = 'admin'
+  loginData.password = 'admin123'
+  ElMessage.success('测试账号已自动填充！')
 }
 
-const goToPlatformAdminLogin = () => {
-  router.push('/platform-admin/login')
+const goToInstitutionLogin = () => {
+  router.push('/admin/login')
 }
 
 const goToStudentLogin = () => {
@@ -168,7 +158,7 @@ const goToStudentLogin = () => {
 </script>
 
 <style scoped>
-.admin-login-container {
+.platform-admin-login-container {
   min-height: 100vh;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   display: flex;
@@ -177,7 +167,7 @@ const goToStudentLogin = () => {
   padding: 20px;
 }
 
-.admin-login-card {
+.platform-admin-login-card {
   background: white;
   border-radius: 16px;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
@@ -187,24 +177,24 @@ const goToStudentLogin = () => {
   text-align: center;
 }
 
-.admin-login-header h1 {
+.platform-admin-login-header h1 {
   color: #333;
   font-size: 24px;
   font-weight: 600;
   margin: 0 0 8px 0;
 }
 
-.admin-login-header p {
+.platform-admin-login-header p {
   color: #666;
   font-size: 16px;
   margin: 0 0 32px 0;
 }
 
-.admin-login-form {
+.platform-admin-login-form {
   text-align: left;
 }
 
-.admin-login-button {
+.platform-admin-login-button {
   width: 100%;
   height: 48px;
   font-size: 16px;
@@ -248,7 +238,7 @@ const goToStudentLogin = () => {
   color: #764ba2;
 }
 
-.admin-login-footer {
+.platform-admin-login-footer {
   margin-top: 24px;
   padding-top: 20px;
   border-top: 1px solid #eee;
@@ -264,12 +254,12 @@ const goToStudentLogin = () => {
 }
 
 @media (max-width: 480px) {
-  .admin-login-card {
+  .platform-admin-login-card {
     padding: 24px;
     margin: 0 16px;
   }
   
-  .admin-login-header h1 {
+  .platform-admin-login-header h1 {
     font-size: 20px;
   }
 }

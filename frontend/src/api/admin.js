@@ -40,7 +40,19 @@ httpClient.interceptors.response.use(
 )
 
 /**
- * 管理员登录
+ * 平台管理员登录（用户名+密码）
+ */
+export const platformAdminLogin = async (loginData) => {
+  try {
+    const response = await httpClient.post('/admin/auth/platform-login', loginData)
+    return response
+  } catch (error) {
+    throw new Error(handleApiError(error))
+  }
+}
+
+/**
+ * 机构管理员登录（学校代码+工号+密码）
  */
 export const adminLogin = async (loginData) => {
   try {

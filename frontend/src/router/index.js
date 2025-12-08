@@ -98,7 +98,16 @@ const routes = [
     name: 'AdminLogin',
     component: () => import('../views/AdminLogin.vue'),
     meta: {
-      title: '管理员登录 - PBL系统管理后台',
+      title: '机构管理员登录 - PBL系统管理后台',
+      requiresAuth: false
+    }
+  },
+  {
+    path: '/platform-admin/login',
+    name: 'PlatformAdminLogin',
+    component: () => import('../views/PlatformAdminLogin.vue'),
+    meta: {
+      title: '平台管理员登录 - PBL系统管理后台',
       requiresAuth: false
     }
   },
@@ -185,7 +194,7 @@ router.beforeEach(async (to, from, next) => {
       }
       
       // 如果已登录且访问管理员登录页，跳转到管理后台
-      if (to.name === 'AdminLogin' && isAdminTokenValid) {
+      if ((to.name === 'AdminLogin' || to.name === 'PlatformAdminLogin') && isAdminTokenValid) {
         next('/admin')
         return
       }
@@ -235,7 +244,7 @@ router.beforeEach(async (to, from, next) => {
     }
     
     // 如果已登录且访问管理员登录页，跳转到管理后台
-    if (to.name === 'AdminLogin') {
+    if (to.name === 'AdminLogin' || to.name === 'PlatformAdminLogin') {
       const adminToken = localStorage.getItem('admin_access_token')
       const isAdminTokenValid = adminToken && !isTokenExpired(adminToken)
       if (isAdminTokenValid) {
