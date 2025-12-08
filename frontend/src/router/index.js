@@ -187,6 +187,14 @@ const routes = [
         }
       },
       {
+        path: 'video-permissions',
+        name: 'AdminVideoPermissions',
+        component: () => import('../views/AdminVideoPermissions.vue'),
+        meta: {
+          title: '视频权限管理 - PBL系统管理后台'
+        }
+      },
+      {
         path: 'tasks',
         name: 'AdminTasks',
         component: () => import('../views/AdminTasks.vue'),

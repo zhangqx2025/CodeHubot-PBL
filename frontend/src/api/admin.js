@@ -381,3 +381,79 @@ export const getOutputStatistics = async () => {
     throw new Error(handleApiError(error))
   }
 }
+
+// ========== 视频权限管理 API ==========
+
+/**
+ * 获取视频的观看权限配置
+ */
+export const getVideoPermission = async (resourceUuid, userId) => {
+  try {
+    const response = await request.get(`/video/permission/${resourceUuid}/user/${userId}`)
+    return response.data.data || response.data
+  } catch (error) {
+    throw new Error(handleApiError(error))
+  }
+}
+
+/**
+ * 设置单个学生的视频观看权限
+ */
+export const setVideoPermission = async (resourceUuid, permissionData) => {
+  try {
+    const response = await request.post(`/video/permission/${resourceUuid}`, permissionData)
+    return response.data.data || response.data
+  } catch (error) {
+    throw new Error(handleApiError(error))
+  }
+}
+
+/**
+ * 批量设置多个学生的视频观看权限
+ */
+export const batchSetVideoPermissions = async (resourceUuid, permissionData) => {
+  try {
+    const response = await request.post(`/video/permission/${resourceUuid}/batch`, permissionData)
+    return response.data.data || response.data
+  } catch (error) {
+    throw new Error(handleApiError(error))
+  }
+}
+
+/**
+ * 删除学生的个性化视频权限配置
+ */
+export const deleteVideoPermission = async (resourceUuid, userId) => {
+  try {
+    const response = await request.delete(`/video/permission/${resourceUuid}/user/${userId}`)
+    return response.data
+  } catch (error) {
+    throw new Error(handleApiError(error))
+  }
+}
+
+/**
+ * 获取视频的观看统计信息
+ */
+export const getVideoWatchStats = async (resourceUuid) => {
+  try {
+    const response = await request.get(`/video/watch-stats/${resourceUuid}`)
+    return response.data.data || response.data
+  } catch (error) {
+    throw new Error(handleApiError(error))
+  }
+}
+
+/**
+ * 获取视频的观看历史记录
+ */
+export const getVideoWatchHistory = async (resourceUuid, limit = 50) => {
+  try {
+    const response = await request.get(`/video/watch-history/${resourceUuid}`, {
+      params: { limit }
+    })
+    return response.data.data || response.data
+  } catch (error) {
+    throw new Error(handleApiError(error))
+  }
+}

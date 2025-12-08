@@ -61,6 +61,9 @@ class PBLResource(Base):
     order = Column(Integer, default=0)
     video_id = Column(String(100))
     video_cover_url = Column(String(255))
+    max_views = Column(Integer, default=None, comment='最大观看次数（NULL表示不限制，0表示禁止观看，大于0表示限制次数）')
+    valid_from = Column(TIMESTAMP, default=None, comment='全局有效开始时间（NULL表示立即生效）')
+    valid_until = Column(TIMESTAMP, default=None, comment='全局有效结束时间（NULL表示永久有效）')
     created_at = Column(TIMESTAMP, server_default=func.now())
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
 
@@ -458,5 +461,38 @@ class PBLLearningProgress(Base):
     completed_at = Column(TIMESTAMP)
     time_spent = Column(Integer, default=0)
     meta_data = Column(JSON)
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+
+
+class PBLVideoWatchRecord(Base):
+    """视频观看记录表"""
+    __tablename__ = "pbl_video_watch_records"
+
+    id = Column(BigInteger, primary_key=True, index=True)
+    resource_id = Column(BigInteger, ForeignKey("pbl_resources.id"), nullable=False)
+    user_id = Column(Integer, nullable=False)  # Foreign Key to aiot_core_users
+    watch_time = Column(TIMESTAMP, server_default=func.now(), nullable=False)
+    duration = Column(Integer, default=0, comment='观看时长（秒）')
+    completed = Column(Integer, default=0, comment='是否观看完成')
+    ip_address = Column(String(45))
+    user_agent = Column(String(500))
+    created_at = Column(TIMESTAMP, server_default=func.now())
+
+
+class PBLVideoUserPermission(Base):
+    """视频用户权限表 - 个性化观看次数和有效期设置"""
+    __tablename__ = "pbl_video_user_permissions"
+
+    id = Column(BigInteger, primary_key=True, index=True)
+    uuid = Column(String(36), unique=True, default=generate_uuid, nullable=False)
+    resource_id = Column(BigInteger, ForeignKey("pbl_resources.id"), nullable=False)
+    user_id = Column(Integer, nullable=False)  # Foreign Key to aiot_core_users
+    max_views = Column(Integer, default=None, comment='该学生对该视频的最大观看次数')
+    valid_from = Column(TIMESTAMP, default=None, comment='有效开始时间')
+    valid_until = Column(TIMESTAMP, default=None, comment='有效结束时间')
+    reason = Column(String(500), comment='设置原因')
+    created_by = Column(Integer, nullable=False, comment='创建者ID')
+    is_active = Column(Integer, default=1, comment='是否启用')
     created_at = Column(TIMESTAMP, server_default=func.now())
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())

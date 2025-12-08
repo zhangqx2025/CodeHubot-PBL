@@ -39,9 +39,17 @@
         <el-table-column prop="url" label="URL/路径" />
         <el-table-column prop="order" label="顺序" width="100" />
         <el-table-column prop="created_at" label="创建时间" width="180" />
-        <el-table-column label="操作" width="250" fixed="right">
+        <el-table-column label="操作" width="320" fixed="right">
           <template #default="{ row }">
             <el-button size="small" @click="handleEdit(row)">编辑</el-button>
+            <el-button 
+              v-if="row.type === 'video'" 
+              size="small" 
+              type="primary" 
+              @click="handleVideoPermission(row)"
+            >
+              权限设置
+            </el-button>
             <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
@@ -122,10 +130,13 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getCourses } from '@/api/admin'
 import { getUnits } from '@/api/admin'
 import { getResources, createResource, updateResource, deleteResource, uploadResourceFile } from '@/api/admin'
+
+const router = useRouter()
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -327,6 +338,18 @@ const handleDelete = async (row) => {
       ElMessage.error('删除失败')
     }
   }
+}
+
+const handleVideoPermission = (row) => {
+  // 跳转到视频权限设置页面，并携带参数
+  router.push({
+    name: 'AdminVideoPermissions',
+    query: {
+      courseUuid: selectedCourseUuid.value,
+      unitUuid: selectedUnitUuid.value,
+      resourceUuid: row.uuid
+    }
+  })
 }
 
 onMounted(() => {

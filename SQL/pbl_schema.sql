@@ -1,6 +1,7 @@
 -- CodeHubot PBL Platform Database Schema
--- Version: 1.0
--- Date: 2025-12-06
+-- Version: 1.1
+-- Date: 2025-12-08
+-- 更新内容：添加视频观看次数限制和个性化权限管理功能
 
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
@@ -66,11 +67,15 @@ CREATE TABLE `pbl_resources` (
   `order` int(11) DEFAULT '0' COMMENT '顺序',
   `video_id` varchar(100) DEFAULT NULL COMMENT '阿里云视频ID',
   `video_cover_url` varchar(255) DEFAULT NULL COMMENT '视频封面图URL',
+  `max_views` int(11) DEFAULT NULL COMMENT '最大观看次数（NULL表示不限制，0表示禁止观看，大于0表示限制次数）',
+  `valid_from` timestamp NULL DEFAULT NULL COMMENT '全局有效开始时间（NULL表示立即生效）',
+  `valid_until` timestamp NULL DEFAULT NULL COMMENT '全局有效结束时间（NULL表示永久有效）',
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_uuid` (`uuid`),
   KEY `idx_unit_id` (`unit_id`),
+  KEY `idx_valid_period` (`valid_from`, `valid_until`),
   CONSTRAINT `fk_resources_unit` FOREIGN KEY (`unit_id`) REFERENCES `pbl_units` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='PBL资源表';
 
@@ -175,7 +180,8 @@ CREATE TABLE `pbl_learning_logs` (
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   PRIMARY KEY (`id`),
   KEY `idx_user_id` (`user_id`),
-  KEY `idx_resource_id` (`resource_id`)
+  KEY `idx_resource_id` (`resource_id`),
+  KEY `idx_user_resource_action` (`user_id`, `resource_id`, `action_type`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='PBL学习日志表';
 
 -- ----------------------------
@@ -209,6 +215,57 @@ CREATE TABLE `pbl_user_achievements` (
   UNIQUE KEY `uk_user_achievement` (`user_id`,`achievement_id`),
   CONSTRAINT `fk_ua_achievement` FOREIGN KEY (`achievement_id`) REFERENCES `pbl_achievements` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='PBL用户成就关联表';
+
+-- ----------------------------
+-- Table structure for pbl_video_watch_records
+-- ----------------------------
+-- 用于详细追踪每次视频观看行为
+DROP TABLE IF EXISTS `pbl_video_watch_records`;
+CREATE TABLE `pbl_video_watch_records` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '记录ID',
+  `resource_id` bigint(20) NOT NULL COMMENT '视频资源ID',
+  `user_id` int(11) NOT NULL COMMENT '用户ID（学生）',
+  `watch_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '观看时间',
+  `duration` int(11) DEFAULT 0 COMMENT '观看时长（秒）',
+  `completed` tinyint(1) DEFAULT 0 COMMENT '是否观看完成',
+  `ip_address` varchar(45) DEFAULT NULL COMMENT '观看IP地址',
+  `user_agent` varchar(500) DEFAULT NULL COMMENT '用户代理',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_resource_id` (`resource_id`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_watch_time` (`watch_time`),
+  KEY `idx_resource_user` (`resource_id`, `user_id`),
+  CONSTRAINT `fk_vwr_resource` FOREIGN KEY (`resource_id`) REFERENCES `pbl_resources` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='视频观看记录表';
+
+-- ----------------------------
+-- Table structure for pbl_video_user_permissions
+-- ----------------------------
+-- 为每个学生-视频组合设置个性化的观看权限
+DROP TABLE IF EXISTS `pbl_video_user_permissions`;
+CREATE TABLE `pbl_video_user_permissions` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '权限ID',
+  `uuid` varchar(36) NOT NULL COMMENT 'UUID',
+  `resource_id` bigint(20) NOT NULL COMMENT '视频资源ID',
+  `user_id` int(11) NOT NULL COMMENT '用户ID（学生）',
+  `max_views` int(11) DEFAULT NULL COMMENT '该学生对该视频的最大观看次数（NULL表示使用全局设置，0表示禁止，>0表示限制次数）',
+  `valid_from` timestamp NULL DEFAULT NULL COMMENT '有效开始时间（NULL表示立即生效）',
+  `valid_until` timestamp NULL DEFAULT NULL COMMENT '有效结束时间（NULL表示永久有效）',
+  `reason` varchar(500) DEFAULT NULL COMMENT '设置原因（如：补课、奖励、考试限制等）',
+  `created_by` int(11) NOT NULL COMMENT '创建者ID（管理员/教师）',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `is_active` tinyint(1) DEFAULT 1 COMMENT '是否启用',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_uuid` (`uuid`),
+  UNIQUE KEY `uk_resource_user` (`resource_id`, `user_id`),
+  KEY `idx_resource_id` (`resource_id`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_valid_period` (`valid_from`, `valid_until`),
+  KEY `idx_created_by` (`created_by`),
+  CONSTRAINT `fk_vup_resource` FOREIGN KEY (`resource_id`) REFERENCES `pbl_resources` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='视频用户权限表（个性化观看次数和有效期设置）';
 
 
 CREATE TABLE IF NOT EXISTS `pbl_course_enrollments` (
@@ -575,5 +632,107 @@ DEALLOCATE PREPARE stmt;
 -- 完成
 SELECT 'pbl_learning_progress表增强完成：添加了status、completed_at、updated_at、task_id字段及相关索引' AS message;
 
+-- ==========================================
+-- 视频观看统计和权限管理视图
+-- ==========================================
+
+-- ----------------------------
+-- View: v_video_watch_stats
+-- ----------------------------
+-- 查询每个学生对每个视频的观看次数
+CREATE OR REPLACE VIEW `v_video_watch_stats` AS
+SELECT 
+    r.id AS resource_id,
+    r.uuid AS resource_uuid,
+    r.title AS resource_title,
+    r.max_views,
+    u.id AS user_id,
+    u.username,
+    u.real_name,
+    COUNT(vwr.id) AS watch_count,
+    MAX(vwr.watch_time) AS last_watch_time,
+    SUM(vwr.duration) AS total_duration,
+    SUM(CASE WHEN vwr.completed = 1 THEN 1 ELSE 0 END) AS completed_count,
+    CASE 
+        WHEN r.max_views IS NULL THEN 1 -- 不限制，允许观看
+        WHEN r.max_views = 0 THEN 0 -- 禁止观看
+        WHEN COUNT(vwr.id) >= r.max_views THEN 0 -- 已达到上限，不允许
+        ELSE 1 -- 未达到上限，允许观看
+    END AS can_watch
+FROM `pbl_resources` r
+CROSS JOIN `aiot_core_users` u
+LEFT JOIN `pbl_video_watch_records` vwr ON r.id = vwr.resource_id AND u.id = vwr.user_id
+WHERE r.type = 'video' AND u.role = 'student'
+GROUP BY r.id, r.uuid, r.title, r.max_views, u.id, u.username, u.real_name;
+
+-- ----------------------------
+-- View: v_video_user_permissions_detail
+-- ----------------------------
+-- 包含个性化权限和有效期检查的详细视图
+CREATE OR REPLACE VIEW `v_video_user_permissions_detail` AS
+SELECT 
+    r.id AS resource_id,
+    r.uuid AS resource_uuid,
+    r.title AS resource_title,
+    r.max_views AS global_max_views,
+    r.valid_from AS global_valid_from,
+    r.valid_until AS global_valid_until,
+    u.id AS user_id,
+    u.username,
+    u.real_name,
+    -- 个性化配置
+    vup.id AS permission_id,
+    vup.max_views AS user_max_views,
+    vup.valid_from AS user_valid_from,
+    vup.valid_until AS user_valid_until,
+    vup.reason AS permission_reason,
+    vup.is_active AS permission_active,
+    -- 实际生效的配置（个性化 > 全局）
+    COALESCE(vup.max_views, r.max_views) AS effective_max_views,
+    COALESCE(vup.valid_from, r.valid_from) AS effective_valid_from,
+    COALESCE(vup.valid_until, r.valid_until) AS effective_valid_until,
+    -- 观看统计
+    COUNT(vwr.id) AS watch_count,
+    MAX(vwr.watch_time) AS last_watch_time,
+    SUM(vwr.duration) AS total_duration,
+    SUM(CASE WHEN vwr.completed = 1 THEN 1 ELSE 0 END) AS completed_count,
+    -- 权限判断
+    CASE 
+        -- 个性化配置未启用，使用全局配置
+        WHEN vup.id IS NOT NULL AND vup.is_active = 0 THEN 0
+        -- 检查观看次数限制
+        WHEN COALESCE(vup.max_views, r.max_views) = 0 THEN 0  -- 禁止观看
+        WHEN COALESCE(vup.max_views, r.max_views) IS NOT NULL 
+             AND COUNT(vwr.id) >= COALESCE(vup.max_views, r.max_views) THEN 0  -- 已达上限
+        -- 检查有效期
+        WHEN COALESCE(vup.valid_from, r.valid_from) IS NOT NULL 
+             AND NOW() < COALESCE(vup.valid_from, r.valid_from) THEN 0  -- 未到开始时间
+        WHEN COALESCE(vup.valid_until, r.valid_until) IS NOT NULL 
+             AND NOW() > COALESCE(vup.valid_until, r.valid_until) THEN 0  -- 已过结束时间
+        ELSE 1  -- 允许观看
+    END AS can_watch,
+    -- 不能观看的原因
+    CASE 
+        WHEN vup.id IS NOT NULL AND vup.is_active = 0 THEN '个性化权限已禁用'
+        WHEN COALESCE(vup.max_views, r.max_views) = 0 THEN '该视频已被禁止观看'
+        WHEN COALESCE(vup.max_views, r.max_views) IS NOT NULL 
+             AND COUNT(vwr.id) >= COALESCE(vup.max_views, r.max_views) THEN 
+             CONCAT('已达到观看次数上限（', COALESCE(vup.max_views, r.max_views), '次）')
+        WHEN COALESCE(vup.valid_from, r.valid_from) IS NOT NULL 
+             AND NOW() < COALESCE(vup.valid_from, r.valid_from) THEN 
+             CONCAT('视频将于 ', DATE_FORMAT(COALESCE(vup.valid_from, r.valid_from), '%Y-%m-%d %H:%i'), ' 开放')
+        WHEN COALESCE(vup.valid_until, r.valid_until) IS NOT NULL 
+             AND NOW() > COALESCE(vup.valid_until, r.valid_until) THEN 
+             CONCAT('视频观看期限已于 ', DATE_FORMAT(COALESCE(vup.valid_until, r.valid_until), '%Y-%m-%d %H:%i'), ' 结束')
+        ELSE ''
+    END AS cannot_watch_reason
+FROM `pbl_resources` r
+CROSS JOIN `aiot_core_users` u
+LEFT JOIN `pbl_video_user_permissions` vup ON r.id = vup.resource_id AND u.id = vup.user_id
+LEFT JOIN `pbl_video_watch_records` vwr ON r.id = vwr.resource_id AND u.id = vwr.user_id
+WHERE r.type = 'video' AND u.role = 'student'
+GROUP BY r.id, r.uuid, r.title, r.max_views, r.valid_from, r.valid_until,
+         u.id, u.username, u.real_name,
+         vup.id, vup.max_views, vup.valid_from, vup.valid_until, vup.reason, vup.is_active;
 
 SET FOREIGN_KEY_CHECKS = 1;
