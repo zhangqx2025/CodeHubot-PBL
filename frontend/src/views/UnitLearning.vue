@@ -159,13 +159,23 @@
           <!-- 场景1：视频学习 -->
           <div v-if="currentStep.type === 'video'" class="video-learning">
             <VideoPlayer 
-              :source="currentStep.data.url" 
-              :cover="currentStep.data.cover"
+              v-if="!videoLoadError"
+              :vid="videoPlayData.videoId"
+              :playAuth="videoPlayData.playAuth"
+              :source="videoPlayData.source" 
+              :cover="videoPlayData.cover"
               :autoplay="true"
               height="100%"
               @ended="handleVideoEnded"
             />
-            <div class="learning-tips" v-if="currentStep.status !== 'completed'">
+            <div v-else class="video-error">
+              <el-result icon="error" title="视频加载失败" :sub-title="videoLoadError">
+                <template #extra>
+                  <el-button type="primary" @click="retryLoadVideo">重试</el-button>
+                </template>
+              </el-result>
+            </div>
+            <div class="learning-tips" v-if="currentStep.status !== 'completed' && !videoLoadError">
               <el-alert title="请完整观看视频以解锁下一步骤" type="info" :closable="false" show-icon />
             </div>
           </div>
@@ -273,7 +283,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ArrowLeft, ArrowRight, Check, Lock, VideoPlay } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -284,7 +294,8 @@ import {
   getCourseDetail, 
   getCourseUnits, 
   trackLearningProgress,
-  getUnitResourcesProgress 
+  getUnitResourcesProgress,
+  getVideoPlayAuth 
 } from '@/api/student'
 
 const router = useRouter()
@@ -305,6 +316,15 @@ const loading = ref(true)
 const courseUnits = ref([])
 const previousUnit = ref(null)
 const nextUnit = ref(null)
+
+// 视频播放相关状态
+const videoPlayData = ref({
+  videoId: '',
+  playAuth: '',
+  source: '',
+  cover: ''
+})
+const videoLoadError = ref('')
 
 // 从后端API加载单元数据
 const loadUnitData = async (unitUuid) => {
@@ -556,7 +576,7 @@ const getStepTypeTag = (type) => {
   return map[type] || ''
 }
 
-const selectStep = (step) => {
+const selectStep = async (step) => {
   if (step.status === 'locked') {
     ElMessage.warning('请先完成上一步骤解锁此内容')
     return
@@ -569,6 +589,11 @@ const selectStep = (step) => {
   // 重置测验
   if (step.type === 'quiz') {
     quizAnswers.value = {}
+  }
+  
+  // 如果是视频类型，加载视频播放数据
+  if (step.type === 'video') {
+    await loadVideoPlayData(step)
   }
 }
 
@@ -650,6 +675,42 @@ const saveProgress = async (step, progressType, progressValue = 100) => {
   } catch (error) {
     console.error('保存学习进度失败:', error)
     // 不影响用户体验，静默失败
+  }
+}
+
+// 加载视频播放数据
+const loadVideoPlayData = async (step) => {
+  try {
+    videoLoadError.value = ''
+    
+    // 如果有阿里云视频ID，则获取播放凭证
+    if (step.data.video_id) {
+      const authData = await getVideoPlayAuth(step.uuid)
+      videoPlayData.value = {
+        videoId: authData.video_id,
+        playAuth: authData.play_auth,
+        source: '',  // 使用阿里云播放时不需要source
+        cover: step.data.cover || authData.video_meta?.cover_url || ''
+      }
+    } else {
+      // 使用普通视频URL
+      videoPlayData.value = {
+        videoId: '',
+        playAuth: '',
+        source: step.data.url || '',
+        cover: step.data.cover || ''
+      }
+    }
+  } catch (error) {
+    console.error('加载视频播放数据失败:', error)
+    videoLoadError.value = error.message || '视频加载失败，请重试'
+  }
+}
+
+// 重试加载视频
+const retryLoadVideo = async () => {
+  if (currentStep.value && currentStep.value.type === 'video') {
+    await loadVideoPlayData(currentStep.value)
   }
 }
 

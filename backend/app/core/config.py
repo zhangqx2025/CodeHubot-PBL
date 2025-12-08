@@ -55,6 +55,11 @@ class Settings(BaseSettings):
     # 日志级别配置
     log_level: str = "INFO"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
     
+    # 阿里云VOD配置（可选，如果不使用阿里云视频则不需要配置）
+    aliyun_access_key_id: Optional[str] = None
+    aliyun_access_key_secret: Optional[str] = None
+    aliyun_vod_region_id: str = "cn-shanghai"  # 默认上海区域
+    
     class Config:
         env_file = ".env"
         case_sensitive = False
