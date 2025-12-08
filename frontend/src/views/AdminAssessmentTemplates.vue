@@ -27,7 +27,7 @@
         <el-table-column prop="usage_count" label="使用次数" width="100" />
         <el-table-column prop="is_active" label="状态" width="80">
           <template #default="{ row }">
-            <el-switch v-model="row.is_active" @change="handleStatusChange(row)" />
+            <el-switch v-model="row.is_active" @change="handleStatusChange(row)" :disabled="row.is_system" />
           </template>
         </el-table-column>
         <el-table-column label="操作" width="200" fixed="right">
@@ -207,6 +207,13 @@ const handleDelete = async (row) => {
 }
 
 const handleStatusChange = async (row) => {
+  // 系统模板不允许修改
+  if (row.is_system) {
+    row.is_active = !row.is_active
+    ElMessage.warning('系统模板不可修改')
+    return
+  }
+  
   try {
     await updateAssessmentTemplate(row.uuid, { is_active: row.is_active })
     ElMessage.success('状态更新成功')
