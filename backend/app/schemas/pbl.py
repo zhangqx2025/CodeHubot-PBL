@@ -67,7 +67,7 @@ class UnitBase(BaseModel):
     description: Optional[str] = None
     order: Optional[int] = 0
     status: Optional[str] = 'locked'
-    learning_guide: Optional[dict] = None
+    learning_guide: Optional[Any] = None  # 支持 dict 或 list 类型
 
 class UnitCreate(UnitBase):
     course_id: int
@@ -77,7 +77,7 @@ class UnitUpdate(BaseModel):
     description: Optional[str] = None
     order: Optional[int] = None
     status: Optional[str] = None
-    learning_guide: Optional[dict] = None
+    learning_guide: Optional[Any] = None  # 支持 dict 或 list 类型
 
 class Unit(UnitBase):
     id: int
@@ -116,6 +116,38 @@ class ResourceUpdate(BaseModel):
     video_cover_url: Optional[str] = None
 
 class Resource(ResourceBase):
+    id: int
+    uuid: str
+    unit_id: int
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+# --- Task Schemas ---
+class TaskBase(BaseModel):
+    title: str
+    description: Optional[str] = None
+    type: Optional[str] = 'analysis'  # 'analysis', 'coding', 'design', 'deployment'
+    difficulty: Optional[str] = 'easy'  # 'easy', 'medium', 'hard'
+    estimated_time: Optional[str] = None
+    requirements: Optional[Any] = None  # 支持 dict 或 list 类型
+    prerequisites: Optional[Any] = None  # 支持 dict 或 list 类型
+
+class TaskCreate(TaskBase):
+    unit_id: int
+
+class TaskUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    type: Optional[str] = None
+    difficulty: Optional[str] = None
+    estimated_time: Optional[str] = None
+    requirements: Optional[Any] = None  # 支持 dict 或 list 类型
+    prerequisites: Optional[Any] = None  # 支持 dict 或 list 类型
+
+class Task(TaskBase):
     id: int
     uuid: str
     unit_id: int
