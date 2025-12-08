@@ -92,13 +92,13 @@ export const API_ENDPOINTS = {
   
   // 项目相关
   PROJECTS: {
-    LIST: '/projects',
-    DETAIL: (id) => `/projects/${id}`,
-    CREATE: '/projects',
-    UPDATE: (id) => `/projects/${id}`,
-    DELETE: (id) => `/projects/${id}`,
-    TASKS: (id) => `/projects/${id}/tasks`,
-    PROGRESS: (id) => `/projects/${id}/progress`
+    LIST: '/pbl/projects',
+    DETAIL: (id) => `/pbl/projects/${id}`,
+    CREATE: '/pbl/projects',
+    UPDATE: (id) => `/pbl/projects/${id}`,
+    DELETE: (id) => `/pbl/projects/${id}`,
+    TASKS: (id) => `/pbl/projects/${id}/tasks`,
+    PROGRESS: (id) => `/pbl/projects/${id}/progress`
   },
   
   // 团队相关

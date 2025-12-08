@@ -1,33 +1,39 @@
 <template>
   <div class="projects-page">
-    <div class="page-header">
-      <h1>项目列表</h1>
-      <p>浏览所有可用的项目式学习课程</p>
-    </div>
+    <el-card class="page-header" shadow="never">
+      <div class="header-content">
+        <div>
+          <h1>项目列表</h1>
+          <p>浏览所有可用的项目式学习课程</p>
+        </div>
+      </div>
+    </el-card>
 
-    <div class="filters">
-      <el-select v-model="selectedCategory" placeholder="选择分类" clearable style="width: 200px">
-        <el-option label="全部" value="" />
-        <el-option label="科技创新" value="科技创新" />
-        <el-option label="环境科学" value="环境科学" />
-        <el-option label="社会科学" value="社会科学" />
-      </el-select>
-      
-      <el-select v-model="selectedDifficulty" placeholder="选择难度" clearable style="width: 200px">
-        <el-option label="全部" value="" />
-        <el-option label="beginner" value="beginner" />
-        <el-option label="intermediate" value="intermediate" />
-        <el-option label="advanced" value="advanced" />
-      </el-select>
-      
-      <el-input
-        v-model="searchText"
-        placeholder="搜索项目..."
-        :prefix-icon="Search"
-        style="width: 300px"
-        clearable
-      />
-    </div>
+    <el-card class="filter-card" shadow="never">
+      <div class="filters">
+        <el-select v-model="selectedCategory" placeholder="选择分类" clearable style="width: 200px">
+          <el-option label="全部" value="" />
+          <el-option label="科技创新" value="科技创新" />
+          <el-option label="环境科学" value="环境科学" />
+          <el-option label="社会科学" value="社会科学" />
+        </el-select>
+        
+        <el-select v-model="selectedDifficulty" placeholder="选择难度" clearable style="width: 200px">
+          <el-option label="全部" value="" />
+          <el-option label="beginner" value="beginner" />
+          <el-option label="intermediate" value="intermediate" />
+          <el-option label="advanced" value="advanced" />
+        </el-select>
+        
+        <el-input
+          v-model="searchText"
+          placeholder="搜索项目..."
+          :prefix-icon="Search"
+          style="width: 300px"
+          clearable
+        />
+      </div>
+    </el-card>
 
     <div v-if="loading" class="loading-container">
       <el-skeleton :rows="5" animated />
@@ -42,7 +48,7 @@
         class="project-card" 
         v-for="project in filteredProjects" 
         :key="project.id"
-        @click="viewProject(project.id)"
+        @click="viewProject(project.uuid)"
       >
         <div class="card-header">
           <div class="project-category">{{ project.category || '综合实践' }}</div>
@@ -69,7 +75,7 @@
           </div>
         </div>
         <div class="card-footer">
-          <el-button type="primary" @click.stop="startProject(project.id)">
+          <el-button type="primary" @click.stop="startProject(project.uuid)">
             开始项目
           </el-button>
         </div>
@@ -98,7 +104,9 @@ const fetchProjects = async () => {
   error.value = null
   try {
     const data = await getProjects()
-    projects.value = data.map(p => ({
+    // 后端返回的数据格式是 {items: [...], total: ...}
+    const projectList = data.items || data || []
+    projects.value = projectList.map(p => ({
         ...p,
         // Mock data for display if missing
         category: '科技创新', 
@@ -149,39 +157,55 @@ const startProject = (projectId) => {
 
 <style scoped>
 .projects-page {
-  padding: 24px;
-  max-width: 1400px;
-  margin: 0 auto;
+  padding: 0;
 }
 
 .page-header {
-  margin-bottom: 32px;
+  margin-bottom: 20px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+}
+
+.page-header :deep(.el-card__body) {
+  padding: 32px;
+}
+
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .page-header h1 {
-  font-size: 32px;
-  font-weight: 700;
-  color: #1e293b;
+  font-size: 28px;
+  font-weight: 600;
   margin: 0 0 8px 0;
 }
 
 .page-header p {
-  color: #64748b;
-  font-size: 16px;
+  font-size: 14px;
   margin: 0;
+  opacity: 0.9;
+}
+
+.filter-card {
+  margin-bottom: 20px;
+  border-radius: 12px;
+  border: none;
 }
 
 .filters {
   display: flex;
   gap: 16px;
-  margin-bottom: 32px;
   flex-wrap: wrap;
 }
 
 .projects-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 24px;
+  gap: 20px;
 }
 
 .loading-container, .error-container {
@@ -194,13 +218,14 @@ const startProject = (projectId) => {
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: all 0.3s ease;
   cursor: pointer;
+  border: none;
 }
 
 .project-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
 
 .card-header {
