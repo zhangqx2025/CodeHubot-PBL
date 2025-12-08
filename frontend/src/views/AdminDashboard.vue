@@ -2,41 +2,105 @@
   <div class="admin-dashboard">
     <el-container>
       <!-- 侧边栏 -->
-      <el-aside width="250px" class="admin-sidebar">
+      <el-aside :width="isCollapse ? '64px' : '250px'" class="admin-sidebar">
         <div class="admin-logo">
-          <h2>PBL管理后台</h2>
+          <transition name="fade">
+            <h2 v-if="!isCollapse">PBL管理后台</h2>
+            <h2 v-else class="logo-mini">PBL</h2>
+          </transition>
         </div>
+        
         <el-menu
           :default-active="activeMenu"
+          :collapse="isCollapse"
+          :collapse-transition="false"
           router
           class="admin-menu"
         >
           <el-menu-item index="/admin">
             <el-icon><HomeFilled /></el-icon>
-            <span>概览</span>
+            <template #title>概览</template>
           </el-menu-item>
-          <el-menu-item index="/admin/courses">
-            <el-icon><Document /></el-icon>
-            <span>课程管理</span>
-          </el-menu-item>
-          <el-menu-item index="/admin/units">
-            <el-icon><FolderOpened /></el-icon>
-            <span>学习单元</span>
-          </el-menu-item>
-          <el-menu-item index="/admin/resources">
-            <el-icon><Upload /></el-icon>
-            <span>资料管理</span>
-          </el-menu-item>
-        </el-menu>
-        <div class="admin-user">
-          <el-dropdown @command="handleCommand">
-            <span class="admin-user-info">
+          
+          <!-- 课程管理 -->
+          <el-sub-menu index="course-management">
+            <template #title>
+              <el-icon><Reading /></el-icon>
+              <span>课程管理</span>
+            </template>
+            <el-menu-item index="/admin/courses">
+              <el-icon><Document /></el-icon>
+              <span>课程列表</span>
+            </el-menu-item>
+            <el-menu-item index="/admin/units">
+              <el-icon><Collection /></el-icon>
+              <span>学习单元</span>
+            </el-menu-item>
+            <el-menu-item index="/admin/resources">
+              <el-icon><FolderOpened /></el-icon>
+              <span>资料管理</span>
+            </el-menu-item>
+            <el-menu-item index="/admin/tasks">
+              <el-icon><Tickets /></el-icon>
+              <span>任务管理</span>
+            </el-menu-item>
+          </el-sub-menu>
+          
+          <!-- 用户管理 -->
+          <el-sub-menu index="user-management">
+            <template #title>
               <el-icon><User /></el-icon>
-              {{ adminInfo?.full_name || adminInfo?.username || '管理员' }}
+              <span>用户管理</span>
+            </template>
+            <el-menu-item index="/admin/users">
+              <el-icon><Avatar /></el-icon>
+              <span>用户列表</span>
+            </el-menu-item>
+            <el-menu-item index="/admin/classes">
+              <el-icon><School /></el-icon>
+              <span>班级小组</span>
+            </el-menu-item>
+          </el-sub-menu>
+          
+          <!-- 教学管理 -->
+          <el-sub-menu index="teaching-management">
+            <template #title>
+              <el-icon><DataAnalysis /></el-icon>
+              <span>教学管理</span>
+            </template>
+            <el-menu-item index="/admin/enrollments">
+              <el-icon><Notebook /></el-icon>
+              <span>选课管理</span>
+            </el-menu-item>
+            <el-menu-item index="/admin/progress">
+              <el-icon><TrendCharts /></el-icon>
+              <span>学习进度</span>
+            </el-menu-item>
+          </el-sub-menu>
+        </el-menu>
+        
+        <div class="admin-user">
+          <el-dropdown @command="handleCommand" :hide-on-click="true">
+            <span class="admin-user-info">
+              <el-avatar :size="32" style="background-color: #409eff;">
+                <el-icon><User /></el-icon>
+              </el-avatar>
+              <transition name="fade">
+                <span v-if="!isCollapse" class="admin-user-name">
+                  {{ adminInfo?.full_name || adminInfo?.username || '管理员' }}
+                </span>
+              </transition>
             </span>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item command="logout">退出登录</el-dropdown-item>
+                <el-dropdown-item command="profile">
+                  <el-icon><User /></el-icon>
+                  个人信息
+                </el-dropdown-item>
+                <el-dropdown-item command="logout" divided>
+                  <el-icon><SwitchButton /></el-icon>
+                  退出登录
+                </el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -45,10 +109,23 @@
 
       <!-- 主内容区 -->
       <el-container>
-        <el-header class="admin-header">
-          <h3>{{ pageTitle }}</h3>
+        <el-header class="admin-header" :style="{ marginLeft: isCollapse ? '64px' : '250px' }">
+          <div class="header-left">
+            <el-button 
+              :icon="isCollapse ? Expand : Fold" 
+              circle 
+              @click="toggleCollapse"
+              class="collapse-btn"
+            />
+            <h3>{{ pageTitle }}</h3>
+          </div>
+          <div class="header-right">
+            <el-tag type="success" effect="plain">
+              {{ adminInfo?.full_name || '管理员' }}
+            </el-tag>
+          </div>
         </el-header>
-        <el-main class="admin-main">
+        <el-main class="admin-main" :style="{ marginLeft: isCollapse ? '64px' : '250px' }">
           <router-view />
         </el-main>
       </el-container>
@@ -60,13 +137,30 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { HomeFilled, Document, FolderOpened, Upload, User } from '@element-plus/icons-vue'
+import { 
+  HomeFilled, 
+  Document, 
+  FolderOpened, 
+  User, 
+  DataAnalysis,
+  Reading,
+  Collection,
+  Tickets,
+  Avatar,
+  School,
+  Notebook,
+  TrendCharts,
+  Fold,
+  Expand,
+  SwitchButton
+} from '@element-plus/icons-vue'
 import { getCurrentAdmin } from '@/api/admin'
 
 const router = useRouter()
 const route = useRoute()
 
 const adminInfo = ref(null)
+const isCollapse = ref(false)
 const activeMenu = computed(() => route.path)
 
 const pageTitle = computed(() => {
@@ -74,10 +168,21 @@ const pageTitle = computed(() => {
     '/admin': '概览',
     '/admin/courses': '课程管理',
     '/admin/units': '学习单元',
-    '/admin/resources': '资料管理'
+    '/admin/resources': '资料管理',
+    '/admin/tasks': '任务管理',
+    '/admin/users': '用户管理',
+    '/admin/classes': '班级小组管理',
+    '/admin/enrollments': '选课管理',
+    '/admin/progress': '学习进度'
   }
   return titles[route.path] || '管理后台'
 })
+
+const toggleCollapse = () => {
+  isCollapse.value = !isCollapse.value
+  // 保存折叠状态
+  localStorage.setItem('admin_sidebar_collapse', isCollapse.value)
+}
 
 const handleCommand = (command) => {
   if (command === 'logout') {
@@ -85,6 +190,8 @@ const handleCommand = (command) => {
     localStorage.removeItem('admin_info')
     ElMessage.success('已退出登录')
     router.push('/admin/login')
+  } else if (command === 'profile') {
+    ElMessage.info('个人信息功能开发中...')
   }
 }
 
@@ -92,6 +199,12 @@ onMounted(async () => {
   try {
     const admin = await getCurrentAdmin()
     adminInfo.value = admin
+    
+    // 恢复折叠状态
+    const savedCollapse = localStorage.getItem('admin_sidebar_collapse')
+    if (savedCollapse !== null) {
+      isCollapse.value = savedCollapse === 'true'
+    }
   } catch (error) {
     console.error('获取管理员信息失败:', error)
   }
@@ -105,66 +218,155 @@ onMounted(async () => {
 }
 
 .admin-sidebar {
-  background: #304156;
+  background: linear-gradient(180deg, #1f2937 0%, #111827 100%);
   color: white;
   height: 100vh;
   position: fixed;
   left: 0;
   top: 0;
   overflow-y: auto;
+  overflow-x: hidden;
+  transition: width 0.3s ease;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+}
+
+.admin-sidebar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.admin-sidebar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+.admin-sidebar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .admin-logo {
-  padding: 20px;
+  padding: 24px 20px;
   text-align: center;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .admin-logo h2 {
   margin: 0;
   color: white;
-  font-size: 18px;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 1px;
+}
+
+.admin-logo .logo-mini {
+  font-size: 16px;
 }
 
 .admin-menu {
   border: none;
-  background: #304156;
+  background: transparent;
+  padding: 10px 0;
 }
 
-.admin-menu .el-menu-item {
-  color: rgba(255, 255, 255, 0.7);
+.admin-menu :deep(.el-menu-item) {
+  color: rgba(255, 255, 255, 0.75);
+  margin: 4px 12px;
+  border-radius: 8px;
+  transition: all 0.3s ease;
 }
 
-.admin-menu .el-menu-item:hover {
-  background: rgba(255, 255, 255, 0.1);
+.admin-menu :deep(.el-menu-item:hover) {
+  background: rgba(64, 158, 255, 0.15);
+  color: #409eff;
+}
+
+.admin-menu :deep(.el-menu-item.is-active) {
+  background: linear-gradient(90deg, #409eff 0%, #66b1ff 100%);
+  color: white;
+  font-weight: 500;
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.3);
+}
+
+.admin-menu :deep(.el-sub-menu__title) {
+  color: rgba(255, 255, 255, 0.75);
+  margin: 4px 12px;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.admin-menu :deep(.el-sub-menu__title:hover) {
+  background: rgba(255, 255, 255, 0.08);
   color: white;
 }
 
-.admin-menu .el-menu-item.is-active {
-  background: #409eff;
-  color: white;
+.admin-menu :deep(.el-sub-menu.is-active > .el-sub-menu__title) {
+  color: #409eff;
+}
+
+.admin-menu :deep(.el-menu--inline) {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.admin-menu :deep(.el-menu--inline .el-menu-item) {
+  padding-left: 56px !important;
+  min-width: auto;
+  background: transparent;
+}
+
+.admin-menu :deep(.el-menu--inline .el-menu-item:hover) {
+  background: rgba(64, 158, 255, 0.12);
+}
+
+.admin-menu :deep(.el-menu--inline .el-menu-item.is-active) {
+  background: rgba(64, 158, 255, 0.2);
+  color: #66b1ff;
+  box-shadow: none;
+}
+
+/* 折叠状态样式 */
+.admin-menu.el-menu--collapse {
+  width: 64px;
+}
+
+.admin-menu.el-menu--collapse :deep(.el-menu-item),
+.admin-menu.el-menu--collapse :deep(.el-sub-menu__title) {
+  margin: 4px 8px;
+  justify-content: center;
 }
 
 .admin-user {
   position: absolute;
-  bottom: 20px;
+  bottom: 0;
   left: 0;
   right: 0;
-  padding: 0 20px;
+  padding: 20px;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
-  padding-top: 20px;
+  background: rgba(0, 0, 0, 0.2);
 }
 
 .admin-user-info {
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.85);
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
+  padding: 8px;
+  border-radius: 8px;
+  transition: all 0.3s ease;
 }
 
 .admin-user-info:hover {
+  background: rgba(255, 255, 255, 0.1);
   color: white;
+}
+
+.admin-user-name {
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .admin-header {
@@ -172,20 +374,88 @@ onMounted(async () => {
   border-bottom: 1px solid #e4e7ed;
   display: flex;
   align-items: center;
-  padding: 0 20px;
-  margin-left: 250px;
+  justify-content: space-between;
+  padding: 0 24px;
+  position: fixed;
+  right: 0;
+  top: 0;
+  left: 250px;
+  height: 60px;
+  z-index: 999;
+  transition: left 0.3s ease;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.collapse-btn {
+  border: none;
+  background: #f5f7fa;
+  color: #606266;
+  transition: all 0.3s ease;
+}
+
+.collapse-btn:hover {
+  background: #409eff;
+  color: white;
 }
 
 .admin-header h3 {
   margin: 0;
   font-size: 18px;
-  font-weight: 500;
+  font-weight: 600;
+  color: #303133;
 }
 
 .admin-main {
-  margin-left: 250px;
-  padding: 20px;
+  padding: 24px;
   background: #f5f7fa;
-  min-height: calc(100vh - 60px);
+  height: calc(100vh - 60px);
+  position: fixed;
+  right: 0;
+  top: 60px;
+  left: 250px;
+  overflow-y: auto;
+  transition: left 0.3s ease;
+}
+
+/* 淡入淡出动画 */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .admin-sidebar {
+    width: 64px !important;
+  }
+  
+  .admin-header {
+    left: 64px !important;
+  }
+  
+  .admin-main {
+    left: 64px !important;
+  }
+  
+  .collapse-btn {
+    display: none;
+  }
 }
 </style>
