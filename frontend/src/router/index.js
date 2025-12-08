@@ -31,7 +31,7 @@ const routes = [
         name: 'MyCourses',
         component: () => import('../views/MyCourses.vue'),
         meta: {
-          title: '我的课程 - 跨学科项目式学习平台',
+          title: '课程学习 - 跨学科项目式学习平台',
           requiresAuth: true
         }
       },
@@ -50,26 +50,53 @@ const routes = [
         component: () => import('../views/Projects.vue'),
         meta: { 
           requiresAuth: true,
-          title: '我的项目'
+          title: '项目实践 - 跨学科项目式学习平台'
         }
       },
       {
         path: 'project/:id',
         name: 'ProjectDetail',
         component: () => import('../views/ProjectDetail.vue'),
-        meta: { requiresAuth: true, title: '项目详情' }
+        meta: { 
+          requiresAuth: true, 
+          title: '项目详情 - 跨学科项目式学习平台'
+        }
+      },
+      {
+        path: 'outputs',
+        name: 'Outputs',
+        component: () => import('../views/StudentOutputs.vue'),
+        meta: { 
+          requiresAuth: true, 
+          title: '项目成果 - 跨学科项目式学习平台'
+        }
+      },
+      {
+        path: 'portfolio',
+        name: 'Portfolio',
+        component: () => import('../views/StudentPortfolio.vue'),
+        meta: { 
+          requiresAuth: true, 
+          title: '学习档案 - 跨学科项目式学习平台'
+        }
       },
       {
         path: 'tasks/:id?',
         name: 'Tasks',
         component: () => import('../views/Tasks.vue'),
-        meta: { requiresAuth: true, title: '任务列表' }
+        meta: { 
+          requiresAuth: true, 
+          title: '任务列表 - 跨学科项目式学习平台'
+        }
       },
       {
         path: 'progress',
         name: 'Progress',
         component: () => import('../views/Progress.vue'),
-        meta: { requiresAuth: true, title: '学习进度' }
+        meta: { 
+          requiresAuth: true, 
+          title: '学习进度 - 跨学科项目式学习平台'
+        }
       },
       {
         path: 'unit/:unitId',
@@ -87,7 +114,7 @@ const routes = [
         name: 'Profile',
         component: () => import('../views/Profile.vue'),
         meta: {
-          title: '个人信息',
+          title: '个人中心 - 跨学科项目式学习平台',
           requiresAuth: true
         }
       }

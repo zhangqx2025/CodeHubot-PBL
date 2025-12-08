@@ -94,12 +94,22 @@
           
           <el-menu-item index="/courses" class="menu-item">
             <el-icon><Reading /></el-icon>
-            <template #title>我的课程</template>
+            <template #title>课程学习</template>
           </el-menu-item>
           
           <el-menu-item index="/projects" class="menu-item">
             <el-icon><Folder /></el-icon>
-            <template #title>我的项目</template>
+            <template #title>项目实践</template>
+          </el-menu-item>
+          
+          <el-menu-item index="/outputs" class="menu-item">
+            <el-icon><Document /></el-icon>
+            <template #title>项目成果</template>
+          </el-menu-item>
+          
+          <el-menu-item index="/portfolio" class="menu-item">
+            <el-icon><Collection /></el-icon>
+            <template #title>学习档案</template>
           </el-menu-item>
           
           <el-menu-item index="/progress" class="menu-item">
@@ -109,7 +119,7 @@
           
           <el-menu-item index="/profile" class="menu-item">
             <el-icon><User /></el-icon>
-            <template #title>个人信息</template>
+            <template #title>个人中心</template>
           </el-menu-item>
         </el-menu>
       </el-aside>
@@ -142,7 +152,8 @@ import {
   QuestionFilled,
   SwitchButton,
   TrendCharts,
-  Reading
+  Reading,
+  Collection
 } from '@element-plus/icons-vue'
 
 const router = useRouter()
