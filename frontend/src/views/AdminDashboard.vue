@@ -23,19 +23,29 @@
             <template #title>概览</template>
           </el-menu-item>
           
+          <!-- 学校管理（仅平台管理员） -->
+          <el-menu-item index="/admin/schools" v-if="isPlatformAdmin">
+            <el-icon><OfficeBuilding /></el-icon>
+            <template #title>学校管理</template>
+          </el-menu-item>
+          
           <!-- 课程管理 -->
           <el-sub-menu index="course-management">
             <template #title>
               <el-icon><Reading /></el-icon>
               <span>课程管理</span>
             </template>
-            <el-menu-item index="/admin/courses">
+            <el-menu-item index="/admin/courses" v-if="isPlatformAdmin">
               <el-icon><Document /></el-icon>
               <span>课程列表</span>
             </el-menu-item>
-            <el-menu-item index="/admin/school-courses">
+            <el-menu-item index="/admin/school-courses" v-if="isPlatformAdmin">
               <el-icon><School /></el-icon>
               <span>学校课程配置</span>
+            </el-menu-item>
+            <el-menu-item index="/admin/school-course-library" v-if="isSchoolAdmin">
+              <el-icon><Reading /></el-icon>
+              <span>学校课程库</span>
             </el-menu-item>
             <el-menu-item index="/admin/units">
               <el-icon><Collection /></el-icon>
@@ -77,9 +87,13 @@
               <el-icon><User /></el-icon>
               <span>用户管理</span>
             </template>
-            <el-menu-item index="/admin/users">
+            <el-menu-item index="/admin/users" v-if="isPlatformAdmin">
               <el-icon><Avatar /></el-icon>
               <span>用户列表</span>
+            </el-menu-item>
+            <el-menu-item index="/admin/school-user-management" v-if="isSchoolAdmin">
+              <el-icon><UserFilled /></el-icon>
+              <span>学校用户管理</span>
             </el-menu-item>
             <el-menu-item index="/admin/classes">
               <el-icon><School /></el-icon>
@@ -301,7 +315,9 @@ import {
   ArrowDown,
   Message,
   Phone,
-  VideoPlay
+  VideoPlay,
+  OfficeBuilding,
+  UserFilled
 } from '@element-plus/icons-vue'
 import { getCurrentAdmin } from '@/api/admin'
 
@@ -312,11 +328,22 @@ const adminInfo = ref(null)
 const isCollapse = ref(false)
 const activeMenu = computed(() => route.path)
 
+// 判断管理员角色
+const isPlatformAdmin = computed(() => {
+  return adminInfo.value?.role === 'platform_admin'
+})
+
+const isSchoolAdmin = computed(() => {
+  return adminInfo.value?.role === 'school_admin' || adminInfo.value?.role === 'teacher'
+})
+
 const pageTitle = computed(() => {
   const titles = {
     '/admin': '概览',
+    '/admin/schools': '学校管理',
     '/admin/courses': '课程管理',
     '/admin/school-courses': '学校课程配置',
+    '/admin/school-course-library': '学校课程库',
     '/admin/units': '学习单元',
     '/admin/resources': '资料管理',
     '/admin/video-permissions': '视频权限管理',
@@ -324,6 +351,7 @@ const pageTitle = computed(() => {
     '/admin/projects': '项目管理',
     '/admin/outputs': '成果管理',
     '/admin/users': '用户管理',
+    '/admin/school-user-management': '用户管理',
     '/admin/classes': '班级小组管理',
     '/admin/enrollments': '选课管理',
     '/admin/progress': '学习进度',

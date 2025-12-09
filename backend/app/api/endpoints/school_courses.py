@@ -12,6 +12,7 @@ from ...core.response import success_response, error_response
 from ...core.deps import get_db, get_current_admin
 from ...models.admin import Admin
 from ...models.pbl import PBLCourse, PBLSchoolCourse
+from ...models.school import School
 from ...schemas.pbl import SchoolCourseCreate, SchoolCourseUpdate, SchoolCourse, SchoolCourseWithDetails, Course
 from ...core.logging_config import get_logger
 
@@ -142,6 +143,82 @@ def batch_assign_courses(
         data={'assigned_count': assigned_count},
         message=f"成功分配 {assigned_count} 门课程"
     )
+
+
+@router.get("/all")
+def get_all_school_courses(
+    skip: int = 0,
+    limit: int = 20,
+    school_id: Optional[int] = None,
+    course_id: Optional[int] = None,
+    status: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(get_current_admin)
+):
+    """
+    获取所有学校课程分配记录（带分页和筛选）
+    权限：平台管理员可查看所有，学校管理员只能查看自己学校的
+    """
+    # 基础查询
+    query = db.query(PBLSchoolCourse)
+    
+    # 权限检查和过滤
+    if current_admin.role == 'school_admin':
+        if not current_admin.school_id:
+            return error_response(
+                message="当前管理员未绑定学校",
+                code=400,
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+        query = query.filter(PBLSchoolCourse.school_id == current_admin.school_id)
+    elif current_admin.role != 'platform_admin':
+        return error_response(
+            message="无权限访问",
+            code=403,
+            status_code=status.HTTP_403_FORBIDDEN
+        )
+    
+    # 可选过滤条件
+    if school_id:
+        query = query.filter(PBLSchoolCourse.school_id == school_id)
+    if course_id:
+        query = query.filter(PBLSchoolCourse.course_id == course_id)
+    if status:
+        query = query.filter(PBLSchoolCourse.status == status)
+    
+    # 获取总数
+    total = query.count()
+    
+    # 分页查询
+    school_courses = query.offset(skip).limit(limit).all()
+    
+    # 获取详细信息
+    result = []
+    for sc in school_courses:
+        course = db.query(PBLCourse).filter(PBLCourse.id == sc.course_id).first()
+        school = db.query(School).filter(School.id == sc.school_id).first()
+        
+        sc_data = serialize_school_course(sc)
+        if course:
+            sc_data['course'] = Course.model_validate(course).model_dump(mode='json')
+        if school:
+            sc_data['school'] = {
+                'id': school.id,
+                'uuid': school.uuid,
+                'school_code': school.school_code,
+                'school_name': school.school_name,
+                'province': school.province,
+                'city': school.city,
+                'district': school.district
+            }
+        result.append(sc_data)
+    
+    return success_response(data={
+        'items': result,
+        'total': total,
+        'skip': skip,
+        'limit': limit
+    })
 
 
 @router.get("/school/{school_id}/courses")

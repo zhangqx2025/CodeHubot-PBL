@@ -171,11 +171,27 @@ const routes = [
         }
       },
       {
+        path: 'schools',
+        name: 'AdminSchools',
+        component: () => import('../views/AdminSchools.vue'),
+        meta: {
+          title: '学校管理 - PBL系统管理后台'
+        }
+      },
+      {
         path: 'school-courses',
         name: 'AdminSchoolCourses',
         component: () => import('../views/AdminSchoolCourses.vue'),
         meta: {
           title: '学校课程配置 - PBL系统管理后台'
+        }
+      },
+      {
+        path: 'school-course-library',
+        name: 'SchoolCourseLibrary',
+        component: () => import('../views/SchoolCourseLibrary.vue'),
+        meta: {
+          title: '学校课程库 - PBL系统管理后台'
         }
       },
       {
@@ -222,6 +238,14 @@ const routes = [
         path: 'users',
         name: 'AdminUsers',
         component: () => import('../views/AdminUsers.vue'),
+        meta: {
+          title: '用户管理 - PBL系统管理后台'
+        }
+      },
+      {
+        path: 'school-user-management',
+        name: 'SchoolUserManagement',
+        component: () => import('../views/SchoolUserManagement.vue'),
         meta: {
           title: '用户管理 - PBL系统管理后台'
         }

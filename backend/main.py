@@ -7,7 +7,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
 import time
 
-from app.api.endpoints import projects, admin_auth, admin_courses, admin_units, admin_resources, student_courses, student_auth, admin_tasks, student_tasks, admin_users, enrollments, classes_groups, learning_progress, assessments, assessment_templates, datasets, ethics, experts, social_activities, admin_outputs, portfolios, school_courses, video_play, video_progress
+from app.api.endpoints import projects, admin_auth, admin_courses, admin_units, admin_resources, student_courses, student_auth, admin_tasks, student_tasks, admin_users, enrollments, classes_groups, learning_progress, assessments, assessment_templates, datasets, ethics, experts, social_activities, admin_outputs, portfolios, school_courses, schools, video_play, video_progress
 from app.core.response import error_response
 from app.core.logging_config import setup_logging, get_logger
 from app.db.session import engine
@@ -83,6 +83,7 @@ app.include_router(admin_tasks.router, prefix="/api/v1/admin/tasks", tags=["admi
 app.include_router(admin_users.router, prefix="/api/v1/admin/users", tags=["admin-users"])
 app.include_router(admin_outputs.router, prefix="/api/v1", tags=["admin-outputs"])
 app.include_router(classes_groups.router, prefix="/api/v1/admin/classes-groups", tags=["classes-groups"])
+app.include_router(schools.router, prefix="/api/v1/admin/schools", tags=["schools"])
 app.include_router(school_courses.router, prefix="/api/v1/admin/school-courses", tags=["school-courses"])
 app.include_router(enrollments.router, prefix="/api/v1/admin/enrollments", tags=["admin-enrollments"])
 app.include_router(learning_progress.router, prefix="/api/v1/admin/learning-progress", tags=["admin-learning-progress"])
