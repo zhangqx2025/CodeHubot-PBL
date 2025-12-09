@@ -66,9 +66,9 @@ def platform_admin_login(login_data: AdminLogin, db: Session = Depends(get_db)):
     db.commit()
     logger.debug(f"已更新平台管理员 {login_data.username} 的最后登录时间")
     
-    # 5. 创建访问令牌和刷新令牌
-    access_token = create_access_token(data={"sub": str(admin.id)})
-    refresh_token = create_refresh_token(data={"sub": str(admin.id)})
+    # 5. 创建访问令牌和刷新令牌（包含用户类型信息）
+    access_token = create_access_token(data={"sub": str(admin.id), "user_role": admin.role})
+    refresh_token = create_refresh_token(data={"sub": str(admin.id), "user_role": admin.role})
     
     logger.info(f"✅ 平台管理员登录成功: {admin.username} (ID: {admin.id})")
     
@@ -165,9 +165,9 @@ def admin_login(login_data: InstitutionLoginRequest, db: Session = Depends(get_d
     db.commit()
     logger.debug(f"已更新用户 {login_data.number} 的最后登录时间")
     
-    # 6. 创建访问令牌和刷新令牌
-    access_token = create_access_token(data={"sub": str(admin.id)})
-    refresh_token = create_refresh_token(data={"sub": str(admin.id)})
+    # 6. 创建访问令牌和刷新令牌（包含用户类型信息）
+    access_token = create_access_token(data={"sub": str(admin.id), "user_role": admin.role})
+    refresh_token = create_refresh_token(data={"sub": str(admin.id), "user_role": admin.role})
     
     logger.info(f"✅ 教师用户登录成功: {admin.username} ({admin.role}) - {school.school_name} (ID: {admin.id})")
     
@@ -242,8 +242,9 @@ def refresh_access_token(request: RefreshTokenRequest, db: Session = Depends(get
     """
     使用refresh token刷新access token
     当access token过期时，客户端可以使用有效的refresh token获取新的access token和refresh token
+    支持所有管理员类型（platform_admin, school_admin, teacher）
     """
-    logger.info("收到刷新令牌请求")
+    logger.info("收到管理员刷新令牌请求")
     
     # 验证refresh token（verify_token 现在会抛出异常）
     try:
@@ -257,8 +258,10 @@ def refresh_access_token(request: RefreshTokenRequest, db: Session = Depends(get
             status_code=status.HTTP_401_UNAUTHORIZED
         )
     
-    # 获取用户ID
+    # 获取用户ID和用户角色
     admin_id = payload.get("sub")
+    user_role = payload.get("user_role")
+    
     if admin_id is None:
         logger.warning("刷新令牌中没有用户ID")
         return error_response(
@@ -267,18 +270,33 @@ def refresh_access_token(request: RefreshTokenRequest, db: Session = Depends(get
             status_code=status.HTTP_401_UNAUTHORIZED
         )
     
-    logger.debug(f"刷新令牌解析成功 - 用户ID: {admin_id}")
+    # 检查用户类型，确保是管理员类型
+    if user_role not in ['platform_admin', 'school_admin', 'teacher']:
+        logger.warning(f"刷新令牌失败 - 不是管理员类型的用户: user_role={user_role}")
+        return error_response(
+            message="无效的用户类型",
+            code=401,
+            status_code=status.HTTP_401_UNAUTHORIZED
+        )
     
-    # 验证用户是否存在且为平台管理员
-    admin = db.query(Admin).filter(
-        Admin.id == int(admin_id),
-        Admin.role == 'platform_admin'
-    ).first()
+    logger.debug(f"刷新令牌解析成功 - 用户ID: {admin_id}, 用户角色: {user_role}")
+    
+    # 验证用户是否存在（根据角色查询Admin表）
+    admin = db.query(Admin).filter(Admin.id == int(admin_id)).first()
     
     if admin is None:
-        logger.warning(f"刷新令牌失败 - 用户不存在或不是平台管理员: {admin_id}")
+        logger.warning(f"刷新令牌失败 - 管理员不存在: {admin_id}")
         return error_response(
-            message="用户不存在或不是平台管理员",
+            message="用户不存在",
+            code=401,
+            status_code=status.HTTP_401_UNAUTHORIZED
+        )
+    
+    # 验证用户角色是否匹配
+    if admin.role != user_role:
+        logger.warning(f"刷新令牌失败 - 用户角色不匹配: token角色={user_role}, 实际角色={admin.role}")
+        return error_response(
+            message="用户角色不匹配",
             code=401,
             status_code=status.HTTP_401_UNAUTHORIZED
         )
@@ -291,11 +309,11 @@ def refresh_access_token(request: RefreshTokenRequest, db: Session = Depends(get
             status_code=status.HTTP_403_FORBIDDEN
         )
     
-    # 生成新的access token和refresh token
-    new_access_token = create_access_token(data={"sub": str(admin.id)})
-    new_refresh_token = create_refresh_token(data={"sub": str(admin.id)})
+    # 生成新的access token和refresh token（包含用户类型信息）
+    new_access_token = create_access_token(data={"sub": str(admin.id), "user_role": admin.role})
+    new_refresh_token = create_refresh_token(data={"sub": str(admin.id), "user_role": admin.role})
     
-    logger.info(f"令牌刷新成功 - 用户: {admin.username} (ID: {admin.id})")
+    logger.info(f"令牌刷新成功 - 用户: {admin.username} (角色: {admin.role}, ID: {admin.id})")
     
     return success_response(
         data={

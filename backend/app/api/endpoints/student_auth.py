@@ -85,9 +85,9 @@ def student_login(login_data: InstitutionLoginRequest, db: Session = Depends(get
     db.commit()
     logger.debug(f"已更新用户 {login_data.number} 的最后登录时间")
     
-    # 6. 创建访问令牌和刷新令牌
-    access_token = create_access_token(data={"sub": str(user.id)})
-    refresh_token = create_refresh_token(data={"sub": str(user.id)})
+    # 6. 创建访问令牌和刷新令牌（包含用户类型信息）
+    access_token = create_access_token(data={"sub": str(user.id), "user_role": user.role})
+    refresh_token = create_refresh_token(data={"sub": str(user.id), "user_role": user.role})
     
     logger.info(f"✅ 学生用户登录成功: {user.username} ({user.role}) - {school.school_name} (ID: {user.id})")
     
@@ -171,8 +171,9 @@ def refresh_access_token(request: RefreshTokenRequest, db: Session = Depends(get
     """
     使用refresh token刷新access token
     当access token过期时，客户端可以使用有效的refresh token获取新的access token和refresh token
+    仅支持学生用户（role=student）
     """
-    logger.info("收到刷新令牌请求")
+    logger.info("收到学生刷新令牌请求")
     
     # 验证refresh token
     try:
@@ -186,8 +187,10 @@ def refresh_access_token(request: RefreshTokenRequest, db: Session = Depends(get
             status_code=status.HTTP_401_UNAUTHORIZED
         )
     
-    # 获取用户ID
+    # 获取用户ID和用户角色
     user_id = payload.get("sub")
+    user_role = payload.get("user_role")
+    
     if user_id is None:
         logger.warning("刷新令牌中没有用户ID")
         return error_response(
@@ -196,15 +199,33 @@ def refresh_access_token(request: RefreshTokenRequest, db: Session = Depends(get
             status_code=status.HTTP_401_UNAUTHORIZED
         )
     
-    logger.debug(f"刷新令牌解析成功 - 用户ID: {user_id}")
+    # 检查用户类型，确保是学生类型
+    if user_role != 'student':
+        logger.warning(f"刷新令牌失败 - 不是学生类型的用户: user_role={user_role}")
+        return error_response(
+            message="无效的用户类型",
+            code=401,
+            status_code=status.HTTP_401_UNAUTHORIZED
+        )
     
-    # 验证用户是否存在
+    logger.debug(f"刷新令牌解析成功 - 用户ID: {user_id}, 用户角色: {user_role}")
+    
+    # 验证用户是否存在（查询User表）
     user = db.query(User).filter(User.id == int(user_id)).first()
     
     if user is None:
-        logger.warning(f"刷新令牌失败 - 用户不存在: {user_id}")
+        logger.warning(f"刷新令牌失败 - 学生用户不存在: {user_id}")
         return error_response(
             message="用户不存在",
+            code=401,
+            status_code=status.HTTP_401_UNAUTHORIZED
+        )
+    
+    # 验证用户角色是否匹配
+    if user.role != user_role:
+        logger.warning(f"刷新令牌失败 - 用户角色不匹配: token角色={user_role}, 实际角色={user.role}")
+        return error_response(
+            message="用户角色不匹配",
             code=401,
             status_code=status.HTTP_401_UNAUTHORIZED
         )
@@ -217,11 +238,11 @@ def refresh_access_token(request: RefreshTokenRequest, db: Session = Depends(get
             status_code=status.HTTP_403_FORBIDDEN
         )
     
-    # 生成新的access token和refresh token
-    new_access_token = create_access_token(data={"sub": str(user.id)})
-    new_refresh_token = create_refresh_token(data={"sub": str(user.id)})
+    # 生成新的access token和refresh token（包含用户类型信息）
+    new_access_token = create_access_token(data={"sub": str(user.id), "user_role": user.role})
+    new_refresh_token = create_refresh_token(data={"sub": str(user.id), "user_role": user.role})
     
-    logger.info(f"令牌刷新成功 - 用户: {user.username} (ID: {user.id})")
+    logger.info(f"令牌刷新成功 - 用户: {user.username} (角色: {user.role}, ID: {user.id})")
     
     return success_response(
         data={
