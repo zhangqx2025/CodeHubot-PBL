@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Body
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import Optional
@@ -8,6 +8,7 @@ from ...core.response import success_response, error_response
 from ...core.deps import get_db, get_current_user, get_current_admin
 from ...models.admin import User, Admin
 from ...models.pbl import PBLCourse, PBLUnit, PBLResource, PBLTask, PBLTaskProgress, PBLCourseEnrollment, PBLLearningProgress
+from ...schemas.pbl import LearningProgressTrack
 from ...core.logging_config import get_logger
 
 router = APIRouter()
@@ -204,20 +205,13 @@ def get_unit_progress(
 
 @router.post("/track")
 def track_learning_activity(
-    course_uuid: str,
-    unit_uuid: Optional[str] = None,
-    resource_uuid: Optional[str] = None,
-    task_uuid: Optional[str] = None,
-    progress_type: str = 'resource_view',
-    progress_value: int = 0,
-    time_spent: int = 0,
-    metadata: Optional[dict] = None,
+    track_data: LearningProgressTrack = Body(...),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """记录学习行为（使用UUID）"""
     # 验证课程是否存在
-    course = db.query(PBLCourse).filter(PBLCourse.uuid == course_uuid).first()
+    course = db.query(PBLCourse).filter(PBLCourse.uuid == track_data.course_uuid).first()
     if not course:
         return error_response(
             message="课程不存在",
@@ -227,25 +221,25 @@ def track_learning_activity(
     
     # 根据UUID查找对应的ID
     unit_id = None
-    if unit_uuid:
-        unit = db.query(PBLUnit).filter(PBLUnit.uuid == unit_uuid).first()
+    if track_data.unit_uuid:
+        unit = db.query(PBLUnit).filter(PBLUnit.uuid == track_data.unit_uuid).first()
         if unit:
             unit_id = unit.id
     
     resource_id = None
-    if resource_uuid:
-        resource = db.query(PBLResource).filter(PBLResource.uuid == resource_uuid).first()
+    if track_data.resource_uuid:
+        resource = db.query(PBLResource).filter(PBLResource.uuid == track_data.resource_uuid).first()
         if resource:
             resource_id = resource.id
     
     task_id = None
-    if task_uuid:
-        task = db.query(PBLTask).filter(PBLTask.uuid == task_uuid).first()
+    if track_data.task_uuid:
+        task = db.query(PBLTask).filter(PBLTask.uuid == track_data.task_uuid).first()
         if task:
             task_id = task.id
     
     # 判断完成状态
-    is_completed = progress_value >= 100
+    is_completed = track_data.progress_value >= 100
     completed_at = datetime.now() if is_completed else None
     
     # 插入学习进度记录
@@ -255,12 +249,12 @@ def track_learning_activity(
         unit_id=unit_id,
         resource_id=resource_id,
         task_id=task_id,
-        progress_type=progress_type,
-        progress_value=progress_value,
+        progress_type=track_data.progress_type,
+        progress_value=track_data.progress_value,
         status='completed' if is_completed else 'in_progress',
         completed_at=completed_at,
-        time_spent=time_spent,
-        meta_data=metadata
+        time_spent=track_data.time_spent,
+        meta_data=track_data.metadata
     )
     db.add(learning_progress)
     
@@ -271,25 +265,25 @@ def track_learning_activity(
         PBLCourseEnrollment.enrollment_status == 'enrolled'
     ).first()
     
-    if enrollment and progress_value > enrollment.progress:
-        enrollment.progress = progress_value
+    if enrollment and track_data.progress_value > enrollment.progress:
+        enrollment.progress = track_data.progress_value
     
     db.commit()
     
-    logger.debug(f"学习行为追踪 - 用户: {current_user.id}, 课程: {course_uuid}, 类型: {progress_type}")
+    logger.debug(f"学习行为追踪 - 用户: {current_user.id}, 课程: {track_data.course_uuid}, 类型: {track_data.progress_type}")
     
     return success_response(
         data={
             'tracked': True,
             'user_id': current_user.id,
-            'course_uuid': course_uuid,
-            'unit_uuid': unit_uuid,
-            'resource_uuid': resource_uuid,
-            'task_uuid': task_uuid,
-            'progress_type': progress_type,
-            'progress_value': progress_value,
+            'course_uuid': track_data.course_uuid,
+            'unit_uuid': track_data.unit_uuid,
+            'resource_uuid': track_data.resource_uuid,
+            'task_uuid': track_data.task_uuid,
+            'progress_type': track_data.progress_type,
+            'progress_value': track_data.progress_value,
             'status': 'completed' if is_completed else 'in_progress',
-            'time_spent': time_spent
+            'time_spent': track_data.time_spent
         },
         message="学习行为记录成功"
     )
@@ -334,19 +328,39 @@ def get_unit_resources_progress(
     task_progress = {}
     
     for task in tasks:
-        # 获取该任务的最新进度记录
-        latest_progress = db.query(PBLLearningProgress).filter(
-            PBLLearningProgress.user_id == current_user.id,
-            PBLLearningProgress.task_id == task.id
-        ).order_by(PBLLearningProgress.created_at.desc()).first()
+        # 从 PBLTaskProgress 表获取任务进度（包含提交内容）
+        task_prog = db.query(PBLTaskProgress).filter(
+            PBLTaskProgress.user_id == current_user.id,
+            PBLTaskProgress.task_id == task.id
+        ).first()
         
-        if latest_progress:
+        if task_prog:
             task_progress[f"task-{task.id}"] = {
-                'status': latest_progress.status,
-                'progress_value': latest_progress.progress_value,
-                'completed_at': latest_progress.completed_at.isoformat() if latest_progress.completed_at else None,
-                'time_spent': latest_progress.time_spent
+                'status': task_prog.status,
+                'progress_value': task_prog.progress,
+                'completed_at': task_prog.updated_at.isoformat() if task_prog.updated_at else None,
+                'time_spent': 0,  # PBLTaskProgress 表没有 time_spent 字段
+                'submission': task_prog.submission,  # 添加提交内容
+                'score': task_prog.score,  # 添加分数
+                'feedback': task_prog.feedback  # 添加反馈
             }
+        else:
+            # 如果 PBLTaskProgress 中没有记录，尝试从 PBLLearningProgress 中获取
+            latest_progress = db.query(PBLLearningProgress).filter(
+                PBLLearningProgress.user_id == current_user.id,
+                PBLLearningProgress.task_id == task.id
+            ).order_by(PBLLearningProgress.created_at.desc()).first()
+            
+            if latest_progress:
+                task_progress[f"task-{task.id}"] = {
+                    'status': latest_progress.status,
+                    'progress_value': latest_progress.progress_value,
+                    'completed_at': latest_progress.completed_at.isoformat() if latest_progress.completed_at else None,
+                    'time_spent': latest_progress.time_spent,
+                    'submission': None,  # PBLLearningProgress 表没有 submission 字段
+                    'score': None,
+                    'feedback': None
+                }
     
     return success_response(data={
         'unit_id': unit.id,

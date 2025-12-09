@@ -212,14 +212,29 @@
 
               <div class="submission-area">
                 <h3>作业提交</h3>
+                <el-alert 
+                  v-if="currentStep.status === 'review'" 
+                  type="info" 
+                  :closable="false"
+                  style="margin-bottom: 15px;"
+                >
+                  作业已提交，等待评分。您可以重新提交以更新作业内容。
+                </el-alert>
+                <el-alert 
+                  v-if="currentStep.status === 'completed' && currentStep.data.score" 
+                  type="warning" 
+                  :closable="false"
+                  style="margin-bottom: 15px;"
+                >
+                  作业已评分（{{ currentStep.data.score }}分）。重新提交将覆盖原有评分。
+                </el-alert>
                 <el-form label-position="top">
-                  <el-form-item label="作业内容 / 代码链接">
+                  <el-form-item label="作业内容">
                     <el-input 
                       v-model="submissionContent" 
                       type="textarea" 
                       :rows="4" 
-                      placeholder="请输入你的作业内容或粘贴代码仓库链接..."
-                      :disabled="currentStep.status === 'completed'"
+                      placeholder="请输入你的作业内容"
                     />
                   </el-form-item>
                   <el-form-item>
@@ -227,9 +242,8 @@
                       type="primary" 
                       @click="submitTask" 
                       :loading="submitting"
-                      :disabled="currentStep.status === 'completed'"
                     >
-                      {{ currentStep.status === 'completed' ? '已提交' : '提交作业' }}
+                      {{ currentStep.status === 'completed' || currentStep.status === 'review' ? '重新提交' : '提交作业' }}
                     </el-button>
                   </el-form-item>
                 </el-form>
@@ -295,7 +309,8 @@ import {
   getCourseUnits, 
   trackLearningProgress,
   getUnitResourcesProgress,
-  getVideoPlayAuth 
+  getVideoPlayAuth,
+  submitTask as submitTaskAPI
 } from '@/api/student'
 
 const router = useRouter()
@@ -598,9 +613,13 @@ const selectStep = async (step) => {
     return
   }
   currentStep.value = step
-  // 重置提交内容
+  // 加载之前的提交内容（如果有）
   if (step.type === 'task') {
-    submissionContent.value = '' 
+    if (step.submission && step.submission.content) {
+      submissionContent.value = step.submission.content
+    } else {
+      submissionContent.value = '' 
+    }
   }
   // 重置测验
   if (step.type === 'quiz') {
@@ -643,13 +662,20 @@ const loadLearningProgress = async (unitUuid) => {
       })
     }
     
-    // 更新任务完成状态
+    // 更新任务完成状态和提交内容
     if (progressData.task_progress) {
       Object.keys(progressData.task_progress).forEach(key => {
         const progress = progressData.task_progress[key]
         const step = learningPath.value.find(s => s.id === key)
-        if (step && progress.status === 'completed') {
-          step.status = 'completed'
+        if (step) {
+          // 保存提交内容到步骤数据中
+          step.submission = progress.submission
+          step.score = progress.score
+          step.feedback = progress.feedback
+          
+          if (progress.status === 'completed') {
+            step.status = 'completed'
+          }
         }
       })
     }
@@ -796,21 +822,26 @@ const submitTask = async () => {
   
   submitting.value = true
   try {
-    // 这里可以调用实际的任务提交API
-    // await submitTaskToBackend(currentStep.value.id, submissionContent.value)
+    // 调用真实的任务提交API
+    const result = await submitTaskAPI(currentStep.value.uuid, {
+      content: submissionContent.value,
+      submitted_at: new Date().toISOString()
+    })
     
-    // 模拟API调用
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
+    // 更新当前步骤状态为已完成
     currentStep.value.status = 'completed'
     
-    // 保存进度到后端
+    // 同时保存学习进度记录
     await saveProgress(currentStep.value, 'task_submit', 100)
     
-    ElMessage.success('作业提交成功！')
+    ElMessage.success(result.message || '作业提交成功！')
     unlockNextStep(currentStep.value.id)
+    
+    // 清空提交内容
+    submissionContent.value = ''
   } catch (error) {
-    ElMessage.error('提交失败，请重试')
+    console.error('作业提交失败:', error)
+    ElMessage.error(error.message || '提交失败，请重试')
   } finally {
     submitting.value = false
   }
