@@ -1,16 +1,118 @@
--- CodeHubot PBL Platform Database Schema
--- Version: 1.1
--- Date: 2025-12-08
--- 更新内容：添加视频观看次数限制和个性化权限管理功能
+-- ==========================================================================================================
+-- CodeHubot PBL 模块数据库初始化脚本
+-- ==========================================================================================================
+-- 
+-- 脚本名称: pbl_schema.sql
+-- 脚本版本: 2.0.0
+-- 数据库版本: 2.0
+-- 创建日期: 2025-01-01
+-- 最后更新: 2025-12-09
+-- 兼容版本: MySQL 5.7.x, 8.0.x
+-- 字符集: utf8mb4
+-- 排序规则: utf8mb4_unicode_ci
+--
+-- ==========================================================================================================
+-- 脚本说明
+-- ==========================================================================================================
+--
+-- 1. 用途说明:
+--    本脚本用于初始化 CodeHubot 系统的 PBL（项目制学习）模块数据库结构，包含以下功能模块：
+--    - 课程管理: 课程、单元、资源、任务
+--    - 学习管理: 学习进度、观看记录、播放进度追踪
+--    - 项目管理: 项目、项目成果、评价体系
+--    - 班级管理: 班级、教师关联、小组、成员
+--    - 选课管理: 学校课程分配、学生选课
+--    - 伦理教育: 伦理案例、伦理活动
+--    - 资源管理: 数据集管理
+--    - 家校社协同: 学生档案、家长关系、外部专家、社会实践
+--    - 学校管理: 批量导入日志
+--
+-- 2. 前置条件:
+--    - 必须先执行 init_database.sql 创建核心表（core_users, core_schools 等）
+--    - MySQL Server 5.7.x 或 8.0.x 已安装并正常运行
+--    - 目标数据库 aiot_admin 已创建并包含核心模块表
+--    - 执行用户拥有 CREATE, ALTER, INDEX, REFERENCES 等权限
+--
+-- 3. 执行方式:
+--    方式一 (推荐): 
+--      mysql -h hostname -u username -p --default-character-set=utf8mb4 aiot_admin < pbl_schema.sql
+--    
+--    方式二:
+--      mysql> USE aiot_admin;
+--      mysql> SOURCE /path/to/pbl_schema.sql;
+--    
+--    方式三 (检查模式):
+--      mysql -u username -p aiot_admin < pbl_schema.sql > pbl_output.log 2>&1
+--
+-- 4. 执行后验证:
+--    - 检查输出日志中是否有错误信息
+--    - 验证 PBL 表数量: SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'aiot_admin' AND table_name LIKE 'pbl_%';
+--    - 验证外键约束完整性
+--
+-- 5. 回滚说明:
+--    如需完全移除 PBL 模块，按以下顺序删除表:
+--    - 先删除有外键依赖的表（子表）
+--    - 最后删除被依赖的表（父表）
+--    - 建议使用专门的回滚脚本
+--
+-- 6. 重要提示:
+--    - 本脚本使用 CREATE TABLE IF NOT EXISTS，可安全重复执行
+--    - 不包含 DROP TABLE 语句，避免误删数据
+--    - 所有表使用 InnoDB 引擎，支持事务和外键
+--    - 建议在生产环境执行前先在测试环境验证
+--
+-- 7. 表命名规范:
+--    所有表名统一使用 pbl_ 前缀，采用下划线分隔单词
+--
+-- 8. 技术规范:
+--    - 存储引擎: InnoDB
+--    - 字符集: utf8mb4
+--    - 排序规则: utf8mb4_unicode_ci
+--    - 时间戳: 自动维护 created_at 和 updated_at
+--
+-- ==========================================================================================================
+-- 执行环境检查
+-- ==========================================================================================================
 
-SET NAMES utf8mb4;
+-- 检查当前数据库
+SELECT 
+    DATABASE() AS current_database,
+    VERSION() AS mysql_version,
+    NOW() AS execution_start_time;
+
+-- 验证核心表是否存在
+SELECT 
+    CASE 
+        WHEN EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'core_users') 
+        THEN 'OK: core_users table exists'
+        ELSE 'ERROR: core_users table not found. Please execute init_database.sql first!'
+    END AS prerequisite_check_1;
+
+SELECT 
+    CASE 
+        WHEN EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'core_schools') 
+        THEN 'OK: core_schools table exists'
+        ELSE 'ERROR: core_schools table not found. Please execute init_database.sql first!'
+    END AS prerequisite_check_2;
+
+-- 设置执行环境
+SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci;
+SET SQL_MODE = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION';
 SET FOREIGN_KEY_CHECKS = 0;
+SET UNIQUE_CHECKS = 0;
+
+-- 开始事务
+START TRANSACTION;
+
+-- ==========================================================================================================
+-- 课程管理模块
+-- ==========================================================================================================
 
 -- ----------------------------
 -- Table structure for pbl_courses
+-- 课程基础信息表
 -- ----------------------------
-DROP TABLE IF EXISTS `pbl_courses`;
-CREATE TABLE `pbl_courses` (
+CREATE TABLE IF NOT EXISTS `pbl_courses` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '课程ID',
   `uuid` varchar(36) NOT NULL COMMENT 'UUID，唯一标识',
   `title` varchar(200) NOT NULL COMMENT '课程标题',
@@ -30,10 +132,30 @@ CREATE TABLE `pbl_courses` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='PBL课程表';
 
 -- ----------------------------
--- Table structure for pbl_units
+-- Table structure for pbl_course_teachers
+-- 课程教师关联表（多对多关系）
 -- ----------------------------
-DROP TABLE IF EXISTS `pbl_units`;
-CREATE TABLE `pbl_units` (
+CREATE TABLE IF NOT EXISTS `pbl_course_teachers` (
+  `id` int(11) NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '关联ID',
+  `course_id` bigint(20) NOT NULL COMMENT '课程ID',
+  `teacher_id` int(11) NOT NULL COMMENT '教师ID',
+  `subject` varchar(50) DEFAULT NULL COMMENT '教师在该课程教授的科目',
+  `is_primary` tinyint(1) DEFAULT '0' COMMENT '是否为主讲教师',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  UNIQUE KEY `uk_course_teacher` (`course_id`, `teacher_id`),
+  KEY `idx_course_id` (`course_id`),
+  KEY `idx_teacher_id` (`teacher_id`),
+  KEY `idx_is_primary` (`is_primary`),
+  CONSTRAINT `fk_course_teachers_course` FOREIGN KEY (`course_id`) REFERENCES `pbl_courses` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_course_teachers_teacher` FOREIGN KEY (`teacher_id`) REFERENCES `core_users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='PBL课程教师关联表（多对多）';
+
+-- ----------------------------
+-- Table structure for pbl_units
+-- 课程单元表
+-- ----------------------------
+CREATE TABLE IF NOT EXISTS `pbl_units` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '单元ID',
   `uuid` varchar(36) NOT NULL COMMENT 'UUID，唯一标识',
   `course_id` bigint(20) NOT NULL COMMENT '课程ID',
@@ -53,8 +175,8 @@ CREATE TABLE `pbl_units` (
 -- ----------------------------
 -- Table structure for pbl_resources
 -- ----------------------------
-DROP TABLE IF EXISTS `pbl_resources`;
-CREATE TABLE `pbl_resources` (
+-- DROP TABLE IF EXISTS (Removed for safety) `pbl_resources`;
+CREATE TABLE IF NOT EXISTS `pbl_resources` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '资源ID',
   `uuid` varchar(36) NOT NULL COMMENT 'UUID，唯一标识',
   `unit_id` bigint(20) NOT NULL COMMENT '单元ID',
@@ -82,8 +204,8 @@ CREATE TABLE `pbl_resources` (
 -- ----------------------------
 -- Table structure for pbl_tasks
 -- ----------------------------
-DROP TABLE IF EXISTS `pbl_tasks`;
-CREATE TABLE `pbl_tasks` (
+-- DROP TABLE IF EXISTS (Removed for safety) `pbl_tasks`;
+CREATE TABLE IF NOT EXISTS `pbl_tasks` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '任务ID',
   `uuid` varchar(36) NOT NULL COMMENT 'UUID，唯一标识',
   `unit_id` bigint(20) NOT NULL COMMENT '单元ID',
@@ -105,8 +227,8 @@ CREATE TABLE `pbl_tasks` (
 -- ----------------------------
 -- Table structure for pbl_projects
 -- ----------------------------
-DROP TABLE IF EXISTS `pbl_projects`;
-CREATE TABLE `pbl_projects` (
+-- DROP TABLE IF EXISTS (Removed for safety) `pbl_projects`;
+CREATE TABLE IF NOT EXISTS `pbl_projects` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '项目ID',
   `uuid` varchar(36) NOT NULL COMMENT 'UUID，唯一标识',
   `group_id` int(11) DEFAULT NULL COMMENT '团队ID（关联 aiot_course_groups.id）',
@@ -128,8 +250,8 @@ CREATE TABLE `pbl_projects` (
 -- ----------------------------
 -- Table structure for pbl_task_progress
 -- ----------------------------
-DROP TABLE IF EXISTS `pbl_task_progress`;
-CREATE TABLE `pbl_task_progress` (
+-- DROP TABLE IF EXISTS (Removed for safety) `pbl_task_progress`;
+CREATE TABLE IF NOT EXISTS `pbl_task_progress` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '进度ID',
   `task_id` bigint(20) NOT NULL COMMENT '任务ID',
   `user_id` int(11) NOT NULL COMMENT '用户ID（关联 aiot_core_users.id）',
@@ -151,8 +273,8 @@ CREATE TABLE `pbl_task_progress` (
 -- ----------------------------
 -- Table structure for pbl_ai_conversations
 -- ----------------------------
-DROP TABLE IF EXISTS `pbl_ai_conversations`;
-CREATE TABLE `pbl_ai_conversations` (
+-- DROP TABLE IF EXISTS (Removed for safety) `pbl_ai_conversations`;
+CREATE TABLE IF NOT EXISTS `pbl_ai_conversations` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '主键',
   `uuid` varchar(36) NOT NULL COMMENT 'UUID，唯一标识',
   `user_id` int(11) NOT NULL COMMENT '用户ID',
@@ -169,8 +291,8 @@ CREATE TABLE `pbl_ai_conversations` (
 -- ----------------------------
 -- Table structure for pbl_learning_logs
 -- ----------------------------
-DROP TABLE IF EXISTS `pbl_learning_logs`;
-CREATE TABLE `pbl_learning_logs` (
+-- DROP TABLE IF EXISTS (Removed for safety) `pbl_learning_logs`;
+CREATE TABLE IF NOT EXISTS `pbl_learning_logs` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '主键',
   `user_id` int(11) NOT NULL COMMENT '用户ID',
   `resource_id` bigint(20) NOT NULL COMMENT '资源ID',
@@ -187,8 +309,8 @@ CREATE TABLE `pbl_learning_logs` (
 -- ----------------------------
 -- Table structure for pbl_achievements
 -- ----------------------------
-DROP TABLE IF EXISTS `pbl_achievements`;
-CREATE TABLE `pbl_achievements` (
+-- DROP TABLE IF EXISTS (Removed for safety) `pbl_achievements`;
+CREATE TABLE IF NOT EXISTS `pbl_achievements` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '主键',
   `uuid` varchar(36) NOT NULL COMMENT 'UUID',
   `name` varchar(100) NOT NULL COMMENT '成就名称',
@@ -204,8 +326,8 @@ CREATE TABLE `pbl_achievements` (
 -- ----------------------------
 -- Table structure for pbl_user_achievements
 -- ----------------------------
-DROP TABLE IF EXISTS `pbl_user_achievements`;
-CREATE TABLE `pbl_user_achievements` (
+-- DROP TABLE IF EXISTS (Removed for safety) `pbl_user_achievements`;
+CREATE TABLE IF NOT EXISTS `pbl_user_achievements` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '主键',
   `user_id` int(11) NOT NULL COMMENT '用户ID',
   `achievement_id` bigint(20) NOT NULL COMMENT '成就ID',
@@ -220,8 +342,8 @@ CREATE TABLE `pbl_user_achievements` (
 -- Table structure for pbl_video_watch_records
 -- ----------------------------
 -- 用于详细追踪每次视频观看行为
-DROP TABLE IF EXISTS `pbl_video_watch_records`;
-CREATE TABLE `pbl_video_watch_records` (
+-- DROP TABLE IF EXISTS (Removed for safety) `pbl_video_watch_records`;
+CREATE TABLE IF NOT EXISTS `pbl_video_watch_records` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '记录ID',
   `resource_id` bigint(20) NOT NULL COMMENT '视频资源ID',
   `user_id` int(11) NOT NULL COMMENT '用户ID（学生）',
@@ -243,8 +365,8 @@ CREATE TABLE `pbl_video_watch_records` (
 -- Table structure for pbl_video_user_permissions
 -- ----------------------------
 -- 为每个学生-视频组合设置个性化的观看权限
-DROP TABLE IF EXISTS `pbl_video_user_permissions`;
-CREATE TABLE `pbl_video_user_permissions` (
+-- DROP TABLE IF EXISTS (Removed for safety) `pbl_video_user_permissions`;
+CREATE TABLE IF NOT EXISTS `pbl_video_user_permissions` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '权限ID',
   `uuid` varchar(36) NOT NULL COMMENT 'UUID',
   `resource_id` bigint(20) NOT NULL COMMENT '视频资源ID',
@@ -271,8 +393,8 @@ CREATE TABLE `pbl_video_user_permissions` (
 -- ----------------------------
 -- Table structure for pbl_course_enrollments
 -- ----------------------------
-DROP TABLE IF EXISTS `pbl_course_enrollments`;
-CREATE TABLE `pbl_course_enrollments` (
+-- DROP TABLE IF EXISTS (Removed for safety) `pbl_course_enrollments`;
+CREATE TABLE IF NOT EXISTS `pbl_course_enrollments` (
   `id` int(11) NOT NULL AUTO_INCREMENT COMMENT '选课记录ID',
   `course_id` bigint(20) NOT NULL COMMENT '课程ID',
   `user_id` int(11) NOT NULL COMMENT '学生ID',
@@ -290,14 +412,14 @@ CREATE TABLE `pbl_course_enrollments` (
   KEY `idx_enrollment_status` (`enrollment_status`),
   KEY `idx_enrolled_at` (`enrolled_at`),
   CONSTRAINT `fk_enrollments_course` FOREIGN KEY (`course_id`) REFERENCES `pbl_courses` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_enrollments_user` FOREIGN KEY (`user_id`) REFERENCES `aiot_core_users` (`id`) ON DELETE CASCADE
+  CONSTRAINT `fk_enrollments_user` FOREIGN KEY (`user_id`) REFERENCES `core_users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='PBL课程选课记录表';
 
 -- ----------------------------
 -- Table structure for pbl_classes
 -- ----------------------------
-DROP TABLE IF EXISTS `pbl_classes`;
-CREATE TABLE `pbl_classes` (
+-- DROP TABLE IF EXISTS (Removed for safety) `pbl_classes`;
+CREATE TABLE IF NOT EXISTS `pbl_classes` (
   `id` int(11) NOT NULL AUTO_INCREMENT COMMENT '班级ID',
   `uuid` varchar(36) NOT NULL COMMENT 'UUID唯一标识',
   `school_id` int(11) NOT NULL COMMENT '所属学校ID',
@@ -317,10 +439,30 @@ CREATE TABLE `pbl_classes` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='PBL班级表';
 
 -- ----------------------------
+-- Table structure for pbl_class_teachers
+-- ----------------------------
+-- DROP TABLE IF EXISTS (Removed for safety) `pbl_class_teachers`;
+CREATE TABLE IF NOT EXISTS `pbl_class_teachers` (
+  `id` int(11) NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '关联ID',
+  `class_id` int(11) NOT NULL COMMENT '班级ID',
+  `teacher_id` int(11) NOT NULL COMMENT '教师ID',
+  `subject` varchar(50) DEFAULT NULL COMMENT '教师在该班级教授的科目',
+  `is_primary` tinyint(1) DEFAULT '0' COMMENT '是否为班主任',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  UNIQUE KEY `uk_class_teacher` (`class_id`, `teacher_id`),
+  KEY `idx_class_id` (`class_id`),
+  KEY `idx_teacher_id` (`teacher_id`),
+  KEY `idx_is_primary` (`is_primary`),
+  CONSTRAINT `fk_class_teachers_class` FOREIGN KEY (`class_id`) REFERENCES `pbl_classes` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_class_teachers_teacher` FOREIGN KEY (`teacher_id`) REFERENCES `core_users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='PBL班级教师关联表（多对多）';
+
+-- ----------------------------
 -- Table structure for pbl_groups
 -- ----------------------------
-DROP TABLE IF EXISTS `pbl_groups`;
-CREATE TABLE `pbl_groups` (
+-- DROP TABLE IF EXISTS (Removed for safety) `pbl_groups`;
+CREATE TABLE IF NOT EXISTS `pbl_groups` (
   `id` int(11) NOT NULL AUTO_INCREMENT COMMENT '小组ID',
   `uuid` varchar(36) NOT NULL COMMENT 'UUID唯一标识',
   `class_id` int(11) DEFAULT NULL COMMENT '所属班级ID',
@@ -344,8 +486,8 @@ CREATE TABLE `pbl_groups` (
 -- ----------------------------
 -- Table structure for pbl_group_members
 -- ----------------------------
-DROP TABLE IF EXISTS `pbl_group_members`;
-CREATE TABLE `pbl_group_members` (
+-- DROP TABLE IF EXISTS (Removed for safety) `pbl_group_members`;
+CREATE TABLE IF NOT EXISTS `pbl_group_members` (
   `id` int(11) NOT NULL AUTO_INCREMENT COMMENT '成员记录ID',
   `group_id` int(11) NOT NULL COMMENT '小组ID',
   `user_id` int(11) NOT NULL COMMENT '学生ID',
@@ -359,35 +501,43 @@ CREATE TABLE `pbl_group_members` (
   KEY `idx_user_id` (`user_id`),
   KEY `idx_role` (`role`),
   CONSTRAINT `fk_group_members_group` FOREIGN KEY (`group_id`) REFERENCES `pbl_groups` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_group_members_user` FOREIGN KEY (`user_id`) REFERENCES `aiot_core_users` (`id`) ON DELETE CASCADE
+  CONSTRAINT `fk_group_members_user` FOREIGN KEY (`user_id`) REFERENCES `core_users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='PBL小组成员表';
 
 -- ----------------------------
 -- Table structure for pbl_learning_progress
 -- ----------------------------
-DROP TABLE IF EXISTS `pbl_learning_progress`;
-CREATE TABLE `pbl_learning_progress` (
+CREATE TABLE IF NOT EXISTS `pbl_learning_progress` (
   `id` int(11) NOT NULL AUTO_INCREMENT COMMENT '进度记录ID',
   `user_id` int(11) NOT NULL COMMENT '学生ID',
   `course_id` bigint(20) NOT NULL COMMENT '课程ID',
   `unit_id` bigint(20) DEFAULT NULL COMMENT '单元ID',
   `resource_id` bigint(20) DEFAULT NULL COMMENT '资源ID',
+  `task_id` bigint(20) DEFAULT NULL COMMENT '任务ID',
   `progress_type` enum('resource_view','video_watch','document_read','task_submit','unit_complete') NOT NULL COMMENT '进度类型',
   `progress_value` int(11) DEFAULT '0' COMMENT '进度值（百分比或时长）',
+  `status` enum('in_progress','completed') NOT NULL DEFAULT 'in_progress' COMMENT '状态',
+  `completed_at` timestamp NULL DEFAULT NULL COMMENT '完成时间',
   `time_spent` int(11) DEFAULT '0' COMMENT '花费时间（秒）',
   `meta_data` json DEFAULT NULL COMMENT '额外数据',
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '记录时间',
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`),
   KEY `idx_user_id` (`user_id`),
   KEY `idx_course_id` (`course_id`),
   KEY `idx_unit_id` (`unit_id`),
   KEY `idx_resource_id` (`resource_id`),
+  KEY `idx_task_id` (`task_id`),
   KEY `idx_progress_type` (`progress_type`),
+  KEY `idx_status` (`status`),
   KEY `idx_created_at` (`created_at`),
-  CONSTRAINT `fk_learning_progress_user` FOREIGN KEY (`user_id`) REFERENCES `aiot_core_users` (`id`) ON DELETE CASCADE,
+  KEY `idx_user_resource_latest` (`user_id`, `resource_id`, `created_at`),
+  KEY `idx_user_task_latest` (`user_id`, `task_id`, `created_at`),
+  CONSTRAINT `fk_learning_progress_user` FOREIGN KEY (`user_id`) REFERENCES `core_users` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_learning_progress_course` FOREIGN KEY (`course_id`) REFERENCES `pbl_courses` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_learning_progress_unit` FOREIGN KEY (`unit_id`) REFERENCES `pbl_units` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_learning_progress_resource` FOREIGN KEY (`resource_id`) REFERENCES `pbl_resources` (`id`) ON DELETE CASCADE
+  CONSTRAINT `fk_learning_progress_resource` FOREIGN KEY (`resource_id`) REFERENCES `pbl_resources` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_learning_progress_task` FOREIGN KEY (`task_id`) REFERENCES `pbl_tasks` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='PBL学习进度详细追踪表';
 
 -- ==========================================
@@ -413,8 +563,8 @@ CREATE TABLE `pbl_learning_progress` (
 -- ----------------------------
 -- Table structure for pbl_school_courses
 -- ----------------------------
-DROP TABLE IF EXISTS `pbl_school_courses`;
-CREATE TABLE `pbl_school_courses` (
+-- DROP TABLE IF EXISTS (Removed for safety) `pbl_school_courses`;
+CREATE TABLE IF NOT EXISTS `pbl_school_courses` (
   `id` BIGINT(20) NOT NULL AUTO_INCREMENT COMMENT '记录ID',
   `uuid` VARCHAR(36) NOT NULL COMMENT 'UUID，唯一标识',
   `school_id` INT(11) NOT NULL COMMENT '学校ID',
@@ -436,302 +586,28 @@ CREATE TABLE `pbl_school_courses` (
   KEY `idx_course_id` (`course_id`),
   KEY `idx_status` (`status`),
   KEY `idx_assigned_at` (`assigned_at`),
-  CONSTRAINT `fk_school_courses_school` FOREIGN KEY (`school_id`) REFERENCES `aiot_schools` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_school_courses_school` FOREIGN KEY (`school_id`) REFERENCES `core_schools` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_school_courses_course` FOREIGN KEY (`course_id`) REFERENCES `pbl_courses` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='学校课程分配表（平台管理员为学校分配课程）';
 
 -- ----------------------------
--- 修改 pbl_courses 表的 school_id 注释
+-- 课程表字段说明更新
 -- ----------------------------
--- 注意：school_id 字段保留，但语义调整为"课程创建者所属学校"
--- 课程可以由学校创建，也可以由平台创建（school_id为NULL表示平台课程）
-ALTER TABLE `pbl_courses` 
-  MODIFY COLUMN `school_id` INT(11) DEFAULT NULL COMMENT '课程创建者所属学校ID（NULL表示平台课程）';
+-- 注意：school_id 字段语义为"课程创建者所属学校"
+-- NULL 表示平台课程，非 NULL 表示学校课程
 
--- ----------------------------
--- 为现有课程创建学校课程关联
--- ----------------------------
--- 说明：如果现有课程已经有 school_id，自动创建学校课程关联记录
-INSERT INTO `pbl_school_courses` (`uuid`, `school_id`, `course_id`, `assigned_at`, `status`, `created_at`, `updated_at`)
-SELECT 
-  UUID() AS uuid,
-  c.school_id,
-  c.id AS course_id,
-  c.created_at AS assigned_at,
-  'active' AS status,
-  NOW() AS created_at,
-  NOW() AS updated_at
-FROM `pbl_courses` c
-WHERE c.school_id IS NOT NULL
-  AND NOT EXISTS (
-    SELECT 1 FROM `pbl_school_courses` sc 
-    WHERE sc.school_id = c.school_id AND sc.course_id = c.id
-  );
-
--- ----------------------------
--- 更新 pbl_course_enrollments 表的约束
--- ----------------------------
--- 添加检查：学生选课前，课程必须已分配给学生所属学校
--- 注意：这个约束通过应用层逻辑实现，数据库层面添加索引优化查询
-
--- 添加索引以优化查询性能（先检查是否存在，不存在再创建）
-SET @index_exists = (
-  SELECT COUNT(1) 
-  FROM information_schema.statistics 
-  WHERE table_schema = DATABASE() 
-    AND table_name = 'pbl_course_enrollments' 
-    AND index_name = 'idx_course_user'
-);
-
-SET @sql_add_index = IF(
-  @index_exists = 0,
-  'ALTER TABLE `pbl_course_enrollments` ADD KEY `idx_course_user` (`course_id`, `user_id`)',
-  'SELECT "索引 idx_course_user 已存在，跳过创建" AS info'
-);
-
-PREPARE stmt FROM @sql_add_index;
-EXECUTE stmt;
-DEALLOCATE PREPARE stmt;
-
--- ----------------------------
--- 显示统计信息
--- ----------------------------
-SELECT 
-  '学校课程分配表创建完成' AS step,
-  COUNT(*) AS initialized_records
-FROM `pbl_school_courses`;
-
-SELECT 
-  s.school_name,
-  COUNT(sc.id) AS assigned_courses
-FROM `aiot_schools` s
-LEFT JOIN `pbl_school_courses` sc ON s.id = sc.school_id
-GROUP BY s.id, s.school_name
-ORDER BY assigned_courses DESC;
-
--- ----------------------------
--- 说明文档
--- ----------------------------
-/*
-数据表关系说明：
-
-1. pbl_courses（课程表）
-   - 存储所有课程信息
-   - school_id：课程创建者所属学校（NULL表示平台课程）
-   - 课程可以由平台创建，也可以由学校创建
-
-2. pbl_school_courses（学校课程分配表）★ 新增
-   - 记录平台管理员为学校分配的课程
-   - 学校只能看到和使用已分配的课程
-   - 支持设置课程有效期、学生数限制等
-
-3. pbl_course_enrollments（学生选课表）
-   - 记录学校管理员为学生分配的课程
-   - 学生只能看到和学习已分配的课程
-
-权限层级：
-- 平台管理员：管理所有课程，为学校分配课程
-- 学校管理员：查看学校已分配的课程，为学生分配课程
-- 学生：查看和学习已分配的课程
-
-业务流程：
-1. 平台管理员创建课程 → pbl_courses
-2. 平台管理员将课程分配给学校 → pbl_school_courses
-3. 学校管理员从学校课程库中选择课程，分配给学生 → pbl_course_enrollments
-4. 学生查看和学习已分配的课程
-
-查询示例：
--- 查询某个学校可用的课程
-SELECT c.* 
-FROM pbl_courses c
-INNER JOIN pbl_school_courses sc ON c.id = sc.course_id
-WHERE sc.school_id = ? AND sc.status = 'active';
-
--- 查询某个学生可学习的课程
-SELECT c.*, e.progress, e.enrollment_status
-FROM pbl_courses c
-INNER JOIN pbl_course_enrollments e ON c.id = e.course_id
-WHERE e.user_id = ? AND e.enrollment_status = 'enrolled';
-
--- 检查学生是否可以选课（课程必须已分配给学生所属学校）
-SELECT COUNT(*) 
-FROM pbl_school_courses sc
-INNER JOIN aiot_core_users u ON u.school_id = sc.school_id
-WHERE sc.course_id = ? AND u.id = ? AND sc.status = 'active';
-*/
-
--- ==========================================
--- 17. 增强学习进度追踪功能
--- ==========================================
--- 说明：
---   为pbl_learning_progress表添加状态字段和完成时间
---   确保每个学生对每个资源/任务只有一条记录
---   支持学习进度的完整追踪
--- ==========================================
-
--- 1. 检查并添加status字段（如果不存在）
-SET @column_exists = (
-    SELECT COUNT(*) 
-    FROM INFORMATION_SCHEMA.COLUMNS 
-    WHERE TABLE_SCHEMA = DATABASE()
-    AND TABLE_NAME = 'pbl_learning_progress'
-    AND COLUMN_NAME = 'status'
-);
-
-SET @sql = IF(
-    @column_exists = 0,
-    'ALTER TABLE `pbl_learning_progress` 
-     ADD COLUMN `status` ENUM(''in_progress'', ''completed'') NOT NULL DEFAULT ''in_progress'' COMMENT ''状态'' AFTER `progress_value`',
-    'SELECT ''Column status already exists'' AS message'
-);
-
-PREPARE stmt FROM @sql;
-EXECUTE stmt;
-DEALLOCATE PREPARE stmt;
-
--- 2. 检查并添加completed_at字段（如果不存在）
-SET @column_exists = (
-    SELECT COUNT(*) 
-    FROM INFORMATION_SCHEMA.COLUMNS 
-    WHERE TABLE_SCHEMA = DATABASE()
-    AND TABLE_NAME = 'pbl_learning_progress'
-    AND COLUMN_NAME = 'completed_at'
-);
-
-SET @sql = IF(
-    @column_exists = 0,
-    'ALTER TABLE `pbl_learning_progress` 
-     ADD COLUMN `completed_at` TIMESTAMP NULL DEFAULT NULL COMMENT ''完成时间'' AFTER `status`',
-    'SELECT ''Column completed_at already exists'' AS message'
-);
-
-PREPARE stmt FROM @sql;
-EXECUTE stmt;
-DEALLOCATE PREPARE stmt;
-
--- 3. 检查并添加updated_at字段（如果不存在）
-SET @column_exists = (
-    SELECT COUNT(*) 
-    FROM INFORMATION_SCHEMA.COLUMNS 
-    WHERE TABLE_SCHEMA = DATABASE()
-    AND TABLE_NAME = 'pbl_learning_progress'
-    AND COLUMN_NAME = 'updated_at'
-);
-
-SET @sql = IF(
-    @column_exists = 0,
-    'ALTER TABLE `pbl_learning_progress` 
-     ADD COLUMN `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT ''更新时间'' AFTER `completed_at`',
-    'SELECT ''Column updated_at already exists'' AS message'
-);
-
-PREPARE stmt FROM @sql;
-EXECUTE stmt;
-DEALLOCATE PREPARE stmt;
-
--- 4. 检查并添加task_id字段用于任务进度关联（如果不存在）
-SET @column_exists = (
-    SELECT COUNT(*) 
-    FROM INFORMATION_SCHEMA.COLUMNS 
-    WHERE TABLE_SCHEMA = DATABASE()
-    AND TABLE_NAME = 'pbl_learning_progress'
-    AND COLUMN_NAME = 'task_id'
-);
-
-SET @sql = IF(
-    @column_exists = 0,
-    'ALTER TABLE `pbl_learning_progress` 
-     ADD COLUMN `task_id` BIGINT(20) DEFAULT NULL COMMENT ''任务ID'' AFTER `resource_id`,
-     ADD KEY `idx_task_id` (`task_id`)',
-    'SELECT ''Column task_id already exists'' AS message'
-);
-
-PREPARE stmt FROM @sql;
-EXECUTE stmt;
-DEALLOCATE PREPARE stmt;
-
--- 5. 添加task_id外键约束（如果不存在）
-SET @fk_exists = (
-    SELECT COUNT(*)
-    FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS
-    WHERE CONSTRAINT_SCHEMA = DATABASE()
-    AND TABLE_NAME = 'pbl_learning_progress'
-    AND CONSTRAINT_NAME = 'fk_learning_progress_task'
-);
-
-SET @sql = IF(
-    @fk_exists = 0 AND (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'pbl_learning_progress' AND COLUMN_NAME = 'task_id') > 0,
-    'ALTER TABLE `pbl_learning_progress` 
-     ADD CONSTRAINT `fk_learning_progress_task` FOREIGN KEY (`task_id`) REFERENCES `pbl_tasks` (`id`) ON DELETE CASCADE',
-    'SELECT ''Foreign key fk_learning_progress_task already exists or task_id column not found'' AS message'
-);
-
-PREPARE stmt FROM @sql;
-EXECUTE stmt;
-DEALLOCATE PREPARE stmt;
-
--- 6. 添加唯一索引，确保每个用户对每个资源/任务只有一条最新记录
--- 注意：这里我们不添加唯一约束，因为可能有多次学习记录，但会通过应用层保证查询最新记录
-
--- 7. 添加status索引以提高查询效率
-SET @index_exists = (
-    SELECT COUNT(*)
-    FROM INFORMATION_SCHEMA.STATISTICS
-    WHERE TABLE_SCHEMA = DATABASE()
-    AND TABLE_NAME = 'pbl_learning_progress'
-    AND INDEX_NAME = 'idx_status'
-);
-
-SET @sql = IF(
-    @index_exists = 0,
-    'ALTER TABLE `pbl_learning_progress` ADD KEY `idx_status` (`status`)',
-    'SELECT ''Index idx_status already exists'' AS message'
-);
-
-PREPARE stmt FROM @sql;
-EXECUTE stmt;
-DEALLOCATE PREPARE stmt;
-
--- 8. 添加组合索引以提高查询效率
-SET @index_exists = (
-    SELECT COUNT(*)
-    FROM INFORMATION_SCHEMA.STATISTICS
-    WHERE TABLE_SCHEMA = DATABASE()
-    AND TABLE_NAME = 'pbl_learning_progress'
-    AND INDEX_NAME = 'idx_user_resource_latest'
-);
-
-SET @sql = IF(
-    @index_exists = 0,
-    'ALTER TABLE `pbl_learning_progress` ADD KEY `idx_user_resource_latest` (`user_id`, `resource_id`, `created_at`)',
-    'SELECT ''Index idx_user_resource_latest already exists'' AS message'
-);
-
-PREPARE stmt FROM @sql;
-EXECUTE stmt;
-DEALLOCATE PREPARE stmt;
-
--- 9. 添加用户-任务组合索引
-SET @index_exists = (
-    SELECT COUNT(*)
-    FROM INFORMATION_SCHEMA.STATISTICS
-    WHERE TABLE_SCHEMA = DATABASE()
-    AND TABLE_NAME = 'pbl_learning_progress'
-    AND INDEX_NAME = 'idx_user_task_latest'
-);
-
-SET @sql = IF(
-    @index_exists = 0,
-    'ALTER TABLE `pbl_learning_progress` ADD KEY `idx_user_task_latest` (`user_id`, `task_id`, `created_at`)',
-    'SELECT ''Index idx_user_task_latest already exists'' AS message'
-);
-
-PREPARE stmt FROM @sql;
-EXECUTE stmt;
-DEALLOCATE PREPARE stmt;
-
--- 完成
-SELECT 'pbl_learning_progress表增强完成：添加了status、completed_at、updated_at、task_id字段及相关索引' AS message;
+-- ==========================================================================================================
+-- 学习进度追踪增强说明
+-- ==========================================================================================================
+-- 
+-- pbl_learning_progress 表已包含以下增强字段：
+--   - status: 学习状态（in_progress/completed）
+--   - completed_at: 完成时间
+--   - updated_at: 最后更新时间
+--   - task_id: 关联任务ID
+-- 
+-- 相关索引已在表定义中包含，无需额外添加
+-- ==========================================================================================================
 
 -- ==========================================
 -- 项目成果与评价体系
@@ -741,8 +617,8 @@ SELECT 'pbl_learning_progress表增强完成：添加了status、completed_at、
 -- Table structure for pbl_project_outputs
 -- 项目成果表：存储学生的项目作品、报告、代码等成果
 -- ----------------------------
-DROP TABLE IF EXISTS `pbl_project_outputs`;
-CREATE TABLE `pbl_project_outputs` (
+-- DROP TABLE IF EXISTS (Removed for safety) `pbl_project_outputs`;
+CREATE TABLE IF NOT EXISTS `pbl_project_outputs` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '成果ID',
   `uuid` varchar(36) NOT NULL COMMENT 'UUID，唯一标识',
   `project_id` bigint(20) NOT NULL COMMENT '项目ID',
@@ -780,8 +656,8 @@ CREATE TABLE `pbl_project_outputs` (
 -- Table structure for pbl_assessments
 -- 评价表：多维度评价（教师评价+学生互评+专家评价+自评）
 -- ----------------------------
-DROP TABLE IF EXISTS `pbl_assessments`;
-CREATE TABLE `pbl_assessments` (
+-- DROP TABLE IF EXISTS (Removed for safety) `pbl_assessments`;
+CREATE TABLE IF NOT EXISTS `pbl_assessments` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '评价ID',
   `uuid` varchar(36) NOT NULL COMMENT 'UUID',
   `assessor_id` int(11) NOT NULL COMMENT '评价人ID',
@@ -814,8 +690,8 @@ CREATE TABLE `pbl_assessments` (
 -- Table structure for pbl_assessment_templates
 -- 评价维度模板表：预定义的评价标准和维度
 -- ----------------------------
-DROP TABLE IF EXISTS `pbl_assessment_templates`;
-CREATE TABLE `pbl_assessment_templates` (
+-- DROP TABLE IF EXISTS (Removed for safety) `pbl_assessment_templates`;
+CREATE TABLE IF NOT EXISTS `pbl_assessment_templates` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '模板ID',
   `uuid` varchar(36) NOT NULL COMMENT 'UUID',
   `name` varchar(100) NOT NULL COMMENT '模板名称',
@@ -843,8 +719,8 @@ CREATE TABLE `pbl_assessment_templates` (
 -- Table structure for pbl_ethics_cases
 -- 伦理案例库表：存储AI伦理相关的教学案例
 -- ----------------------------
-DROP TABLE IF EXISTS `pbl_ethics_cases`;
-CREATE TABLE `pbl_ethics_cases` (
+-- DROP TABLE IF EXISTS (Removed for safety) `pbl_ethics_cases`;
+CREATE TABLE IF NOT EXISTS `pbl_ethics_cases` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '案例ID',
   `uuid` varchar(36) NOT NULL COMMENT 'UUID',
   `title` varchar(200) NOT NULL COMMENT '案例标题',
@@ -874,8 +750,8 @@ CREATE TABLE `pbl_ethics_cases` (
 -- Table structure for pbl_ethics_activities
 -- 伦理活动记录表：记录伦理思辨活动的过程和结果
 -- ----------------------------
-DROP TABLE IF EXISTS `pbl_ethics_activities`;
-CREATE TABLE `pbl_ethics_activities` (
+-- DROP TABLE IF EXISTS (Removed for safety) `pbl_ethics_activities`;
+CREATE TABLE IF NOT EXISTS `pbl_ethics_activities` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '活动ID',
   `uuid` varchar(36) NOT NULL COMMENT 'UUID',
   `case_id` bigint(20) DEFAULT NULL COMMENT '关联案例ID',
@@ -910,8 +786,8 @@ CREATE TABLE `pbl_ethics_activities` (
 -- Table structure for pbl_datasets
 -- 数据集管理表：管理用于AI模型训练的数据集
 -- ----------------------------
-DROP TABLE IF EXISTS `pbl_datasets`;
-CREATE TABLE `pbl_datasets` (
+-- DROP TABLE IF EXISTS (Removed for safety) `pbl_datasets`;
+CREATE TABLE IF NOT EXISTS `pbl_datasets` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '数据集ID',
   `uuid` varchar(36) NOT NULL COMMENT 'UUID',
   `name` varchar(100) NOT NULL COMMENT '数据集名称',
@@ -954,8 +830,8 @@ CREATE TABLE `pbl_datasets` (
 -- Table structure for pbl_student_portfolios
 -- 学生成长档案表：记录学生的学习轨迹和能力成长
 -- ----------------------------
-DROP TABLE IF EXISTS `pbl_student_portfolios`;
-CREATE TABLE `pbl_student_portfolios` (
+-- DROP TABLE IF EXISTS (Removed for safety) `pbl_student_portfolios`;
+CREATE TABLE IF NOT EXISTS `pbl_student_portfolios` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '档案ID',
   `uuid` varchar(36) NOT NULL COMMENT 'UUID',
   `student_id` int(11) NOT NULL COMMENT '学生ID',
@@ -985,8 +861,8 @@ CREATE TABLE `pbl_student_portfolios` (
 -- Table structure for pbl_parent_relations
 -- 家长关系表：建立家长与学生的关联
 -- ----------------------------
-DROP TABLE IF EXISTS `pbl_parent_relations`;
-CREATE TABLE `pbl_parent_relations` (
+-- DROP TABLE IF EXISTS (Removed for safety) `pbl_parent_relations`;
+CREATE TABLE IF NOT EXISTS `pbl_parent_relations` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '关系ID',
   `parent_user_id` int(11) NOT NULL COMMENT '家长用户ID',
   `student_id` int(11) NOT NULL COMMENT '学生ID',
@@ -1009,8 +885,8 @@ CREATE TABLE `pbl_parent_relations` (
 -- Table structure for pbl_external_experts
 -- 外部专家表：管理参与项目评审的外部专家
 -- ----------------------------
-DROP TABLE IF EXISTS `pbl_external_experts`;
-CREATE TABLE `pbl_external_experts` (
+-- DROP TABLE IF EXISTS (Removed for safety) `pbl_external_experts`;
+CREATE TABLE IF NOT EXISTS `pbl_external_experts` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '专家ID',
   `uuid` varchar(36) NOT NULL COMMENT 'UUID',
   `name` varchar(100) NOT NULL COMMENT '姓名',
@@ -1035,8 +911,8 @@ CREATE TABLE `pbl_external_experts` (
 -- Table structure for pbl_social_activities
 -- 社会实践活动表：记录家校社协同的实践活动
 -- ----------------------------
-DROP TABLE IF EXISTS `pbl_social_activities`;
-CREATE TABLE `pbl_social_activities` (
+-- DROP TABLE IF EXISTS (Removed for safety) `pbl_social_activities`;
+CREATE TABLE IF NOT EXISTS `pbl_social_activities` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '活动ID',
   `uuid` varchar(36) NOT NULL COMMENT 'UUID',
   `title` varchar(200) NOT NULL COMMENT '活动标题',
@@ -1073,8 +949,8 @@ CREATE TABLE `pbl_social_activities` (
 -- Table structure for pbl_video_play_progress
 -- 视频播放进度表：详细记录学生观看视频的真实情况
 -- ----------------------------
-DROP TABLE IF EXISTS `pbl_video_play_progress`;
-CREATE TABLE `pbl_video_play_progress` (
+-- DROP TABLE IF EXISTS (Removed for safety) `pbl_video_play_progress`;
+CREATE TABLE IF NOT EXISTS `pbl_video_play_progress` (
   `id` BIGINT(20) NOT NULL AUTO_INCREMENT COMMENT '记录ID',
   `uuid` VARCHAR(36) NOT NULL COMMENT 'UUID',
   `resource_id` BIGINT(20) NOT NULL COMMENT '视频资源ID',
@@ -1116,8 +992,8 @@ CREATE TABLE `pbl_video_play_progress` (
 -- Table structure for pbl_video_play_events
 -- 视频播放事件表：详细日志
 -- ----------------------------
-DROP TABLE IF EXISTS `pbl_video_play_events`;
-CREATE TABLE `pbl_video_play_events` (
+-- DROP TABLE IF EXISTS (Removed for safety) `pbl_video_play_events`;
+CREATE TABLE IF NOT EXISTS `pbl_video_play_events` (
   `id` BIGINT(20) NOT NULL AUTO_INCREMENT COMMENT '事件ID',
   `session_id` VARCHAR(64) NOT NULL COMMENT '播放会话ID',
   `resource_id` BIGINT(20) NOT NULL COMMENT '视频资源ID',
@@ -1142,8 +1018,8 @@ CREATE TABLE `pbl_video_play_events` (
 -- Table structure for pbl_import_logs
 -- 批量导入日志表
 -- ----------------------------
-DROP TABLE IF EXISTS `pbl_import_logs`;
-CREATE TABLE `pbl_import_logs` (
+-- DROP TABLE IF EXISTS (Removed for safety) `pbl_import_logs`;
+CREATE TABLE IF NOT EXISTS `pbl_import_logs` (
   `id` BIGINT(20) NOT NULL AUTO_INCREMENT COMMENT '日志ID',
   `uuid` VARCHAR(36) NOT NULL COMMENT 'UUID',
   `batch_id` VARCHAR(50) NOT NULL COMMENT '批次ID',
@@ -1172,5 +1048,157 @@ CREATE TABLE `pbl_import_logs` (
 -- 视频观看统计和权限管理
 -- ==========================================
 
+-- ==========================================================================================================
+-- 跨模块外键约束
+-- ==========================================================================================================
 
+-- kb_sharing 表的 course_id 外键约束
+-- 注意：如果 kb_sharing 表存在且没有此外键，需要手动执行以下语句：
+-- ALTER TABLE `kb_sharing` MODIFY COLUMN `course_id` BIGINT(20) DEFAULT NULL COMMENT '共享给课程ID';
+-- ALTER TABLE `kb_sharing` ADD CONSTRAINT `fk_kbs_course` FOREIGN KEY (`course_id`) REFERENCES `pbl_courses` (`id`) ON DELETE CASCADE;
+
+-- 恢复外键检查
 SET FOREIGN_KEY_CHECKS = 1;
+SET UNIQUE_CHECKS = 1;
+
+-- 提交事务
+COMMIT;
+
+
+-- ==========================================================================================================
+-- 数据库结构验证
+-- ==========================================================================================================
+
+-- 验证 PBL 模块表数量
+SELECT 
+    'PBL Module Tables Summary' AS info_type,
+    COUNT(*) AS total_pbl_tables
+FROM information_schema.tables 
+WHERE table_schema = DATABASE() 
+  AND table_type = 'BASE TABLE'
+  AND table_name LIKE 'pbl_%';
+
+-- 验证 PBL 模块外键约束数量
+SELECT 
+    'PBL Module Foreign Key Constraints Summary' AS info_type,
+    COUNT(*) AS total_foreign_keys
+FROM information_schema.table_constraints 
+WHERE constraint_schema = DATABASE() 
+  AND constraint_type = 'FOREIGN KEY'
+  AND table_name LIKE 'pbl_%';
+
+-- 验证 PBL 模块索引数量
+SELECT 
+    'PBL Module Index Summary' AS info_type,
+    COUNT(DISTINCT index_name) AS total_indexes
+FROM information_schema.statistics 
+WHERE table_schema = DATABASE()
+  AND table_name LIKE 'pbl_%';
+
+-- 按功能模块统计表数量
+SELECT 
+    'PBL Tables by Sub-Module' AS info_type,
+    CASE 
+        WHEN table_name IN ('pbl_courses', 'pbl_course_teachers', 'pbl_units', 'pbl_resources', 'pbl_tasks', 'pbl_school_courses') THEN 'Course Management'
+        WHEN table_name IN ('pbl_projects', 'pbl_project_outputs') THEN 'Project Management'
+        WHEN table_name IN ('pbl_classes', 'pbl_class_teachers', 'pbl_groups', 'pbl_group_members') THEN 'Class & Group Management'
+        WHEN table_name IN ('pbl_course_enrollments', 'pbl_task_progress', 'pbl_learning_progress', 'pbl_learning_logs') THEN 'Learning Management'
+        WHEN table_name IN ('pbl_video_watch_records', 'pbl_video_user_permissions', 'pbl_video_play_progress', 'pbl_video_play_events') THEN 'Video Management'
+        WHEN table_name IN ('pbl_assessments', 'pbl_assessment_templates') THEN 'Assessment System'
+        WHEN table_name IN ('pbl_ethics_cases', 'pbl_ethics_activities') THEN 'Ethics Education'
+        WHEN table_name IN ('pbl_student_portfolios', 'pbl_parent_relations', 'pbl_external_experts', 'pbl_social_activities') THEN 'Home-School-Society'
+        WHEN table_name IN ('pbl_datasets') THEN 'Resource Management'
+        WHEN table_name IN ('pbl_achievements', 'pbl_user_achievements') THEN 'Gamification'
+        WHEN table_name IN ('pbl_ai_conversations') THEN 'AI Interaction'
+        WHEN table_name IN ('pbl_import_logs') THEN 'School Administration'
+        ELSE 'Other'
+    END AS sub_module,
+    COUNT(*) AS table_count
+FROM information_schema.tables 
+WHERE table_schema = DATABASE() 
+  AND table_type = 'BASE TABLE'
+  AND table_name LIKE 'pbl_%'
+GROUP BY sub_module
+ORDER BY table_count DESC;
+
+-- 列出所有创建的 PBL 表
+SELECT 
+    table_name AS 'Created PBL Tables',
+    ROUND(((data_length + index_length) / 1024), 2) AS 'Size (KB)',
+    table_rows AS 'Rows',
+    engine AS 'Engine',
+    table_collation AS 'Collation',
+    CASE 
+        WHEN table_comment = '' THEN 'No Comment'
+        ELSE table_comment
+    END AS 'Comment'
+FROM information_schema.tables 
+WHERE table_schema = DATABASE() 
+  AND table_type = 'BASE TABLE'
+  AND table_name LIKE 'pbl_%'
+ORDER BY table_name;
+
+
+-- ==========================================================================================================
+-- 执行完成信息
+-- ==========================================================================================================
+
+SELECT 
+    '==========================================================================================================' AS ' ';
+
+SELECT 
+    'CodeHubot PBL Module Initialization Completed Successfully!' AS 'Status',
+    VERSION() AS 'MySQL Version',
+    DATABASE() AS 'Database Name',
+    NOW() AS 'Completion Time';
+
+SELECT 
+    '==========================================================================================================' AS ' ';
+
+SELECT 
+    'PBL Module Features:' AS 'Information';
+
+SELECT '✓ Course Management (Courses, Units, Resources, Tasks)' AS 'Feature 1';
+SELECT '✓ Project Management (Projects, Outputs, Assessments)' AS 'Feature 2';
+SELECT '✓ Class & Group Management (Classes, Groups, Members)' AS 'Feature 3';
+SELECT '✓ Learning Progress Tracking (Progress, Logs, Video Tracking)' AS 'Feature 4';
+SELECT '✓ Video Viewing Management (Watch Records, Permissions)' AS 'Feature 5';
+SELECT '✓ Assessment System (Multi-dimensional Evaluation)' AS 'Feature 6';
+SELECT '✓ Ethics Education (Cases, Activities)' AS 'Feature 7';
+SELECT '✓ Dataset Management (AI Training Resources)' AS 'Feature 8';
+SELECT '✓ Home-School-Society Collaboration (Portfolios, Parents, Experts)' AS 'Feature 9';
+SELECT '✓ Gamification System (Achievements, Badges)' AS 'Feature 10';
+
+SELECT 
+    '==========================================================================================================' AS ' ';
+
+SELECT 
+    'Next Steps:' AS 'Information';
+
+SELECT 
+    '1. Verify all PBL tables were created correctly' AS 'Step 1';
+
+SELECT 
+    '2. Check foreign key constraints are properly established' AS 'Step 2';
+
+SELECT 
+    '3. Initialize system data (default settings, templates, etc.)' AS 'Step 3';
+
+SELECT 
+    '4. Configure video permissions and viewing limits for schools' AS 'Step 4';
+
+SELECT 
+    '5. Import ethics cases and assessment templates' AS 'Step 5';
+
+SELECT 
+    '6. Test all PBL module features' AS 'Step 6';
+
+SELECT 
+    '7. Backup the complete database structure' AS 'Step 7';
+
+SELECT 
+    '==========================================================================================================' AS ' ';
+
+-- ==========================================================================================================
+-- 脚本结束
+-- ==========================================================================================================
