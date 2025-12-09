@@ -28,7 +28,7 @@
               上一节
             </el-button>
             <el-button 
-              v-if="nextUnit && nextUnit.status !== 'locked'" 
+              v-if="nextUnit" 
               @click="goToUnit(nextUnit.uuid || nextUnit.id)"
               size="small"
             >
@@ -65,7 +65,6 @@
               class="step-item"
               :class="{ 
                 'active': currentStep?.id === step.id,
-                'locked': step.status === 'locked',
                 'completed': step.status === 'completed'
               }"
               @click="selectStep(step)"
@@ -74,7 +73,6 @@
                 <div class="step-line" v-if="index < learningPath.length - 1"></div>
                 <div class="step-icon">
                   <el-icon v-if="step.status === 'completed'"><Check /></el-icon>
-                  <el-icon v-else-if="step.status === 'locked'"><Lock /></el-icon>
                   <span v-else>{{ index + 1 }}</span>
                 </div>
               </div>
@@ -108,17 +106,21 @@
               v-for="unit in courseUnits" 
               :key="unit.id"
               class="outline-item"
-              :class="{ 'active': unit.id === currentUnit.id, 'locked': unit.status === 'locked' }"
+              :class="{ 'active': unit.id === currentUnit.id }"
               @click="switchUnit(unit)"
             >
               <div class="outline-status">
-                 <el-icon v-if="unit.status === 'locked'"><Lock /></el-icon>
-                 <el-icon v-else-if="unit.id === currentUnit.id"><VideoPlay /></el-icon>
+                 <el-icon v-if="unit.id === currentUnit.id"><VideoPlay /></el-icon>
                  <div v-else class="status-dot"></div>
               </div>
               <div class="outline-info">
                 <div class="outline-title">{{ unit.title }}</div>
-                <div class="outline-meta">{{ unit.duration }} | {{ unit.status === 'completed' ? '已完成' : '进行中' }}</div>
+                <div class="outline-meta">
+                  <span v-if="unit.duration">{{ unit.duration }} | </span>
+                  <span :class="{'status-completed': unit.status === 'completed', 'status-progress': unit.status !== 'completed'}">
+                    {{ unit.status === 'completed' ? '已完成' : (unit.id === currentUnit.id ? '学习中' : '未开始') }}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -175,9 +177,6 @@
                 </template>
               </el-result>
             </div>
-            <div class="learning-tips" v-if="currentStep.status !== 'completed' && !videoLoadError">
-              <el-alert title="请完整观看视频以解锁下一步骤" type="info" :closable="false" show-icon />
-            </div>
           </div>
 
           <!-- 场景2：文档阅读 -->
@@ -213,7 +212,7 @@
               <div class="submission-area">
                 <h3>作业提交</h3>
                 <el-alert 
-                  v-if="currentStep.status === 'review'" 
+                  v-if="currentStep.originalStatus === 'review' || (currentStep.status === 'completed' && !currentStep.data?.score)" 
                   type="info" 
                   :closable="false"
                   style="margin-bottom: 15px;"
@@ -221,7 +220,7 @@
                   作业已提交，等待评分。您可以重新提交以更新作业内容。
                 </el-alert>
                 <el-alert 
-                  v-if="currentStep.status === 'completed' && currentStep.data.score" 
+                  v-if="currentStep.data?.score" 
                   type="warning" 
                   :closable="false"
                   style="margin-bottom: 15px;"
@@ -243,7 +242,7 @@
                       @click="submitTask" 
                       :loading="submitting"
                     >
-                      {{ currentStep.status === 'completed' || currentStep.status === 'review' ? '重新提交' : '提交作业' }}
+                      {{ currentStep.submission && currentStep.submission.content ? '重新提交' : '提交作业' }}
                     </el-button>
                   </el-form-item>
                 </el-form>
@@ -299,7 +298,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { ArrowLeft, ArrowRight, Check, Lock, VideoPlay } from '@element-plus/icons-vue'
+import { ArrowLeft, ArrowRight, Check, VideoPlay } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 // import ChatPanel from '@/components/ChatPanel.vue' // AI助手已隐藏
 import VideoPlayer from '@/components/VideoPlayer.vue'
@@ -442,10 +441,12 @@ const loadUnitData = async (unitUuid) => {
     // 按 order 字段统一排序
     allLearningItems.sort((a, b) => a.order - b.order)
     
-    // 第一个学习项设置为可访问，其余锁定
-    if (allLearningItems.length > 0) {
-      allLearningItems[0].status = 'available'
-    }
+    // 所有学习项都设置为可访问
+    allLearningItems.forEach(item => {
+      if (item.status !== 'completed') {
+        item.status = 'available'
+      }
+    })
     
     // 设置学习路径
     learningPath.value = allLearningItems
@@ -584,10 +585,6 @@ const progressPercentage = computed(() => {
 
 // 方法
 const switchUnit = (unit) => {
-  if (unit.status === 'locked') {
-    ElMessage.warning('请先完成前序单元')
-    return
-  }
   // 如果是当前单元，不做操作
   if (unit.id === currentUnit.value.id) return
   
@@ -608,10 +605,6 @@ const getStepTypeTag = (type) => {
 }
 
 const selectStep = async (step) => {
-  if (step.status === 'locked') {
-    ElMessage.warning('请先完成上一步骤解锁此内容')
-    return
-  }
   currentStep.value = step
   // 加载之前的提交内容（如果有）
   if (step.type === 'task') {
@@ -632,17 +625,55 @@ const selectStep = async (step) => {
   }
 }
 
-// 解锁下一步
-const unlockNextStep = (currentStepId) => {
-  const currentIndex = learningPath.value.findIndex(s => s.id === currentStepId)
-  if (currentIndex < learningPath.value.length - 1) {
-    const nextStep = learningPath.value[currentIndex + 1]
-    if (nextStep.status === 'locked') {
-      nextStep.status = 'available'
-      ElMessage.success('恭喜！下一步骤已解锁')
-    }
-  } else {
+// 检查是否所有步骤都已完成
+const checkAllStepsCompleted = async () => {
+  const allCompleted = learningPath.value.every(s => s.status === 'completed')
+  if (allCompleted) {
     ElMessage.success('恭喜！本单元所有内容已完成')
+    
+    // 记录单元完成状态
+    try {
+      await trackLearningProgress({
+        course_uuid: courseId.value,
+        unit_uuid: currentUnit.value.uuid,
+        progress_type: 'unit_complete',
+        progress_value: 100,
+        time_spent: 0
+      })
+      
+      // 更新当前单元的状态为已完成
+      if (currentUnit.value) {
+        currentUnit.value.status = 'completed'
+      }
+      
+      // 更新课程大纲中的单元状态
+      const unitInList = courseUnits.value.find(u => u.uuid === currentUnit.value.uuid)
+      if (unitInList) {
+        unitInList.status = 'completed'
+      }
+      
+      // 如果有下一个单元，自动跳转
+      if (nextUnit.value) {
+        setTimeout(() => {
+          ElMessageBox.confirm(
+            '当前单元已完成，是否前往下一单元学习？',
+            '单元完成',
+            {
+              confirmButtonText: '前往下一单元',
+              cancelButtonText: '留在当前页面',
+              type: 'success'
+            }
+          ).then(() => {
+            goToUnit(nextUnit.value.uuid || nextUnit.value.id)
+          }).catch(() => {
+            // 用户选择留在当前页面
+          })
+        }, 1500)
+      }
+    } catch (error) {
+      console.error('记录单元完成状态失败:', error)
+      // 不影响用户体验，静默失败
+    }
   }
 }
 
@@ -658,6 +689,8 @@ const loadLearningProgress = async (unitUuid) => {
         const step = learningPath.value.find(s => s.id === key)
         if (step && progress.status === 'completed') {
           step.status = 'completed'
+        } else if (step && step.status !== 'completed') {
+          step.status = 'available'
         }
       })
     }
@@ -672,47 +705,32 @@ const loadLearningProgress = async (unitUuid) => {
           step.submission = progress.submission
           step.score = progress.score
           step.feedback = progress.feedback
+          step.originalStatus = progress.status  // 保存原始状态用于区分 review 和 completed
           
-          if (progress.status === 'completed') {
+          // 如果任务数据对象不存在，创建它
+          if (!step.data) {
+            step.data = {}
+          }
+          // 同时保存到 data 对象中，确保模板中能访问到
+          step.data.score = progress.score
+          step.data.feedback = progress.feedback
+          
+          // review 状态（已提交等待评分）和 completed 状态都显示为已完成
+          if (progress.status === 'completed' || progress.status === 'review') {
             step.status = 'completed'
+          } else if (step.status !== 'completed') {
+            step.status = 'available'
           }
         }
       })
     }
     
-    // 实现顺序解锁逻辑
-    // 规则：
-    // 1. 第一个步骤始终可访问
-    // 2. 已完成的步骤后面的第一个未完成步骤设置为可访问
-    // 3. 其他步骤保持锁定状态
-    
-    if (learningPath.value.length > 0) {
-      // 第一个步骤始终可访问
-      if (learningPath.value[0].status === 'locked') {
-        learningPath.value[0].status = 'available'
+    // 确保所有未完成的步骤都设置为可访问
+    learningPath.value.forEach(step => {
+      if (step.status !== 'completed') {
+        step.status = 'available'
       }
-      
-      // 遍历所有步骤，解锁已完成步骤后的第一个未完成步骤
-      for (let i = 0; i < learningPath.value.length - 1; i++) {
-        const currentStep = learningPath.value[i]
-        const nextStep = learningPath.value[i + 1]
-        
-        // 如果当前步骤已完成，解锁下一步骤
-        if (currentStep.status === 'completed') {
-          if (nextStep.status === 'locked') {
-            nextStep.status = 'available'
-          }
-        } else {
-          // 如果当前步骤未完成，后续所有步骤都应该锁定
-          for (let j = i + 1; j < learningPath.value.length; j++) {
-            if (learningPath.value[j].status !== 'completed') {
-              learningPath.value[j].status = 'locked'
-            }
-          }
-          break
-        }
-      }
-    }
+    })
   } catch (error) {
     console.error('加载学习进度失败:', error)
     // 不显示错误消息，静默失败
@@ -789,7 +807,7 @@ const handleVideoEnded = async () => {
     // 保存进度到后端
     await saveProgress(currentStep.value, 'video_watch', 100)
     
-    unlockNextStep(currentStep.value.id)
+    checkAllStepsCompleted()
   }
 }
 
@@ -801,7 +819,7 @@ const completeCurrentStep = async () => {
     // 保存进度到后端
     await saveProgress(currentStep.value, 'document_read', 100)
     
-    unlockNextStep(currentStep.value.id)
+    checkAllStepsCompleted()
     
     // 自动跳转到下一步
     const currentIndex = learningPath.value.findIndex(s => s.id === currentStep.value.id)
@@ -828,17 +846,40 @@ const submitTask = async () => {
       submitted_at: new Date().toISOString()
     })
     
-    // 更新当前步骤状态为已完成
+    // 更新当前步骤状态为已完成（提交后状态为 review，也视为完成）
     currentStep.value.status = 'completed'
+    currentStep.value.originalStatus = 'review'  // 保存原始状态
+    
+    // 更新当前步骤的提交记录，保存刚才提交的内容
+    if (!currentStep.value.submission) {
+      currentStep.value.submission = {}
+    }
+    currentStep.value.submission.content = submissionContent.value
+    currentStep.value.submission.submitted_at = new Date().toISOString()
+    
+    // 清空评分信息（重新提交后需要重新评分）
+    currentStep.value.score = null
+    currentStep.value.feedback = null
+    if (!currentStep.value.data) {
+      currentStep.value.data = {}
+    }
+    currentStep.value.data.score = null
+    currentStep.value.data.feedback = null
     
     // 同时保存学习进度记录
     await saveProgress(currentStep.value, 'task_submit', 100)
     
     ElMessage.success(result.message || '作业提交成功！')
-    unlockNextStep(currentStep.value.id)
+    checkAllStepsCompleted()
     
-    // 清空提交内容
-    submissionContent.value = ''
+    // 重新加载学习进度，获取最新的评分等信息
+    await loadLearningProgress(currentUnit.value.uuid)
+    
+    // 重新加载进度后，同步更新提交内容显示
+    // currentStep 是对 learningPath 中对象的引用，所以 submission 已经被更新
+    if (currentStep.value.submission && currentStep.value.submission.content) {
+      submissionContent.value = currentStep.value.submission.content
+    }
   } catch (error) {
     console.error('作业提交失败:', error)
     ElMessage.error(error.message || '提交失败，请重试')
@@ -870,7 +911,7 @@ const submitQuiz = async () => {
   if (allCorrect) {
     currentStep.value.status = 'completed'
     ElMessage.success('恭喜！全部回答正确')
-    unlockNextStep(currentStep.value.id)
+    checkAllStepsCompleted()
   } else {
     ElMessage.error('有题目回答错误，请重试')
   }
@@ -895,7 +936,7 @@ const manualCompleteStep = async () => {
     await saveProgress(currentStep.value, progressType, 100)
     
     ElMessage.success('已手动标记为完成')
-    unlockNextStep(currentStep.value.id)
+    checkAllStepsCompleted()
   }
 }
 
@@ -918,13 +959,13 @@ onMounted(async () => {
   // 从后端API加载单元数据
   await loadUnitData(unitId)
   
-  // 默认选中第一个可用的步骤
+  // 默认选中第一个未完成的步骤，如果都完成了则选择第一个
   if (learningPath.value.length > 0) {
-    const firstAvailable = learningPath.value.find(s => s.status !== 'locked' && s.status !== 'completed')
-    if (firstAvailable) {
-      selectStep(firstAvailable)
+    const firstIncomplete = learningPath.value.find(s => s.status !== 'completed')
+    if (firstIncomplete) {
+      selectStep(firstIncomplete)
     } else {
-      // 如果没有可用的，选择第一个
+      // 如果都完成了，选择第一个
       selectStep(learningPath.value[0])
     }
   }
@@ -1064,11 +1105,6 @@ onMounted(async () => {
   border-left: 3px solid #3b82f6;
 }
 
-.outline-item.locked {
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
 .outline-status {
   width: 32px;
   display: flex;
@@ -1104,6 +1140,15 @@ onMounted(async () => {
   color: #94a3b8;
 }
 
+.status-completed {
+  color: #10b981;
+  font-weight: 500;
+}
+
+.status-progress {
+  color: #3b82f6;
+}
+
 /* 学习路径样式 */
 .path-content {
   padding: 0;
@@ -1123,12 +1168,6 @@ onMounted(async () => {
 
 .step-item.active {
   background: #eff6ff;
-}
-
-.step-item.locked {
-  cursor: not-allowed;
-  opacity: 0.7;
-  background: #f8fafc;
 }
 
 .step-indicator {
