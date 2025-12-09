@@ -61,11 +61,13 @@ def get_classes(
 def create_class(
     name: str,
     grade: Optional[str] = None,
-    school_id: Optional[int] = None,
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(get_current_admin)
 ):
-    """创建班级"""
+    """创建班级
+    
+    学校ID自动从当前登录管理员中获取，无需前端传递
+    """
     # 权限检查
     if current_admin.role not in ['platform_admin', 'school_admin']:
         return error_response(
@@ -74,13 +76,11 @@ def create_class(
             status_code=status.HTTP_403_FORBIDDEN
         )
     
-    # 学校管理员只能创建本校班级
-    if current_admin.role == 'school_admin':
-        school_id = current_admin.school_id
-    
+    # 从当前管理员获取学校ID
+    school_id = current_admin.school_id
     if not school_id:
         return error_response(
-            message="必须指定学校ID",
+            message="当前管理员未关联学校，无法创建班级",
             code=400,
             status_code=status.HTTP_400_BAD_REQUEST
         )
@@ -112,26 +112,35 @@ def create_class(
 
 @router.get("/classes/{class_id}/students")
 def get_class_students(
-    class_id: int,
+    class_id: str,
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(get_current_admin)
 ):
     """获取班级学生列表"""
-    # 查询班级中的学生
-    students = db.query(User).filter(
-        User.class_id == class_id,
-        User.role == 'student',
-        User.deleted_at == None
-    ).all()
+    # 根据UUID查询班级
+    pbl_class = db.query(PBLClass).filter(PBLClass.uuid == class_id).first()
+    if not pbl_class:
+        return error_response(
+            message="班级不存在",
+            code=404,
+            status_code=status.HTTP_404_NOT_FOUND
+        )
     
     # 权限检查（学校管理员只能查看本校班级）
-    if current_admin.role != 'platform_admin' and students:
-        if students[0].school_id != current_admin.school_id:
+    if current_admin.role != 'platform_admin':
+        if pbl_class.school_id != current_admin.school_id:
             return error_response(
                 message="无权限查看该班级",
                 code=403,
                 status_code=status.HTTP_403_FORBIDDEN
             )
+    
+    # 查询班级中的学生
+    students = db.query(User).filter(
+        User.class_id == pbl_class.id,
+        User.role == 'student',
+        User.deleted_at == None
+    ).all()
     
     result = []
     for student in students:
@@ -149,7 +158,7 @@ def get_class_students(
 
 @router.post("/classes/{class_id}/add-students")
 def add_students_to_class(
-    class_id: int,
+    class_id: str,
     student_ids: List[int],
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(get_current_admin)
@@ -162,6 +171,24 @@ def add_students_to_class(
             code=403,
             status_code=status.HTTP_403_FORBIDDEN
         )
+    
+    # 根据UUID查询班级
+    pbl_class = db.query(PBLClass).filter(PBLClass.uuid == class_id).first()
+    if not pbl_class:
+        return error_response(
+            message="班级不存在",
+            code=404,
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    
+    # 权限检查（学校管理员只能操作本校班级）
+    if current_admin.role == 'school_admin':
+        if pbl_class.school_id != current_admin.school_id:
+            return error_response(
+                message="无权限操作该班级",
+                code=403,
+                status_code=status.HTTP_403_FORBIDDEN
+            )
     
     success_count = 0
     for student_id in student_ids:
@@ -176,12 +203,12 @@ def add_students_to_class(
                 if student.school_id != current_admin.school_id:
                     continue
             
-            student.class_id = class_id
+            student.class_id = pbl_class.id
             success_count += 1
     
     db.commit()
     
-    logger.info(f"添加学生到班级 - 班级ID: {class_id}, 成功: {success_count}, 操作者: {current_admin.username}")
+    logger.info(f"添加学生到班级 - 班级UUID: {class_id}, 成功: {success_count}, 操作者: {current_admin.username}")
     
     return success_response(
         data={'added_count': success_count},
