@@ -43,14 +43,6 @@
                 <el-icon><User /></el-icon>
                 个人信息
               </el-dropdown-item>
-              <el-dropdown-item command="settings">
-                <el-icon><Setting /></el-icon>
-                学习设置
-              </el-dropdown-item>
-              <el-dropdown-item command="help">
-                <el-icon><QuestionFilled /></el-icon>
-                帮助中心
-              </el-dropdown-item>
               <el-dropdown-item command="logout" divided>
                 <el-icon><SwitchButton /></el-icon>
                 退出登录
@@ -158,12 +150,6 @@ const handleUserCommand = async (command) => {
   switch (command) {
     case 'profile':
       router.push('/profile')
-      break
-    case 'settings':
-      ElMessage.info('学习设置功能开发中...')
-      break
-    case 'help':
-      ElMessage.info('帮助中心功能开发中...')
       break
     case 'logout':
       try {
