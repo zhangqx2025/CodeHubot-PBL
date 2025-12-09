@@ -260,7 +260,7 @@ def refresh_access_token(request: RefreshTokenRequest, db: Session = Depends(get
     
     # 获取用户ID和用户角色
     admin_id = payload.get("sub")
-    user_role = payload.get("user_role")
+    user_role = payload.get("user_role")  # 可能为None（旧版本token）
     
     if admin_id is None:
         logger.warning("刷新令牌中没有用户ID")
@@ -270,18 +270,9 @@ def refresh_access_token(request: RefreshTokenRequest, db: Session = Depends(get
             status_code=status.HTTP_401_UNAUTHORIZED
         )
     
-    # 检查用户类型，确保是管理员类型
-    if user_role not in ['platform_admin', 'school_admin', 'teacher']:
-        logger.warning(f"刷新令牌失败 - 不是管理员类型的用户: user_role={user_role}")
-        return error_response(
-            message="无效的用户类型",
-            code=401,
-            status_code=status.HTTP_401_UNAUTHORIZED
-        )
+    logger.debug(f"刷新令牌解析 - 用户ID: {admin_id}, Token中的角色: {user_role}")
     
-    logger.debug(f"刷新令牌解析成功 - 用户ID: {admin_id}, 用户角色: {user_role}")
-    
-    # 验证用户是否存在（根据角色查询Admin表）
+    # 验证用户是否存在（查询Admin表）
     admin = db.query(Admin).filter(Admin.id == int(admin_id)).first()
     
     if admin is None:
@@ -292,14 +283,25 @@ def refresh_access_token(request: RefreshTokenRequest, db: Session = Depends(get
             status_code=status.HTTP_401_UNAUTHORIZED
         )
     
-    # 验证用户角色是否匹配
-    if admin.role != user_role:
+    # 检查用户角色是否是管理员类型
+    if admin.role not in ['platform_admin', 'school_admin', 'teacher']:
+        logger.warning(f"刷新令牌失败 - 不是管理员类型的用户: admin_role={admin.role}")
+        return error_response(
+            message="无效的用户类型",
+            code=401,
+            status_code=status.HTTP_401_UNAUTHORIZED
+        )
+    
+    # 如果token中有user_role字段，验证是否匹配（向后兼容：旧token没有此字段）
+    if user_role is not None and admin.role != user_role:
         logger.warning(f"刷新令牌失败 - 用户角色不匹配: token角色={user_role}, 实际角色={admin.role}")
         return error_response(
             message="用户角色不匹配",
             code=401,
             status_code=status.HTTP_401_UNAUTHORIZED
         )
+    
+    logger.debug(f"刷新令牌验证通过 - 用户ID: {admin_id}, 实际角色: {admin.role}")
     
     if not admin.is_active:
         logger.warning(f"刷新令牌失败 - 用户账户已禁用: {admin.username}")
