@@ -61,10 +61,15 @@ def get_password_hash(password: str) -> str:
         
     Returns:
         str: 哈希后的密码
+        
+    Note:
+        使用 SHA256 预处理密码以支持任意长度的密码。
+        bcrypt 4.0+ 版本会自动处理超过 72 字节的密码。
     """
     try:
-        # 先用 SHA256 预处理密码，确保不超过 bcrypt 的 72 字节限制
+        # 先用 SHA256 预处理密码，支持任意长度的密码输入
         preprocessed = _preprocess_password(password)
+        # SHA256 hex 输出固定为 64 字符（64 字节），安全地在 bcrypt 限制范围内
         return pwd_context.hash(preprocessed)
     except Exception as e:
         logger.error(f"密码哈希失败: {e}", exc_info=True)
