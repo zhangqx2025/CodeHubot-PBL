@@ -28,12 +28,16 @@ class AliyunVODService:
             logger.warning("⚠️ 阿里云VOD配置未设置，视频播放功能将不可用")
             self._client = None
         else:
+            # 创建AcsClient时必须指定正确的region_id
+            # 阿里云SDK会根据region_id自动设置对应的endpoint
             self._client = AcsClient(
                 self.access_key_id,
                 self.access_key_secret,
                 self.region_id
             )
-            logger.info(f"✅ 阿里云VOD客户端初始化成功 (Region: {self.region_id})")
+            logger.info(f"✅ 阿里云VOD客户端初始化成功")
+            logger.info(f"   - Region ID: {self.region_id}")
+            logger.info(f"   - Endpoint: vod.{self.region_id}.aliyuncs.com")
     
     def is_configured(self) -> bool:
         """检查阿里云VOD是否已配置"""
@@ -65,7 +69,7 @@ class AliyunVODService:
             request.set_VideoId(video_id)
             request.set_AuthInfoTimeout(auth_timeout)
             
-            # 发送请求
+            # 发送请求（region_id已在创建AcsClient时指定）
             response = self._client.do_action_with_exception(request)
             response_data = eval(response)
             

@@ -58,7 +58,11 @@ class Settings(BaseSettings):
     # 阿里云VOD配置（可选，如果不使用阿里云视频则不需要配置）
     aliyun_access_key_id: Optional[str] = None
     aliyun_access_key_secret: Optional[str] = None
-    aliyun_vod_region_id: str = "cn-shanghai"  # 默认上海区域
+    aliyun_vod_region_id: str = Field(
+        default="cn-beijing",
+        validation_alias=AliasChoices('aliyun_vod_region_id', 'ALIYUN_VOD_REGION_ID'),
+        description="阿里云VOD区域ID，默认北京区域"
+    )
     
     class Config:
         env_file = ".env"
