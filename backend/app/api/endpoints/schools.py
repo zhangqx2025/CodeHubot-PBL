@@ -562,6 +562,188 @@ def assign_school_admin(
     return success_response(message="学校管理员分配成功")
 
 
+@router.get("/{school_id}/admin")
+def get_school_admin(
+    school_id: int,
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(get_current_admin)
+):
+    """
+    获取学校管理员信息
+    权限：仅平台管理员
+    """
+    # 权限检查
+    if current_admin.role != 'platform_admin':
+        return error_response(
+            message="仅平台管理员可以查看学校管理员",
+            code=403,
+            status_code=status.HTTP_403_FORBIDDEN
+        )
+    
+    # 检查学校是否存在
+    school = db.query(School).filter(School.id == school_id).first()
+    if not school:
+        return error_response(
+            message="学校不存在",
+            code=404,
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    
+    # 获取学校管理员
+    admin_user = None
+    if hasattr(school, 'admin_user_id') and school.admin_user_id:
+        admin_user = db.query(User).filter(User.id == school.admin_user_id).first()
+    
+    result = {
+        'has_admin': admin_user is not None,
+        'admin_user': None
+    }
+    
+    if admin_user:
+        result['admin_user'] = {
+            'id': admin_user.id,
+            'username': admin_user.username,
+            'name': admin_user.name or admin_user.real_name,
+            'teacher_number': admin_user.teacher_number,
+            'phone': admin_user.phone,
+            'email': admin_user.email,
+            'is_active': admin_user.is_active
+        }
+    
+    return success_response(data=result)
+
+
+@router.post("/{school_id}/admin")
+def create_or_update_school_admin(
+    school_id: int,
+    teacher_number: str = Form(...),
+    password: str = Form(...),
+    name: Optional[str] = Form(None),
+    phone: Optional[str] = Form(None),
+    email: Optional[str] = Form(None),
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(get_current_admin)
+):
+    """
+    创建或更新学校管理员
+    权限：仅平台管理员
+    如果学校已有管理员，则更新管理员信息；否则创建新管理员
+    """
+    # 权限检查
+    if current_admin.role != 'platform_admin':
+        return error_response(
+            message="仅平台管理员可以管理学校管理员",
+            code=403,
+            status_code=status.HTTP_403_FORBIDDEN
+        )
+    
+    # 检查学校是否存在
+    school = db.query(School).filter(School.id == school_id).first()
+    if not school:
+        return error_response(
+            message="学校不存在",
+            code=404,
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    
+    # 生成用户名：职工号@学校编码
+    username = f"{teacher_number}@{school.school_code}"
+    
+    # 检查是否已有管理员
+    existing_admin = None
+    if hasattr(school, 'admin_user_id') and school.admin_user_id:
+        existing_admin = db.query(User).filter(User.id == school.admin_user_id).first()
+    
+    if existing_admin:
+        # 更新现有管理员
+        # 如果用户名变化，需要检查新用户名是否已被使用
+        if existing_admin.username != username:
+            existing_user = db.query(User).filter(
+                User.username == username,
+                User.id != existing_admin.id
+            ).first()
+            if existing_user:
+                return error_response(
+                    message=f"该职工号在本校已被使用",
+                    code=400,
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+            existing_admin.username = username
+        
+        # 更新其他信息
+        existing_admin.teacher_number = teacher_number
+        existing_admin.password_hash = get_password_hash(password)
+        if name:
+            existing_admin.name = name
+        if phone:
+            existing_admin.phone = phone
+        if email:
+            existing_admin.email = email
+        existing_admin.need_change_password = True
+        
+        # 更新学校的管理员用户名
+        school.admin_username = username
+        
+        db.commit()
+        db.refresh(existing_admin)
+        
+        logger.info(f"更新学校管理员 - 学校: {school.school_name}, 管理员: {username}, 操作者: {current_admin.username}")
+        
+        return success_response(
+            message="学校管理员更新成功",
+            data={
+                'id': existing_admin.id,
+                'username': existing_admin.username,
+                'name': existing_admin.name
+            }
+        )
+    else:
+        # 创建新管理员
+        # 检查用户名是否已存在
+        existing_user = db.query(User).filter(User.username == username).first()
+        if existing_user:
+            return error_response(
+                message=f"该职工号在本校已存在",
+                code=400,
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # 创建管理员账号
+        new_admin = User(
+            username=username,
+            password_hash=get_password_hash(password),
+            name=name or teacher_number,
+            phone=phone,
+            email=email,
+            teacher_number=teacher_number,
+            role='school_admin',
+            school_id=school.id,
+            school_name=school.school_name,
+            is_active=True,
+            need_change_password=True
+        )
+        db.add(new_admin)
+        db.flush()
+        
+        # 更新学校的管理员信息
+        school.admin_user_id = new_admin.id
+        school.admin_username = new_admin.username
+        
+        db.commit()
+        db.refresh(new_admin)
+        
+        logger.info(f"创建学校管理员 - 学校: {school.school_name}, 管理员: {username}, 操作者: {current_admin.username}")
+        
+        return success_response(
+            message="学校管理员创建成功",
+            data={
+                'id': new_admin.id,
+                'username': new_admin.username,
+                'name': new_admin.name
+            }
+        )
+
+
 @router.delete("/{school_id}")
 def delete_school(
     school_id: int,

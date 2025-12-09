@@ -94,7 +94,7 @@
             {{ row.license_expire_at || '-' }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="280" fixed="right">
+        <el-table-column label="操作" width="350" fixed="right">
           <template #default="{ row }">
             <el-button size="small" @click="handleView(row)">
               <el-icon><View /></el-icon>
@@ -103,6 +103,14 @@
             <el-button size="small" @click="handleEdit(row)">
               <el-icon><Edit /></el-icon>
               编辑
+            </el-button>
+            <el-button 
+              size="small" 
+              type="primary"
+              @click="handleManageAdmin(row)"
+            >
+              <el-icon><User /></el-icon>
+              管理员
             </el-button>
             <el-button 
               size="small" 
@@ -310,6 +318,76 @@
       </template>
     </el-dialog>
 
+    <!-- 管理员管理对话框 -->
+    <el-dialog
+      v-model="adminDialogVisible"
+      :title="currentSchool ? `管理学校管理员 - ${currentSchool.school_name}` : '管理学校管理员'"
+      width="600px"
+      :close-on-click-modal="false"
+    >
+      <el-alert
+        v-if="adminInfo.has_admin"
+        title="该学校已有管理员，编辑后将更新管理员信息"
+        type="warning"
+        :closable="false"
+        style="margin-bottom: 20px"
+      />
+      <el-alert
+        v-else
+        title="该学校尚未设置管理员，请创建管理员账号"
+        type="info"
+        :closable="false"
+        style="margin-bottom: 20px"
+      />
+      
+      <el-form :model="adminForm" :rules="adminRules" ref="adminFormRef" label-width="100px">
+        <el-form-item label="职工号" prop="teacher_number">
+          <el-input 
+            v-model="adminForm.teacher_number" 
+            placeholder="请输入职工号"
+          />
+          <div style="color: #909399; font-size: 12px; margin-top: 5px;">
+            用户名将自动生成为：{{ adminForm.teacher_number }}@{{ currentSchool?.school_code }}
+          </div>
+        </el-form-item>
+        
+        <el-form-item label="登录密码" prop="password">
+          <el-input 
+            v-model="adminForm.password" 
+            type="password"
+            placeholder="请输入登录密码"
+            show-password
+          />
+          <div style="color: #909399; font-size: 12px; margin-top: 5px;">
+            {{ adminInfo.has_admin ? '如需修改密码请输入新密码' : '首次登录需修改密码' }}
+          </div>
+        </el-form-item>
+        
+        <el-form-item label="姓名" prop="name">
+          <el-input v-model="adminForm.name" placeholder="请输入姓名" />
+        </el-form-item>
+        
+        <el-form-item label="联系电话">
+          <el-input v-model="adminForm.phone" placeholder="请输入联系电话" />
+        </el-form-item>
+        
+        <el-form-item label="邮箱">
+          <el-input v-model="adminForm.email" placeholder="请输入邮箱" />
+        </el-form-item>
+      </el-form>
+      
+      <template #footer>
+        <el-button @click="adminDialogVisible = false">取消</el-button>
+        <el-button 
+          type="primary" 
+          @click="handleSubmitAdmin" 
+          :loading="adminSubmitting"
+        >
+          {{ adminInfo.has_admin ? '更新管理员' : '创建管理员' }}
+        </el-button>
+      </template>
+    </el-dialog>
+
     <!-- 学校详情对话框 -->
     <el-dialog
       v-model="detailDialogVisible"
@@ -363,18 +441,26 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Search, Refresh, Edit, View } from '@element-plus/icons-vue'
+import { Plus, Search, Refresh, Edit, View, User } from '@element-plus/icons-vue'
 import axios from 'axios'
 
 const loading = ref(false)
 const submitting = ref(false)
 const dialogVisible = ref(false)
 const detailDialogVisible = ref(false)
+const adminDialogVisible = ref(false)
+const adminSubmitting = ref(false)
 const dialogMode = ref('create') // 'create' or 'edit'
 const formRef = ref(null)
+const adminFormRef = ref(null)
 
 const schools = ref([])
 const detailData = ref({})
+const currentSchool = ref(null)
+const adminInfo = ref({
+  has_admin: false,
+  admin_user: null
+})
 
 const filters = reactive({
   search: '',
@@ -412,11 +498,25 @@ const form = reactive({
   admin_email: ''
 })
 
+const adminForm = reactive({
+  teacher_number: '',
+  password: '',
+  name: '',
+  phone: '',
+  email: ''
+})
+
 const rules = {
   school_code: [{ required: true, message: '请输入学校代码', trigger: 'blur' }],
   school_name: [{ required: true, message: '请输入学校名称', trigger: 'blur' }],
   max_teachers: [{ required: true, message: '请设置教师容量', trigger: 'blur' }],
   max_students: [{ required: true, message: '请设置学生容量', trigger: 'blur' }]
+}
+
+const adminRules = {
+  teacher_number: [{ required: true, message: '请输入职工号', trigger: 'blur' }],
+  password: [{ required: true, message: '请输入登录密码', trigger: 'blur' }],
+  name: [{ required: true, message: '请输入姓名', trigger: 'blur' }]
 }
 
 // API请求
@@ -574,6 +674,88 @@ const handleSubmit = async () => {
     ElMessage.error(error.response?.data?.message || '操作失败')
   } finally {
     submitting.value = false
+  }
+}
+
+// 管理学校管理员
+const handleManageAdmin = async (row) => {
+  currentSchool.value = row
+  
+  try {
+    loading.value = true
+    const response = await axios.get(`/api/v1/admin/schools/${row.id}/admin`, {
+      headers: getAuthHeaders()
+    })
+    
+    if (response.data && response.data.code === 0) {
+      adminInfo.value = response.data.data
+      
+      // 如果已有管理员，填充表单
+      if (adminInfo.value.has_admin && adminInfo.value.admin_user) {
+        const admin = adminInfo.value.admin_user
+        Object.assign(adminForm, {
+          teacher_number: admin.teacher_number || '',
+          password: '', // 密码不回显
+          name: admin.name || '',
+          phone: admin.phone || '',
+          email: admin.email || ''
+        })
+      } else {
+        // 重置表单
+        Object.assign(adminForm, {
+          teacher_number: '',
+          password: '',
+          name: '',
+          phone: '',
+          email: ''
+        })
+      }
+      
+      adminDialogVisible.value = true
+    }
+  } catch (error) {
+    console.error('获取管理员信息失败:', error)
+    ElMessage.error(error.response?.data?.message || '获取管理员信息失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+// 提交管理员信息
+const handleSubmitAdmin = async () => {
+  if (!adminFormRef.value) return
+  
+  try {
+    await adminFormRef.value.validate()
+    
+    adminSubmitting.value = true
+    
+    const data = new FormData()
+    data.append('teacher_number', adminForm.teacher_number)
+    data.append('password', adminForm.password)
+    if (adminForm.name) data.append('name', adminForm.name)
+    if (adminForm.phone) data.append('phone', adminForm.phone)
+    if (adminForm.email) data.append('email', adminForm.email)
+    
+    const response = await axios.post(
+      `/api/v1/admin/schools/${currentSchool.value.id}/admin`,
+      data,
+      { headers: getAuthHeaders() }
+    )
+    
+    if (response.data && response.data.success) {
+      ElMessage.success(response.data.message)
+      adminDialogVisible.value = false
+      loadSchools() // 刷新学校列表以显示新的管理员信息
+    }
+  } catch (error) {
+    if (error.errors) {
+      return
+    }
+    console.error('提交失败:', error)
+    ElMessage.error(error.response?.data?.message || '操作失败')
+  } finally {
+    adminSubmitting.value = false
   }
 }
 
