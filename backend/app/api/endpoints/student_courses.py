@@ -4,7 +4,7 @@ from typing import List, Optional
 
 from ...core.response import success_response, error_response
 from ...core.deps import get_db, get_current_user
-from ...models.pbl import PBLCourse, PBLUnit, PBLProject, PBLResource, PBLTask, PBLCourseEnrollment
+from ...models.pbl import PBLCourse, PBLUnit, PBLProject, PBLResource, PBLTask, PBLCourseEnrollment, PBLLearningProgress
 
 router = APIRouter()
 
@@ -279,7 +279,27 @@ def get_course_units(
         )
     
     units = sorted(course.units, key=lambda x: x.order)
-    return success_response(data=[serialize_unit_summary(unit) for unit in units])
+    
+    # 为每个单元添加用户的完成状态
+    units_data = []
+    for unit in units:
+        unit_data = serialize_unit_summary(unit)
+        
+        # 检查该用户是否完成了该单元
+        unit_complete = db.query(PBLLearningProgress).filter(
+            PBLLearningProgress.user_id == current_user.id,
+            PBLLearningProgress.unit_id == unit.id,
+            PBLLearningProgress.progress_type == 'unit_complete',
+            PBLLearningProgress.status == 'completed'
+        ).first()
+        
+        # 如果有完成记录，覆盖单元状态
+        if unit_complete:
+            unit_data['status'] = 'completed'
+        
+        units_data.append(unit_data)
+    
+    return success_response(data=units_data)
 
 @router.get("/units/{unit_uuid}/resources")
 def get_unit_resources(
