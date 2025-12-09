@@ -33,6 +33,10 @@
               <el-icon><Document /></el-icon>
               <span>课程列表</span>
             </el-menu-item>
+            <el-menu-item index="/admin/school-courses">
+              <el-icon><School /></el-icon>
+              <span>学校课程配置</span>
+            </el-menu-item>
             <el-menu-item index="/admin/units">
               <el-icon><Collection /></el-icon>
               <span>学习单元</span>
@@ -312,6 +316,7 @@ const pageTitle = computed(() => {
   const titles = {
     '/admin': '概览',
     '/admin/courses': '课程管理',
+    '/admin/school-courses': '学校课程配置',
     '/admin/units': '学习单元',
     '/admin/resources': '资料管理',
     '/admin/video-permissions': '视频权限管理',
