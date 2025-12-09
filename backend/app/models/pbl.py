@@ -81,6 +81,7 @@ class PBLTask(Base):
     type = Column(Enum('analysis', 'coding', 'design', 'deployment'), default='analysis')
     difficulty = Column(Enum('easy', 'medium', 'hard'), default='easy')
     estimated_time = Column(String(50))
+    order = Column(Integer, default=0, nullable=False)  # 顺序（与资源统一排序）
     requirements = Column(JSON)
     prerequisites = Column(JSON)
     created_at = Column(TIMESTAMP, server_default=func.now())

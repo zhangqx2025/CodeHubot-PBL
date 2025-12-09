@@ -35,7 +35,7 @@ def get_tasks_by_unit(
             status_code=status.HTTP_404_NOT_FOUND
         )
     
-    tasks = db.query(PBLTask).filter(PBLTask.unit_id == unit.id).all()
+    tasks = db.query(PBLTask).filter(PBLTask.unit_id == unit.id).order_by(PBLTask.order).all()
     return success_response(data=serialize_tasks(tasks))
 
 @router.post("")
@@ -69,6 +69,7 @@ def create_task(
         type=task_data.type,
         difficulty=task_data.difficulty or 'easy',
         estimated_time=task_data.estimated_time,
+        order=task_data.order if task_data.order is not None else 0,
         requirements=task_data.requirements,
         prerequisites=task_data.prerequisites
     )

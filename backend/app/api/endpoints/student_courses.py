@@ -93,9 +93,11 @@ def serialize_course_detail(course: PBLCourse) -> dict:
 
 def serialize_unit_detail(unit: PBLUnit) -> dict:
     """序列化单元详情（包含资料和任务）"""
+    # 按 order 字段排序资源
     resources = sorted(unit.resources, key=lambda x: x.order)
-    tasks = unit.tasks
-    
+    # 按 order 字段排序任务
+    tasks = sorted(unit.tasks, key=lambda x: x.order)
+
     return {
         'id': unit.id,
         'uuid': unit.uuid,
@@ -129,7 +131,8 @@ def serialize_unit_detail(unit: PBLUnit) -> dict:
             'difficulty': t.difficulty,
             'estimated_time': t.estimated_time,
             'requirements': t.requirements,
-            'prerequisites': t.prerequisites
+            'prerequisites': t.prerequisites,
+            'order': t.order  # 添加 order 字段到返回数据
         } for t in tasks],
         'created_at': unit.created_at.isoformat() if unit.created_at else None,
         'updated_at': unit.updated_at.isoformat() if unit.updated_at else None
@@ -353,7 +356,7 @@ def get_unit_tasks(
             status_code=status.HTTP_403_FORBIDDEN
         )
     
-    tasks = unit.tasks
+    tasks = sorted(unit.tasks, key=lambda x: x.order)
     return success_response(data=[{
         'id': t.id,
         'uuid': t.uuid,
@@ -363,5 +366,6 @@ def get_unit_tasks(
         'difficulty': t.difficulty,
         'estimated_time': t.estimated_time,
         'requirements': t.requirements,
-        'prerequisites': t.prerequisites
+        'prerequisites': t.prerequisites,
+        'order': t.order
     } for t in tasks])

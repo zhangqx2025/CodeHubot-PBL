@@ -133,6 +133,7 @@ class TaskBase(BaseModel):
     type: Optional[str] = 'analysis'  # 'analysis', 'coding', 'design', 'deployment'
     difficulty: Optional[str] = 'easy'  # 'easy', 'medium', 'hard'
     estimated_time: Optional[str] = None
+    order: Optional[int] = 0  # 顺序（与资源统一排序）
     requirements: Optional[Any] = None  # 支持 dict 或 list 类型
     prerequisites: Optional[Any] = None  # 支持 dict 或 list 类型
 
@@ -145,6 +146,7 @@ class TaskUpdate(BaseModel):
     type: Optional[str] = None
     difficulty: Optional[str] = None
     estimated_time: Optional[str] = None
+    order: Optional[int] = None  # 顺序（与资源统一排序）
     requirements: Optional[Any] = None  # 支持 dict 或 list 类型
     prerequisites: Optional[Any] = None  # 支持 dict 或 list 类型
 
