@@ -43,14 +43,6 @@
                 <el-icon><User /></el-icon>
                 个人信息
               </el-dropdown-item>
-              <el-dropdown-item command="settings">
-                <el-icon><Setting /></el-icon>
-                学习设置
-              </el-dropdown-item>
-              <el-dropdown-item command="help">
-                <el-icon><QuestionFilled /></el-icon>
-                帮助中心
-              </el-dropdown-item>
               <el-dropdown-item command="logout" divided>
                 <el-icon><SwitchButton /></el-icon>
                 退出登录
@@ -87,34 +79,9 @@
           text-color="#374151"
           active-text-color="#3b82f6"
         >
-          <el-menu-item index="/" class="menu-item">
-            <el-icon><House /></el-icon>
-            <template #title>学习首页</template>
-          </el-menu-item>
-          
           <el-menu-item index="/courses" class="menu-item">
             <el-icon><Reading /></el-icon>
-            <template #title>课程学习</template>
-          </el-menu-item>
-          
-          <el-menu-item index="/projects" class="menu-item">
-            <el-icon><Folder /></el-icon>
-            <template #title>项目实践</template>
-          </el-menu-item>
-          
-          <el-menu-item index="/outputs" class="menu-item">
-            <el-icon><Document /></el-icon>
-            <template #title>项目成果</template>
-          </el-menu-item>
-          
-          <el-menu-item index="/portfolio" class="menu-item">
-            <el-icon><Collection /></el-icon>
-            <template #title>学习档案</template>
-          </el-menu-item>
-          
-          <el-menu-item index="/progress" class="menu-item">
-            <el-icon><TrendCharts /></el-icon>
-            <template #title>学习进度</template>
+            <template #title>我的课程</template>
           </el-menu-item>
           
           <el-menu-item index="/profile" class="menu-item">
@@ -183,12 +150,6 @@ const handleUserCommand = async (command) => {
   switch (command) {
     case 'profile':
       router.push('/profile')
-      break
-    case 'settings':
-      ElMessage.info('学习设置功能开发中...')
-      break
-    case 'help':
-      ElMessage.info('帮助中心功能开发中...')
       break
     case 'logout':
       try {

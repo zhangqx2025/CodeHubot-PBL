@@ -48,24 +48,6 @@
         </el-form-item>
       </el-form>
       
-      <div class="login-tips">
-        <div class="demo-account">
-          <p class="demo-title">演示账号</p>
-          <p class="demo-info">学号: 20240001</p>
-          <p class="demo-info">学校代码: DEMO_SCHOOL</p>
-          <p class="demo-info">密码: 123456</p>
-          <p class="demo-info">登录格式: 学号@学校代码</p>
-          <el-button 
-            type="text" 
-            size="small" 
-            @click="fillDemoAccount"
-            class="demo-button"
-          >
-            一键填入演示账号
-          </el-button>
-        </div>
-      </div>
-      
       <div class="login-footer">
         <p>© 2025 跨学科项目式学习平台. All rights reserved.</p>
       </div>
@@ -143,12 +125,6 @@ const handleLogin = async () => {
   }
 }
 
-const fillDemoAccount = () => {
-  loginData.username = '20240001@DEMO_SCHOOL'
-  loginData.password = '123456'
-  ElMessage.success('演示账号已自动填充！')
-}
-
 onMounted(() => {
   if (authStore.isLoggedIn) {
     router.push('/')
@@ -199,42 +175,6 @@ onMounted(() => {
   font-size: 16px;
   font-weight: 500;
   border-radius: 8px;
-}
-
-.login-tips {
-  margin-top: 20px;
-  padding: 16px;
-  background: #f8f9fa;
-  border-radius: 8px;
-  border-left: 4px solid #409eff;
-}
-
-.login-tips p {
-  margin: 0 0 8px 0;
-  color: #666;
-  font-size: 14px;
-}
-
-.demo-title {
-  font-weight: 600;
-  color: #333 !important;
-  margin-bottom: 8px !important;
-}
-
-.demo-info {
-  font-size: 12px !important;
-  color: #666 !important;
-}
-
-.demo-button {
-  color: #409eff;
-  font-size: 12px;
-  padding: 0;
-  margin: 0;
-}
-
-.demo-button:hover {
-  color: #66b1ff;
 }
 
 .login-footer {

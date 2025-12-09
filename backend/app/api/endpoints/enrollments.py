@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime
+from pydantic import BaseModel
 
 from ...db.session import SessionLocal
 from ...core.response import success_response, error_response
@@ -12,6 +13,10 @@ from ...core.logging_config import get_logger
 
 router = APIRouter()
 logger = get_logger(__name__)
+
+# Pydantic 模型
+class BatchEnrollRequest(BaseModel):
+    student_ids: List[int]
 
 @router.post("/enroll/{course_id}")
 def enroll_course(
@@ -206,22 +211,34 @@ def get_course_students(
             status_code=status.HTTP_404_NOT_FOUND
         )
     
-    # 权限检查
+    # 权限检查 - 对于学校管理员，检查该课程是否分配给其学校
     if current_admin.role != 'platform_admin':
-        if course.school_id != current_admin.school_id:
+        # 检查课程是否已分配给管理员所在的学校
+        school_course = db.query(PBLSchoolCourse).filter(
+            PBLSchoolCourse.school_id == current_admin.school_id,
+            PBLSchoolCourse.course_id == course_id
+        ).first()
+        
+        if not school_course:
             return error_response(
-                message="无权限查看该课程",
+                message="该课程未分配给您的学校",
                 code=403,
                 status_code=status.HTTP_403_FORBIDDEN
             )
     
-    # 从选课表查询
-    enrollments = db.query(PBLCourseEnrollment).join(
+    # 从选课表查询 - 如果是学校管理员，只返回本校学生
+    query = db.query(PBLCourseEnrollment).join(
         User, User.id == PBLCourseEnrollment.user_id
     ).filter(
         PBLCourseEnrollment.course_id == course_id,
         PBLCourseEnrollment.enrollment_status == 'enrolled'
-    ).all()
+    )
+    
+    # 学校管理员只能查看本校学生
+    if current_admin.role != 'platform_admin':
+        query = query.filter(User.school_id == current_admin.school_id)
+    
+    enrollments = query.all()
     
     result = []
     for enrollment in enrollments:
@@ -242,11 +259,12 @@ def get_course_students(
 @router.post("/course/{course_id}/batch-enroll")
 def batch_enroll_students(
     course_id: int,
-    student_ids: List[int],
+    request: BatchEnrollRequest,
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(get_current_admin)
 ):
     """批量为学生选课（学校管理员）"""
+    student_ids = request.student_ids
     # 检查课程是否存在
     course = db.query(PBLCourse).filter(PBLCourse.id == course_id).first()
     if not course:
