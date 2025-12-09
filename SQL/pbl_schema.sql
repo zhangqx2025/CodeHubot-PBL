@@ -214,6 +214,7 @@ CREATE TABLE IF NOT EXISTS `pbl_tasks` (
   `type` enum('analysis','coding','design','deployment') DEFAULT 'analysis' COMMENT '任务类型',
   `difficulty` enum('easy','medium','hard') DEFAULT 'easy' COMMENT '难度',
   `estimated_time` varchar(50) DEFAULT NULL COMMENT '预计时长',
+  `order` int(11) NOT NULL DEFAULT '0' COMMENT '顺序（与资源统一排序）',
   `requirements` json DEFAULT NULL COMMENT '任务要求列表',
   `prerequisites` json DEFAULT NULL COMMENT '前置任务ID列表',
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -221,6 +222,7 @@ CREATE TABLE IF NOT EXISTS `pbl_tasks` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_uuid` (`uuid`),
   KEY `idx_unit_id` (`unit_id`),
+  KEY `idx_unit_order` (`unit_id`, `order`),
   CONSTRAINT `fk_tasks_unit` FOREIGN KEY (`unit_id`) REFERENCES `pbl_units` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='PBL任务表';
 
