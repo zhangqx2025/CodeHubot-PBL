@@ -268,26 +268,127 @@ CREATE TABLE `pbl_video_user_permissions` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='视频用户权限表（个性化观看次数和有效期设置）';
 
 
-CREATE TABLE IF NOT EXISTS `pbl_course_enrollments` (
-  `id` INT NOT NULL AUTO_INCREMENT,
-  `course_id` INT NOT NULL COMMENT '课程ID',
-  `user_id` INT NOT NULL COMMENT '学生用户ID',
-  `enrollment_status` ENUM('enrolled', 'dropped', 'completed') NOT NULL DEFAULT 'enrolled' COMMENT '选课状态: enrolled-已选课, dropped-已退课, completed-已完成',
-  `enrolled_at` TIMESTAMP NULL COMMENT '选课时间',
-  `dropped_at` TIMESTAMP NULL COMMENT '退课时间',
-  `completed_at` TIMESTAMP NULL COMMENT '完成时间',
-  `progress` INT NOT NULL DEFAULT 0 COMMENT '学习进度(0-100)',
-  `final_score` INT NULL COMMENT '最终成绩',
-  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+-- ----------------------------
+-- Table structure for pbl_course_enrollments
+-- ----------------------------
+DROP TABLE IF EXISTS `pbl_course_enrollments`;
+CREATE TABLE `pbl_course_enrollments` (
+  `id` int(11) NOT NULL AUTO_INCREMENT COMMENT '选课记录ID',
+  `course_id` bigint(20) NOT NULL COMMENT '课程ID',
+  `user_id` int(11) NOT NULL COMMENT '学生ID',
+  `enrollment_status` enum('enrolled','dropped','completed') DEFAULT 'enrolled' COMMENT '选课状态',
+  `enrolled_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT '选课时间',
+  `dropped_at` timestamp NULL DEFAULT NULL COMMENT '退课时间',
+  `completed_at` timestamp NULL DEFAULT NULL COMMENT '完成时间',
+  `final_score` int(11) DEFAULT NULL COMMENT '最终成绩',
+  `progress` int(11) DEFAULT '0' COMMENT '课程进度（0-100）',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`),
-  INDEX `idx_course_id` (`course_id`),
-  INDEX `idx_user_id` (`user_id`),
-  INDEX `idx_enrollment_status` (`enrollment_status`),
-  CONSTRAINT `fk_pbl_enrollments_course` FOREIGN KEY (`course_id`) REFERENCES `pbl_courses` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `uk_course_user` UNIQUE (`course_id`, `user_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='PBL课程选课表';
+  UNIQUE KEY `uk_course_user` (`course_id`,`user_id`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_enrollment_status` (`enrollment_status`),
+  KEY `idx_enrolled_at` (`enrolled_at`),
+  CONSTRAINT `fk_enrollments_course` FOREIGN KEY (`course_id`) REFERENCES `pbl_courses` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_enrollments_user` FOREIGN KEY (`user_id`) REFERENCES `aiot_core_users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='PBL课程选课记录表';
 
+-- ----------------------------
+-- Table structure for pbl_classes
+-- ----------------------------
+DROP TABLE IF EXISTS `pbl_classes`;
+CREATE TABLE `pbl_classes` (
+  `id` int(11) NOT NULL AUTO_INCREMENT COMMENT '班级ID',
+  `uuid` varchar(36) NOT NULL COMMENT 'UUID唯一标识',
+  `school_id` int(11) NOT NULL COMMENT '所属学校ID',
+  `name` varchar(100) NOT NULL COMMENT '班级名称',
+  `grade` varchar(50) DEFAULT NULL COMMENT '年级',
+  `academic_year` varchar(20) DEFAULT NULL COMMENT '学年（如：2024-2025）',
+  `class_teacher_id` int(11) DEFAULT NULL COMMENT '班主任ID',
+  `max_students` int(11) DEFAULT '50' COMMENT '最大学生数',
+  `is_active` tinyint(1) DEFAULT '1' COMMENT '是否激活',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_uuid` (`uuid`),
+  KEY `idx_school_id` (`school_id`),
+  KEY `idx_name` (`name`),
+  KEY `idx_grade` (`grade`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='PBL班级表';
+
+-- ----------------------------
+-- Table structure for pbl_groups
+-- ----------------------------
+DROP TABLE IF EXISTS `pbl_groups`;
+CREATE TABLE `pbl_groups` (
+  `id` int(11) NOT NULL AUTO_INCREMENT COMMENT '小组ID',
+  `uuid` varchar(36) NOT NULL COMMENT 'UUID唯一标识',
+  `class_id` int(11) DEFAULT NULL COMMENT '所属班级ID',
+  `course_id` bigint(20) DEFAULT NULL COMMENT '所属课程ID',
+  `name` varchar(100) NOT NULL COMMENT '小组名称',
+  `description` text COMMENT '小组描述',
+  `leader_id` int(11) DEFAULT NULL COMMENT '组长ID',
+  `max_members` int(11) DEFAULT '6' COMMENT '最大成员数',
+  `is_active` tinyint(1) DEFAULT '1' COMMENT '是否激活',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_uuid` (`uuid`),
+  KEY `idx_class_id` (`class_id`),
+  KEY `idx_course_id` (`course_id`),
+  KEY `idx_name` (`name`),
+  CONSTRAINT `fk_groups_class` FOREIGN KEY (`class_id`) REFERENCES `pbl_classes` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_groups_course` FOREIGN KEY (`course_id`) REFERENCES `pbl_courses` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='PBL学习小组表';
+
+-- ----------------------------
+-- Table structure for pbl_group_members
+-- ----------------------------
+DROP TABLE IF EXISTS `pbl_group_members`;
+CREATE TABLE `pbl_group_members` (
+  `id` int(11) NOT NULL AUTO_INCREMENT COMMENT '成员记录ID',
+  `group_id` int(11) NOT NULL COMMENT '小组ID',
+  `user_id` int(11) NOT NULL COMMENT '学生ID',
+  `role` enum('member','leader','deputy_leader') DEFAULT 'member' COMMENT '成员角色',
+  `joined_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT '加入时间',
+  `is_active` tinyint(1) DEFAULT '1' COMMENT '是否激活',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_group_user` (`group_id`,`user_id`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_role` (`role`),
+  CONSTRAINT `fk_group_members_group` FOREIGN KEY (`group_id`) REFERENCES `pbl_groups` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_group_members_user` FOREIGN KEY (`user_id`) REFERENCES `aiot_core_users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='PBL小组成员表';
+
+-- ----------------------------
+-- Table structure for pbl_learning_progress
+-- ----------------------------
+DROP TABLE IF EXISTS `pbl_learning_progress`;
+CREATE TABLE `pbl_learning_progress` (
+  `id` int(11) NOT NULL AUTO_INCREMENT COMMENT '进度记录ID',
+  `user_id` int(11) NOT NULL COMMENT '学生ID',
+  `course_id` bigint(20) NOT NULL COMMENT '课程ID',
+  `unit_id` bigint(20) DEFAULT NULL COMMENT '单元ID',
+  `resource_id` bigint(20) DEFAULT NULL COMMENT '资源ID',
+  `progress_type` enum('resource_view','video_watch','document_read','task_submit','unit_complete') NOT NULL COMMENT '进度类型',
+  `progress_value` int(11) DEFAULT '0' COMMENT '进度值（百分比或时长）',
+  `time_spent` int(11) DEFAULT '0' COMMENT '花费时间（秒）',
+  `meta_data` json DEFAULT NULL COMMENT '额外数据',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '记录时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_course_id` (`course_id`),
+  KEY `idx_unit_id` (`unit_id`),
+  KEY `idx_resource_id` (`resource_id`),
+  KEY `idx_progress_type` (`progress_type`),
+  KEY `idx_created_at` (`created_at`),
+  CONSTRAINT `fk_learning_progress_user` FOREIGN KEY (`user_id`) REFERENCES `aiot_core_users` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_learning_progress_course` FOREIGN KEY (`course_id`) REFERENCES `pbl_courses` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_learning_progress_unit` FOREIGN KEY (`unit_id`) REFERENCES `pbl_units` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_learning_progress_resource` FOREIGN KEY (`resource_id`) REFERENCES `pbl_resources` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='PBL学习进度详细追踪表';
 
 -- ==========================================
 -- 添加学校课程管理表
@@ -633,7 +734,442 @@ DEALLOCATE PREPARE stmt;
 SELECT 'pbl_learning_progress表增强完成：添加了status、completed_at、updated_at、task_id字段及相关索引' AS message;
 
 -- ==========================================
--- 视频观看统计和权限管理视图
+-- 项目成果与评价体系
+-- ==========================================
+
+-- ----------------------------
+-- Table structure for pbl_project_outputs
+-- 项目成果表：存储学生的项目作品、报告、代码等成果
+-- ----------------------------
+DROP TABLE IF EXISTS `pbl_project_outputs`;
+CREATE TABLE `pbl_project_outputs` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '成果ID',
+  `uuid` varchar(36) NOT NULL COMMENT 'UUID，唯一标识',
+  `project_id` bigint(20) NOT NULL COMMENT '项目ID',
+  `task_id` bigint(20) DEFAULT NULL COMMENT '任务ID（可选，某个任务的提交物）',
+  `user_id` int(11) NOT NULL COMMENT '提交学生ID',
+  `group_id` int(11) DEFAULT NULL COMMENT '小组ID（小组作品）',
+  `output_type` enum('report','code','design','video','presentation','model','dataset','other') NOT NULL COMMENT '成果类型',
+  `title` varchar(200) NOT NULL COMMENT '成果标题',
+  `description` text COMMENT '成果说明',
+  `file_url` varchar(500) DEFAULT NULL COMMENT '文件URL（支持多个文件用JSON数组）',
+  `file_size` bigint(20) DEFAULT NULL COMMENT '文件大小(字节)',
+  `file_type` varchar(50) DEFAULT NULL COMMENT '文件类型',
+  `repo_url` varchar(500) DEFAULT NULL COMMENT '代码仓库URL',
+  `demo_url` varchar(500) DEFAULT NULL COMMENT '演示URL',
+  `thumbnail` varchar(500) DEFAULT NULL COMMENT '缩略图URL',
+  `meta_data` json DEFAULT NULL COMMENT '扩展元数据（如：技术栈、工具等）',
+  `is_public` tinyint(1) DEFAULT '0' COMMENT '是否公开展示',
+  `view_count` int(11) DEFAULT '0' COMMENT '浏览次数',
+  `like_count` int(11) DEFAULT '0' COMMENT '点赞数',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_uuid` (`uuid`),
+  KEY `idx_project_id` (`project_id`),
+  KEY `idx_task_id` (`task_id`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_group_id` (`group_id`),
+  KEY `idx_output_type` (`output_type`),
+  KEY `idx_is_public` (`is_public`),
+  CONSTRAINT `fk_outputs_project` FOREIGN KEY (`project_id`) REFERENCES `pbl_projects` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_outputs_task` FOREIGN KEY (`task_id`) REFERENCES `pbl_tasks` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='PBL项目成果表';
+
+-- ----------------------------
+-- Table structure for pbl_assessments
+-- 评价表：多维度评价（教师评价+学生互评+专家评价+自评）
+-- ----------------------------
+DROP TABLE IF EXISTS `pbl_assessments`;
+CREATE TABLE `pbl_assessments` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '评价ID',
+  `uuid` varchar(36) NOT NULL COMMENT 'UUID',
+  `assessor_id` int(11) NOT NULL COMMENT '评价人ID',
+  `assessor_role` enum('teacher','student','expert','self') NOT NULL COMMENT '评价人角色',
+  `target_type` enum('project','task','output','student') NOT NULL COMMENT '评价对象类型',
+  `target_id` bigint(20) NOT NULL COMMENT '评价对象ID',
+  `student_id` int(11) NOT NULL COMMENT '被评价学生ID',
+  `group_id` int(11) DEFAULT NULL COMMENT '被评价小组ID（小组作品）',
+  `assessment_type` enum('formative','summative') DEFAULT 'formative' COMMENT '评价类型：formative-过程性/summative-总结性',
+  `dimensions` json NOT NULL COMMENT '评价维度与分数',
+  `total_score` decimal(5,2) DEFAULT NULL COMMENT '总分',
+  `max_score` decimal(5,2) DEFAULT '100.00' COMMENT '满分',
+  `comments` text COMMENT '评语',
+  `strengths` text COMMENT '优点',
+  `improvements` text COMMENT '改进建议',
+  `tags` json DEFAULT NULL COMMENT '标签',
+  `is_public` tinyint(1) DEFAULT '0' COMMENT '是否公开',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '评价时间',
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_uuid` (`uuid`),
+  KEY `idx_assessor` (`assessor_id`, `assessor_role`),
+  KEY `idx_student` (`student_id`),
+  KEY `idx_target` (`target_type`, `target_id`),
+  KEY `idx_type` (`assessment_type`),
+  KEY `idx_group` (`group_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='PBL评价表';
+
+-- ----------------------------
+-- Table structure for pbl_assessment_templates
+-- 评价维度模板表：预定义的评价标准和维度
+-- ----------------------------
+DROP TABLE IF EXISTS `pbl_assessment_templates`;
+CREATE TABLE `pbl_assessment_templates` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '模板ID',
+  `uuid` varchar(36) NOT NULL COMMENT 'UUID',
+  `name` varchar(100) NOT NULL COMMENT '模板名称',
+  `description` text COMMENT '模板描述',
+  `applicable_to` enum('project','task','output') NOT NULL COMMENT '适用对象',
+  `grade_level` varchar(50) DEFAULT NULL COMMENT '适用学段',
+  `dimensions` json NOT NULL COMMENT '评价维度配置',
+  `created_by` int(11) DEFAULT NULL COMMENT '创建者ID',
+  `is_system` tinyint(1) DEFAULT '0' COMMENT '是否系统模板',
+  `is_active` tinyint(1) DEFAULT '1' COMMENT '是否启用',
+  `usage_count` int(11) DEFAULT '0' COMMENT '使用次数',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_uuid` (`uuid`),
+  KEY `idx_applicable` (`applicable_to`, `grade_level`),
+  KEY `idx_is_active` (`is_active`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='PBL评价模板表';
+
+-- ==========================================
+-- 伦理教育与资源管理
+-- ==========================================
+
+-- ----------------------------
+-- Table structure for pbl_ethics_cases
+-- 伦理案例库表：存储AI伦理相关的教学案例
+-- ----------------------------
+DROP TABLE IF EXISTS `pbl_ethics_cases`;
+CREATE TABLE `pbl_ethics_cases` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '案例ID',
+  `uuid` varchar(36) NOT NULL COMMENT 'UUID',
+  `title` varchar(200) NOT NULL COMMENT '案例标题',
+  `description` text NOT NULL COMMENT '案例描述',
+  `content` longtext COMMENT '案例内容（Markdown格式）',
+  `grade_level` varchar(50) DEFAULT NULL COMMENT '适用学段',
+  `ethics_topics` json NOT NULL COMMENT '涉及的伦理议题',
+  `difficulty` enum('basic','intermediate','advanced') DEFAULT 'basic' COMMENT '难度等级',
+  `discussion_questions` json DEFAULT NULL COMMENT '讨论问题列表',
+  `reference_links` json DEFAULT NULL COMMENT '参考资料链接',
+  `cover_image` varchar(255) DEFAULT NULL COMMENT '封面图URL',
+  `author` varchar(100) DEFAULT NULL COMMENT '作者',
+  `source` varchar(200) DEFAULT NULL COMMENT '来源',
+  `is_published` tinyint(1) DEFAULT '1' COMMENT '是否发布',
+  `view_count` int(11) DEFAULT '0' COMMENT '浏览次数',
+  `like_count` int(11) DEFAULT '0' COMMENT '点赞数',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_uuid` (`uuid`),
+  KEY `idx_grade_level` (`grade_level`),
+  KEY `idx_difficulty` (`difficulty`),
+  KEY `idx_is_published` (`is_published`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='PBL伦理案例库表';
+
+-- ----------------------------
+-- Table structure for pbl_ethics_activities
+-- 伦理活动记录表：记录伦理思辨活动的过程和结果
+-- ----------------------------
+DROP TABLE IF EXISTS `pbl_ethics_activities`;
+CREATE TABLE `pbl_ethics_activities` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '活动ID',
+  `uuid` varchar(36) NOT NULL COMMENT 'UUID',
+  `case_id` bigint(20) DEFAULT NULL COMMENT '关联案例ID',
+  `course_id` bigint(20) DEFAULT NULL COMMENT '关联课程ID',
+  `unit_id` bigint(20) DEFAULT NULL COMMENT '关联单元ID',
+  `activity_type` enum('debate','case_analysis','role_play','discussion','reflection') NOT NULL COMMENT '活动类型',
+  `title` varchar(200) NOT NULL COMMENT '活动标题',
+  `description` text COMMENT '活动描述',
+  `participants` json DEFAULT NULL COMMENT '参与学生ID列表',
+  `group_id` int(11) DEFAULT NULL COMMENT '小组ID',
+  `facilitator_id` int(11) DEFAULT NULL COMMENT '主持人/教师ID',
+  `status` enum('planned','ongoing','completed','cancelled') DEFAULT 'planned' COMMENT '状态',
+  `discussion_records` json DEFAULT NULL COMMENT '讨论记录',
+  `conclusions` text COMMENT '活动总结',
+  `reflections` json DEFAULT NULL COMMENT '学生反思记录',
+  `scheduled_at` timestamp NULL DEFAULT NULL COMMENT '计划时间',
+  `completed_at` timestamp NULL DEFAULT NULL COMMENT '完成时间',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_uuid` (`uuid`),
+  KEY `idx_case` (`case_id`),
+  KEY `idx_course` (`course_id`),
+  KEY `idx_unit` (`unit_id`),
+  KEY `idx_status` (`status`),
+  CONSTRAINT `fk_ethics_case` FOREIGN KEY (`case_id`) REFERENCES `pbl_ethics_cases` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_ethics_course` FOREIGN KEY (`course_id`) REFERENCES `pbl_courses` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_ethics_unit` FOREIGN KEY (`unit_id`) REFERENCES `pbl_units` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='PBL伦理活动记录表';
+
+-- ----------------------------
+-- Table structure for pbl_datasets
+-- 数据集管理表：管理用于AI模型训练的数据集
+-- ----------------------------
+DROP TABLE IF EXISTS `pbl_datasets`;
+CREATE TABLE `pbl_datasets` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '数据集ID',
+  `uuid` varchar(36) NOT NULL COMMENT 'UUID',
+  `name` varchar(100) NOT NULL COMMENT '数据集名称',
+  `description` text COMMENT '数据集描述',
+  `data_type` enum('image','text','audio','video','tabular','mixed') NOT NULL COMMENT '数据类型',
+  `category` varchar(50) DEFAULT NULL COMMENT '分类',
+  `file_url` varchar(500) DEFAULT NULL COMMENT '数据集文件URL',
+  `file_size` bigint(20) DEFAULT NULL COMMENT '文件大小(字节)',
+  `sample_count` int(11) DEFAULT NULL COMMENT '样本数量',
+  `class_count` int(11) DEFAULT NULL COMMENT '类别数量',
+  `classes` json DEFAULT NULL COMMENT '类别列表',
+  `is_labeled` tinyint(1) DEFAULT '0' COMMENT '是否已标注',
+  `label_format` varchar(50) DEFAULT NULL COMMENT '标注格式',
+  `split_ratio` json DEFAULT NULL COMMENT '数据集划分比例',
+  `grade_level` varchar(50) DEFAULT NULL COMMENT '适用学段',
+  `applicable_projects` json DEFAULT NULL COMMENT '适用项目列表',
+  `source` varchar(200) DEFAULT NULL COMMENT '来源',
+  `license` varchar(100) DEFAULT NULL COMMENT '许可协议',
+  `preview_images` json DEFAULT NULL COMMENT '预览图URL列表',
+  `download_count` int(11) DEFAULT '0' COMMENT '下载次数',
+  `creator_id` int(11) DEFAULT NULL COMMENT '创建者ID',
+  `school_id` int(11) DEFAULT NULL COMMENT '所属学校ID',
+  `is_public` tinyint(1) DEFAULT '1' COMMENT '是否公开',
+  `quality_score` decimal(3,2) DEFAULT NULL COMMENT '数据质量评分',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_uuid` (`uuid`),
+  KEY `idx_data_type` (`data_type`),
+  KEY `idx_grade_level` (`grade_level`),
+  KEY `idx_category` (`category`),
+  KEY `idx_is_public` (`is_public`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='PBL数据集管理表';
+
+-- ==========================================
+-- 家校社协同与成长档案
+-- ==========================================
+
+-- ----------------------------
+-- Table structure for pbl_student_portfolios
+-- 学生成长档案表：记录学生的学习轨迹和能力成长
+-- ----------------------------
+DROP TABLE IF EXISTS `pbl_student_portfolios`;
+CREATE TABLE `pbl_student_portfolios` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '档案ID',
+  `uuid` varchar(36) NOT NULL COMMENT 'UUID',
+  `student_id` int(11) NOT NULL COMMENT '学生ID',
+  `school_year` varchar(20) NOT NULL COMMENT '学年',
+  `grade_level` varchar(50) NOT NULL COMMENT '学段',
+  `completed_projects` json DEFAULT NULL COMMENT '完成的项目列表',
+  `achievements` json DEFAULT NULL COMMENT '获得的成就列表',
+  `skill_assessment` json DEFAULT NULL COMMENT '能力评估',
+  `growth_trajectory` json DEFAULT NULL COMMENT '成长轨迹数据',
+  `highlights` json DEFAULT NULL COMMENT '亮点作品ID列表',
+  `total_learning_hours` int(11) DEFAULT '0' COMMENT '累计学习时长',
+  `projects_count` int(11) DEFAULT '0' COMMENT '完成项目数',
+  `avg_score` decimal(5,2) DEFAULT NULL COMMENT '平均分数',
+  `teacher_comments` text COMMENT '教师综合评语',
+  `self_reflection` text COMMENT '学生自我反思',
+  `parent_feedback` text COMMENT '家长反馈',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_uuid` (`uuid`),
+  UNIQUE KEY `uk_student_year` (`student_id`, `school_year`),
+  KEY `idx_student` (`student_id`),
+  KEY `idx_grade_level` (`grade_level`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='PBL学生成长档案表';
+
+-- ----------------------------
+-- Table structure for pbl_parent_relations
+-- 家长关系表：建立家长与学生的关联
+-- ----------------------------
+DROP TABLE IF EXISTS `pbl_parent_relations`;
+CREATE TABLE `pbl_parent_relations` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '关系ID',
+  `parent_user_id` int(11) NOT NULL COMMENT '家长用户ID',
+  `student_id` int(11) NOT NULL COMMENT '学生ID',
+  `relationship` enum('father','mother','guardian','other') NOT NULL COMMENT '关系类型',
+  `can_view_progress` tinyint(1) DEFAULT '1' COMMENT '可查看学习进度',
+  `can_view_scores` tinyint(1) DEFAULT '1' COMMENT '可查看成绩',
+  `can_view_projects` tinyint(1) DEFAULT '1' COMMENT '可查看项目',
+  `notification_enabled` tinyint(1) DEFAULT '1' COMMENT '接收通知',
+  `verified` tinyint(1) DEFAULT '0' COMMENT '是否已验证',
+  `verified_at` timestamp NULL DEFAULT NULL COMMENT '验证时间',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_parent_student` (`parent_user_id`, `student_id`),
+  KEY `idx_student` (`student_id`),
+  KEY `idx_verified` (`verified`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='PBL家长关系表';
+
+-- ----------------------------
+-- Table structure for pbl_external_experts
+-- 外部专家表：管理参与项目评审的外部专家
+-- ----------------------------
+DROP TABLE IF EXISTS `pbl_external_experts`;
+CREATE TABLE `pbl_external_experts` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '专家ID',
+  `uuid` varchar(36) NOT NULL COMMENT 'UUID',
+  `name` varchar(100) NOT NULL COMMENT '姓名',
+  `organization` varchar(200) DEFAULT NULL COMMENT '所属单位',
+  `title` varchar(100) DEFAULT NULL COMMENT '职称/职位',
+  `expertise_areas` json DEFAULT NULL COMMENT '专业领域',
+  `bio` text COMMENT '个人简介',
+  `email` varchar(255) DEFAULT NULL COMMENT '邮箱',
+  `phone` varchar(20) DEFAULT NULL COMMENT '电话',
+  `avatar` varchar(255) DEFAULT NULL COMMENT '头像URL',
+  `is_active` tinyint(1) DEFAULT '1' COMMENT '是否活跃',
+  `participated_projects` int(11) DEFAULT '0' COMMENT '参与评审项目数',
+  `avg_rating` decimal(3,2) DEFAULT NULL COMMENT '平均评分',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_uuid` (`uuid`),
+  KEY `idx_is_active` (`is_active`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='PBL外部专家表';
+
+-- ----------------------------
+-- Table structure for pbl_social_activities
+-- 社会实践活动表：记录家校社协同的实践活动
+-- ----------------------------
+DROP TABLE IF EXISTS `pbl_social_activities`;
+CREATE TABLE `pbl_social_activities` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '活动ID',
+  `uuid` varchar(36) NOT NULL COMMENT 'UUID',
+  `title` varchar(200) NOT NULL COMMENT '活动标题',
+  `description` text COMMENT '活动描述',
+  `activity_type` enum('company_visit','lab_tour','workshop','competition','exhibition','volunteer','lecture') NOT NULL COMMENT '活动类型',
+  `organizer` varchar(200) DEFAULT NULL COMMENT '组织方',
+  `partner_organization` varchar(200) DEFAULT NULL COMMENT '合作单位',
+  `location` varchar(500) DEFAULT NULL COMMENT '活动地点',
+  `scheduled_at` timestamp NULL DEFAULT NULL COMMENT '活动时间',
+  `duration` int(11) DEFAULT NULL COMMENT '活动时长（分钟）',
+  `max_participants` int(11) DEFAULT NULL COMMENT '最大参与人数',
+  `current_participants` int(11) DEFAULT '0' COMMENT '当前参与人数',
+  `participants` json DEFAULT NULL COMMENT '参与学生ID列表',
+  `facilitators` json DEFAULT NULL COMMENT '带队教师ID列表',
+  `status` enum('planned','registration','ongoing','completed','cancelled') DEFAULT 'planned' COMMENT '状态',
+  `photos` json DEFAULT NULL COMMENT '活动照片URL列表',
+  `summary` text COMMENT '活动总结',
+  `feedback` json DEFAULT NULL COMMENT '学生反馈',
+  `created_by` int(11) DEFAULT NULL COMMENT '创建者ID',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_uuid` (`uuid`),
+  KEY `idx_type` (`activity_type`),
+  KEY `idx_scheduled` (`scheduled_at`),
+  KEY `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='PBL社会实践活动表';
+
+-- ==========================================
+-- 视频播放进度追踪
+-- ==========================================
+
+-- ----------------------------
+-- Table structure for pbl_video_play_progress
+-- 视频播放进度表：详细记录学生观看视频的真实情况
+-- ----------------------------
+DROP TABLE IF EXISTS `pbl_video_play_progress`;
+CREATE TABLE `pbl_video_play_progress` (
+  `id` BIGINT(20) NOT NULL AUTO_INCREMENT COMMENT '记录ID',
+  `uuid` VARCHAR(36) NOT NULL COMMENT 'UUID',
+  `resource_id` BIGINT(20) NOT NULL COMMENT '视频资源ID',
+  `user_id` INT(11) NOT NULL COMMENT '用户ID（学生）',
+  `session_id` VARCHAR(64) NOT NULL COMMENT '播放会话ID',
+  `current_position` INT DEFAULT 0 COMMENT '当前播放位置（秒）',
+  `duration` INT DEFAULT 0 COMMENT '视频总时长（秒）',
+  `play_duration` INT DEFAULT 0 COMMENT '本次会话累计播放时长（秒）',
+  `real_watch_duration` INT DEFAULT 0 COMMENT '真实观看时长（秒）',
+  `status` VARCHAR(20) DEFAULT 'playing' COMMENT '播放状态',
+  `last_event` VARCHAR(50) DEFAULT NULL COMMENT '最后一次事件',
+  `last_event_time` TIMESTAMP NULL DEFAULT NULL COMMENT '最后一次事件时间',
+  `seek_count` INT DEFAULT 0 COMMENT '拖动次数',
+  `pause_count` INT DEFAULT 0 COMMENT '暂停次数',
+  `pause_duration` INT DEFAULT 0 COMMENT '累计暂停时长（秒）',
+  `replay_count` INT DEFAULT 0 COMMENT '重播次数',
+  `watched_ranges` TEXT DEFAULT NULL COMMENT '已观看的时间段（JSON）',
+  `completion_rate` DECIMAL(5,2) DEFAULT 0.00 COMMENT '完成度（百分比）',
+  `is_completed` TINYINT(1) DEFAULT 0 COMMENT '是否观看完成',
+  `ip_address` VARCHAR(45) DEFAULT NULL COMMENT '客户端IP地址',
+  `user_agent` VARCHAR(500) DEFAULT NULL COMMENT '用户代理',
+  `device_type` VARCHAR(50) DEFAULT NULL COMMENT '设备类型',
+  `start_time` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '开始播放时间',
+  `end_time` TIMESTAMP NULL DEFAULT NULL COMMENT '结束播放时间',
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_uuid` (`uuid`),
+  KEY `idx_resource_id` (`resource_id`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_session_id` (`session_id`),
+  KEY `idx_resource_user` (`resource_id`, `user_id`),
+  KEY `idx_start_time` (`start_time`),
+  KEY `idx_status` (`status`),
+  CONSTRAINT `fk_vpp_resource` FOREIGN KEY (`resource_id`) REFERENCES `pbl_resources` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='视频播放进度追踪表';
+
+-- ----------------------------
+-- Table structure for pbl_video_play_events
+-- 视频播放事件表：详细日志
+-- ----------------------------
+DROP TABLE IF EXISTS `pbl_video_play_events`;
+CREATE TABLE `pbl_video_play_events` (
+  `id` BIGINT(20) NOT NULL AUTO_INCREMENT COMMENT '事件ID',
+  `session_id` VARCHAR(64) NOT NULL COMMENT '播放会话ID',
+  `resource_id` BIGINT(20) NOT NULL COMMENT '视频资源ID',
+  `user_id` INT(11) NOT NULL COMMENT '用户ID',
+  `event_type` VARCHAR(50) NOT NULL COMMENT '事件类型',
+  `event_data` TEXT DEFAULT NULL COMMENT '事件数据（JSON格式）',
+  `position` INT DEFAULT 0 COMMENT '事件发生时的播放位置（秒）',
+  `timestamp` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '事件时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_session_id` (`session_id`),
+  KEY `idx_resource_id` (`resource_id`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_event_type` (`event_type`),
+  KEY `idx_timestamp` (`timestamp`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='视频播放事件表';
+
+-- ==========================================
+-- 学校管理增强
+-- ==========================================
+
+-- ----------------------------
+-- Table structure for pbl_import_logs
+-- 批量导入日志表
+-- ----------------------------
+DROP TABLE IF EXISTS `pbl_import_logs`;
+CREATE TABLE `pbl_import_logs` (
+  `id` BIGINT(20) NOT NULL AUTO_INCREMENT COMMENT '日志ID',
+  `uuid` VARCHAR(36) NOT NULL COMMENT 'UUID',
+  `batch_id` VARCHAR(50) NOT NULL COMMENT '批次ID',
+  `import_type` ENUM('student', 'teacher') NOT NULL COMMENT '导入类型',
+  `school_id` INT(11) NOT NULL COMMENT '学校ID',
+  `operator_id` INT(11) NOT NULL COMMENT '操作人ID',
+  `operator_name` VARCHAR(100) DEFAULT NULL COMMENT '操作人姓名',
+  `file_name` VARCHAR(255) DEFAULT NULL COMMENT '导入文件名',
+  `total_count` INT(11) DEFAULT 0 COMMENT '总记录数',
+  `success_count` INT(11) DEFAULT 0 COMMENT '成功数',
+  `failed_count` INT(11) DEFAULT 0 COMMENT '失败数',
+  `error_message` TEXT COMMENT '错误信息',
+  `status` ENUM('processing', 'completed', 'failed') DEFAULT 'processing' COMMENT '状态',
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `completed_at` TIMESTAMP NULL DEFAULT NULL COMMENT '完成时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_uuid` (`uuid`),
+  UNIQUE KEY `uk_batch_id` (`batch_id`),
+  KEY `idx_school_id` (`school_id`),
+  KEY `idx_operator_id` (`operator_id`),
+  KEY `idx_import_type` (`import_type`),
+  KEY `idx_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='批量导入日志表';
+
+-- ==========================================
+-- 视频观看统计和权限管理
 -- ==========================================
 
 
