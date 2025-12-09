@@ -24,17 +24,19 @@
           </el-menu-item>
           
           <!-- 学校管理（仅平台管理员） -->
-          <el-sub-menu index="school-management" v-if="isPlatformAdmin">
+          <el-menu-item index="/admin/schools" v-if="isPlatformAdmin">
+            <el-icon><OfficeBuilding /></el-icon>
+            <template #title>学校管理</template>
+          </el-menu-item>
+          
+          <!-- 学校配置 -->
+          <el-sub-menu index="school-configuration" v-if="isPlatformAdmin">
             <template #title>
-              <el-icon><OfficeBuilding /></el-icon>
-              <span>学校管理</span>
+              <el-icon><Setting /></el-icon>
+              <span>学校配置</span>
             </template>
-            <el-menu-item index="/admin/schools">
-              <el-icon><School /></el-icon>
-              <span>学校列表</span>
-            </el-menu-item>
             <el-menu-item index="/admin/school-courses">
-              <el-icon><Reading /></el-icon>
+              <el-icon><School /></el-icon>
               <span>学校课程配置</span>
             </el-menu-item>
             <el-menu-item index="/admin/video-permissions">
