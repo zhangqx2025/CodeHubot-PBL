@@ -6,7 +6,6 @@
         <el-form-item label="角色">
           <el-select v-model="searchParams.role" placeholder="全部" clearable @change="loadUsers">
             <el-option label="全部" value="" />
-            <el-option label="平台管理员" value="platform_admin" />
             <el-option label="学校管理员" value="school_admin" />
             <el-option label="教师" value="teacher" />
             <el-option label="学生" value="student" />
@@ -88,7 +87,6 @@
         </el-form-item>
         <el-form-item label="角色" prop="role">
           <el-select v-model="userForm.role" placeholder="请选择角色" :disabled="isEditing">
-            <el-option label="平台管理员" value="platform_admin" />
             <el-option label="学校管理员" value="school_admin" />
             <el-option label="教师" value="teacher" />
             <el-option label="学生" value="student" />
@@ -219,7 +217,6 @@ const importing = ref(false)
 // 获取角色标签
 const getRoleLabel = (role) => {
   const labels = {
-    'platform_admin': '平台管理员',
     'school_admin': '学校管理员',
     'teacher': '教师',
     'student': '学生'
@@ -230,7 +227,6 @@ const getRoleLabel = (role) => {
 // 获取角色标签类型
 const getRoleType = (role) => {
   const types = {
-    'platform_admin': 'danger',
     'school_admin': 'warning',
     'teacher': 'primary',
     'student': 'success'
