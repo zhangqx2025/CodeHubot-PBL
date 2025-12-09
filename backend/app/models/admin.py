@@ -5,11 +5,11 @@ from ..utils.timezone import get_beijing_time_naive
 
 class Admin(Base):
     """
-    用户模型，映射到 aiot_core_users 表
+    用户模型，映射到 core_users 表
     支持多种角色：platform_admin, school_admin, teacher, student, individual
     Admin 类主要用于管理员相关的操作
     """
-    __tablename__ = "aiot_core_users"
+    __tablename__ = "core_users"
     
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String(50), unique=True, nullable=False, index=True)

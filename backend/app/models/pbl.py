@@ -18,8 +18,8 @@ class PBLCourse(Base):
     duration = Column(String(50))
     difficulty = Column(Enum('beginner', 'intermediate', 'advanced'), default='beginner')
     status = Column(Enum('draft', 'published', 'archived'), default='draft')
-    creator_id = Column(Integer)  # Foreign Key to aiot_core_users
-    school_id = Column(Integer)   # Foreign Key to aiot_schools
+    creator_id = Column(Integer)  # Foreign Key to core_users
+    school_id = Column(Integer)   # Foreign Key to core_schools
     created_at = Column(TIMESTAMP, server_default=func.now())
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
 
@@ -95,7 +95,7 @@ class PBLProject(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     uuid = Column(String(36), unique=True, default=generate_uuid, nullable=False)
-    group_id = Column(Integer) # Foreign Key to aiot_course_groups
+    group_id = Column(Integer) # Foreign Key to pbl_groups
     course_id = Column(Integer, ForeignKey("pbl_courses.id"), nullable=False)
     title = Column(String(200), nullable=False)
     description = Column(Text)
@@ -113,13 +113,13 @@ class PBLTaskProgress(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     task_id = Column(Integer, ForeignKey("pbl_tasks.id"), nullable=False)
-    user_id = Column(Integer, nullable=False) # Foreign Key to aiot_core_users
+    user_id = Column(Integer, nullable=False) # Foreign Key to core_users
     status = Column(Enum('pending', 'in-progress', 'blocked', 'review', 'completed'), default='pending')
     progress = Column(Integer, default=0)
     submission = Column(JSON)
     score = Column(Integer)
     feedback = Column(Text)
-    graded_by = Column(Integer) # Foreign Key to aiot_core_users
+    graded_by = Column(Integer) # Foreign Key to core_users
     graded_at = Column(TIMESTAMP)
     created_at = Column(TIMESTAMP, server_default=func.now())
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
@@ -133,9 +133,9 @@ class PBLSchoolCourse(Base):
 
     id = Column(BigInteger, primary_key=True, index=True)
     uuid = Column(String(36), unique=True, default=generate_uuid, nullable=False)
-    school_id = Column(Integer, nullable=False)  # Foreign Key to aiot_schools
+    school_id = Column(Integer, nullable=False)  # Foreign Key to core_schools
     course_id = Column(BigInteger, ForeignKey("pbl_courses.id"), nullable=False)
-    assigned_by = Column(Integer)  # Foreign Key to aiot_core_users (平台管理员)
+    assigned_by = Column(Integer)  # Foreign Key to core_users (平台管理员)
     assigned_at = Column(TIMESTAMP, server_default=func.now())
     status = Column(Enum('active', 'inactive', 'archived'), default='active')
     start_date = Column(TIMESTAMP)
@@ -153,7 +153,7 @@ class PBLCourseEnrollment(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     course_id = Column(Integer, ForeignKey("pbl_courses.id"), nullable=False)
-    user_id = Column(Integer, nullable=False) # Foreign Key to aiot_core_users
+    user_id = Column(Integer, nullable=False) # Foreign Key to core_users
     enrollment_status = Column(Enum('enrolled', 'dropped', 'completed'), default='enrolled')
     enrolled_at = Column(TIMESTAMP)
     dropped_at = Column(TIMESTAMP)
@@ -171,8 +171,8 @@ class PBLProjectOutput(Base):
     uuid = Column(String(36), unique=True, default=generate_uuid, nullable=False)
     project_id = Column(Integer, ForeignKey("pbl_projects.id"), nullable=False)
     task_id = Column(Integer, ForeignKey("pbl_tasks.id"))
-    user_id = Column(Integer, nullable=False) # Foreign Key to aiot_core_users
-    group_id = Column(Integer) # Foreign Key to aiot_course_groups
+    user_id = Column(Integer, nullable=False) # Foreign Key to core_users
+    group_id = Column(Integer) # Foreign Key to pbl_groups
     output_type = Column(Enum('report', 'code', 'design', 'video', 'presentation', 'model', 'dataset', 'other'), nullable=False)
     title = Column(String(200), nullable=False)
     description = Column(Text)
@@ -450,7 +450,7 @@ class PBLLearningProgress(Base):
     __tablename__ = "pbl_learning_progress"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, nullable=False)  # Foreign Key to aiot_core_users
+    user_id = Column(Integer, nullable=False)  # Foreign Key to core_users
     course_id = Column(BigInteger, ForeignKey("pbl_courses.id"), nullable=False)
     unit_id = Column(BigInteger, ForeignKey("pbl_units.id"))
     resource_id = Column(BigInteger, ForeignKey("pbl_resources.id"))
@@ -471,7 +471,7 @@ class PBLVideoWatchRecord(Base):
 
     id = Column(BigInteger, primary_key=True, index=True)
     resource_id = Column(BigInteger, ForeignKey("pbl_resources.id"), nullable=False)
-    user_id = Column(Integer, nullable=False)  # Foreign Key to aiot_core_users
+    user_id = Column(Integer, nullable=False)  # Foreign Key to core_users
     watch_time = Column(TIMESTAMP, server_default=func.now(), nullable=False)
     duration = Column(Integer, default=0, comment='观看时长（秒）')
     completed = Column(Integer, default=0, comment='是否观看完成')
@@ -487,7 +487,7 @@ class PBLVideoUserPermission(Base):
     id = Column(BigInteger, primary_key=True, index=True)
     uuid = Column(String(36), unique=True, default=generate_uuid, nullable=False)
     resource_id = Column(BigInteger, ForeignKey("pbl_resources.id"), nullable=False)
-    user_id = Column(Integer, nullable=False)  # Foreign Key to aiot_core_users
+    user_id = Column(Integer, nullable=False)  # Foreign Key to core_users
     max_views = Column(Integer, default=None, comment='该学生对该视频的最大观看次数')
     valid_from = Column(TIMESTAMP, default=None, comment='有效开始时间')
     valid_until = Column(TIMESTAMP, default=None, comment='有效结束时间')
@@ -505,7 +505,7 @@ class PBLVideoPlayProgress(Base):
     id = Column(BigInteger, primary_key=True, index=True)
     uuid = Column(String(36), unique=True, default=generate_uuid, nullable=False)
     resource_id = Column(BigInteger, ForeignKey("pbl_resources.id"), nullable=False)
-    user_id = Column(Integer, nullable=False)  # Foreign Key to aiot_core_users
+    user_id = Column(Integer, nullable=False)  # Foreign Key to core_users
     session_id = Column(String(64), nullable=False, comment='播放会话ID')
     
     # 播放进度信息
@@ -551,7 +551,7 @@ class PBLVideoPlayEvent(Base):
     id = Column(BigInteger, primary_key=True, index=True)
     session_id = Column(String(64), nullable=False, comment='播放会话ID')
     resource_id = Column(BigInteger, ForeignKey("pbl_resources.id"), nullable=False)
-    user_id = Column(Integer, nullable=False)  # Foreign Key to aiot_core_users
+    user_id = Column(Integer, nullable=False)  # Foreign Key to core_users
     event_type = Column(String(50), nullable=False, comment='事件类型')
     event_data = Column(Text, comment='事件数据（JSON格式）')
     position = Column(Integer, default=0, comment='事件发生时的播放位置（秒）')
