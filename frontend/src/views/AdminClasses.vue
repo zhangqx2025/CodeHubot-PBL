@@ -23,8 +23,10 @@
             </template>
           </el-table-column>
           <el-table-column label="操作" width="200" fixed="right">
-            <el-button link type="primary" @click="addStudentsToClass(row)">添加学生</el-button>
-            <el-button link type="danger" @click="deleteClass(row)">删除</el-button>
+            <template #default="{ row }">
+              <el-button link type="primary" @click="addStudentsToClass(row)">添加学生</el-button>
+              <el-button link type="danger" @click="deleteClass(row)">删除</el-button>
+            </template>
           </el-table-column>
         </el-table>
       </el-tab-pane>
@@ -69,9 +71,6 @@
         </el-form-item>
         <el-form-item label="年级">
           <el-input v-model="classForm.grade" placeholder="例如：2024" />
-        </el-form-item>
-        <el-form-item label="学校ID" required>
-          <el-input-number v-model="classForm.school_id" :min="1" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -197,8 +196,7 @@ const classes = ref([])
 const classDialogVisible = ref(false)
 const classForm = reactive({
   name: '',
-  grade: '',
-  school_id: null
+  grade: ''
 })
 
 // 小组相关
@@ -246,16 +244,15 @@ const loadClasses = async () => {
 const showCreateClassDialog = () => {
   Object.assign(classForm, {
     name: '',
-    grade: '',
-    school_id: null
+    grade: ''
   })
   classDialogVisible.value = true
 }
 
 // 创建班级
 const createClass = async () => {
-  if (!classForm.name || !classForm.school_id) {
-    ElMessage.warning('请填写必填项')
+  if (!classForm.name) {
+    ElMessage.warning('请填写班级名称')
     return
   }
   

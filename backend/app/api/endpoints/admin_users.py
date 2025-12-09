@@ -10,7 +10,8 @@ from ...core.response import success_response, error_response
 from ...core.deps import get_db, get_current_admin
 from ...core.security import get_password_hash
 from ...models.admin import Admin, User
-from ...models.school import School, Class
+from ...models.school import School
+from ...models.pbl import PBLClass
 from ...schemas.user import UserCreate, UserResponse, UserUpdate
 from ...core.logging_config import get_logger
 
@@ -508,7 +509,24 @@ async def batch_import_students(
     try:
         # 读取CSV文件
         contents = await file.read()
-        decoded = contents.decode('utf-8-sig')  # 支持带BOM的UTF-8
+        
+        # 尝试多种编码格式解码
+        decoded = None
+        encodings = ['utf-8-sig', 'utf-8', 'gbk', 'gb2312', 'gb18030']
+        for encoding in encodings:
+            try:
+                decoded = contents.decode(encoding)
+                break
+            except (UnicodeDecodeError, LookupError):
+                continue
+        
+        if decoded is None:
+            return error_response(
+                message="无法识别文件编码，请确保CSV文件使用UTF-8或GBK编码",
+                code=400,
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+        
         csv_reader = csv.DictReader(io.StringIO(decoded))
         
         success_count = 0
@@ -516,12 +534,12 @@ async def batch_import_students(
         
         # 获取该学校的所有班级，用于名称查找
         classes_dict = {}
-        classes = db.query(Class).filter(
-            Class.school_id == target_school_id,
-            Class.deleted_at == None
+        classes = db.query(PBLClass).filter(
+            PBLClass.school_id == target_school_id,
+            PBLClass.is_active == 1
         ).all()
         for cls in classes:
-            classes_dict[cls.class_name] = cls.id
+            classes_dict[cls.name] = cls.id
         
         for row_num, row in enumerate(csv_reader, start=2):  # 从第2行开始（第1行是标题）
             try:
@@ -686,7 +704,24 @@ async def batch_import_teachers(
     try:
         # 读取CSV文件
         contents = await file.read()
-        decoded = contents.decode('utf-8-sig')
+        
+        # 尝试多种编码格式解码
+        decoded = None
+        encodings = ['utf-8-sig', 'utf-8', 'gbk', 'gb2312', 'gb18030']
+        for encoding in encodings:
+            try:
+                decoded = contents.decode(encoding)
+                break
+            except (UnicodeDecodeError, LookupError):
+                continue
+        
+        if decoded is None:
+            return error_response(
+                message="无法识别文件编码，请确保CSV文件使用UTF-8或GBK编码",
+                code=400,
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+        
         csv_reader = csv.DictReader(io.StringIO(decoded))
         
         success_count = 0
