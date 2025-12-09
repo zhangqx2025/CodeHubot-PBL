@@ -4,6 +4,7 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from fastapi import HTTPException, status
 import logging
+import hashlib
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -14,6 +15,21 @@ pwd_context = CryptContext(
     schemes=["bcrypt", "pbkdf2_sha256"],
     deprecated="auto"
 )
+
+def _preprocess_password(password: str) -> str:
+    """预处理密码以适应 bcrypt 的 72 字节限制
+    
+    使用 SHA256 对密码进行预哈希，然后转换为十六进制字符串。
+    这样可以接受任意长度的密码，同时保持在 bcrypt 的限制范围内。
+    
+    Args:
+        password: 原始密码
+        
+    Returns:
+        str: 预处理后的密码（64个十六进制字符）
+    """
+    # 使用 SHA256 哈希密码，输出为十六进制字符串（64字符，远小于72字节）
+    return hashlib.sha256(password.encode('utf-8')).hexdigest()
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """验证密码
@@ -26,6 +42,12 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
         bool: 密码是否匹配
     """
     try:
+        # 先预处理密码，然后验证
+        preprocessed = _preprocess_password(plain_password)
+        # 同时尝试预处理后的密码和原始密码（兼容旧密码）
+        if pwd_context.verify(preprocessed, hashed_password):
+            return True
+        # 如果预处理后的密码不匹配，尝试原始密码（兼容旧数据）
         return pwd_context.verify(plain_password, hashed_password)
     except Exception as e:
         logger.error(f"密码验证失败: {e}", exc_info=True)
@@ -41,10 +63,12 @@ def get_password_hash(password: str) -> str:
         str: 哈希后的密码
     """
     try:
-        return pwd_context.hash(password)
+        # 先用 SHA256 预处理密码，确保不超过 bcrypt 的 72 字节限制
+        preprocessed = _preprocess_password(password)
+        return pwd_context.hash(preprocessed)
     except Exception as e:
         logger.error(f"密码哈希失败: {e}", exc_info=True)
-        raise ValueError("密码哈希失败")
+        raise ValueError(f"密码哈希失败: {str(e)}")
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     """创建访问令牌（access token）

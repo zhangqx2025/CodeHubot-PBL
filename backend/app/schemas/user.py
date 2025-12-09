@@ -31,17 +31,17 @@ class UserBase(BaseModel):
 class UserLogin(BaseModel):
     """用户登录 Schema"""
     username: str
-    password: str
+    password: str = Field(..., max_length=128, description="密码")
 
 class InstitutionLoginRequest(BaseModel):
     """机构登录请求 Schema"""
     school_code: str = Field(..., min_length=2, max_length=50, description="学校代码")
     number: str = Field(..., min_length=1, max_length=50, description="工号或学号")
-    password: str = Field(..., min_length=1, description="密码")
+    password: str = Field(..., min_length=1, max_length=128, description="密码")
 
 class UserCreate(UserBase):
     """用户创建 Schema"""
-    password: str
+    password: str = Field(..., min_length=6, max_length=128, description="密码（6-128个字符）")
     gender: str  # 性别为必填字段
 
 class UserUpdate(BaseModel):
@@ -61,7 +61,7 @@ class UserUpdate(BaseModel):
     student_number: Optional[str] = None
     teacher_number: Optional[str] = None
     subject: Optional[str] = None
-    password: Optional[str] = None
+    password: Optional[str] = Field(None, min_length=6, max_length=128, description="密码（6-128个字符）")
     is_active: Optional[bool] = None
     
     @field_validator('email', mode='before')
@@ -102,4 +102,4 @@ class RefreshTokenResponse(BaseModel):
 
 class ResetPasswordRequest(BaseModel):
     """重置密码请求"""
-    new_password: str = Field(..., min_length=6, max_length=50, description="新密码")
+    new_password: str = Field(..., min_length=6, max_length=128, description="新密码（6-128个字符）")

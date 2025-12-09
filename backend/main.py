@@ -140,3 +140,19 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
         code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
     )
+
+
+if __name__ == "__main__":
+    import uvicorn
+    
+    logger.info("正在启动 Uvicorn 服务器...")
+    logger.info("服务器地址: http://0.0.0.0:8000")
+    logger.info("API 文档地址: http://0.0.0.0:8000/docs")
+    
+    uvicorn.run(
+        app,
+        host="0.0.0.0",
+        port=8000,
+        log_level="info",
+        access_log=True
+    )
