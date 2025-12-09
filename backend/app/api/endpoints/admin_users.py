@@ -517,10 +517,10 @@ async def batch_import_students(
         for row_num, row in enumerate(csv_reader, start=2):  # 从第2行开始（第1行是标题）
             try:
                 # 验证必填字段
-                if not row.get('student_number') or not row.get('name'):
+                if not row.get('student_number') or not row.get('name') or not row.get('gender'):
                     error_list.append({
                         'row': row_num,
-                        'error': '缺少必填字段（student_number, name）'
+                        'error': '缺少必填字段（student_number, name, gender）'
                     })
                     continue
                 
@@ -658,10 +658,10 @@ async def batch_import_teachers(
         for row_num, row in enumerate(csv_reader, start=2):
             try:
                 # 验证必填字段
-                if not row.get('teacher_number') or not row.get('name'):
+                if not row.get('teacher_number') or not row.get('name') or not row.get('gender'):
                     error_list.append({
                         'row': row_num,
-                        'error': '缺少必填字段（teacher_number, name）'
+                        'error': '缺少必填字段（teacher_number, name, gender）'
                     })
                     continue
                 

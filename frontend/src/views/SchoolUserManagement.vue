@@ -170,7 +170,7 @@
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="性别">
+            <el-form-item label="性别" prop="gender">
               <el-select v-model="form.gender" placeholder="请选择性别" style="width: 100%">
                 <el-option label="男" value="male" />
                 <el-option label="女" value="female" />
@@ -322,7 +322,8 @@
               <p><strong>重要提示：</strong></p>
               <ul style="margin: 5px 0; padding-left: 20px;">
                 <li>用户名将自动生成为"学号/工号@学校编码"</li>
-                <li>学号/工号为必填字段</li>
+                <li><strong>必填字段：</strong>姓名(name)、学号/工号、性别(gender)</li>
+                <li>性别可选值：male(男)、female(女)、other(其他)</li>
                 <li>如果不提供密码，默认密码为 123456</li>
               </ul>
             </div>
@@ -423,6 +424,7 @@ const validateConfirmPassword = (rule, value, callback) => {
 const rules = {
   role: [{ required: true, message: '请选择角色', trigger: 'change' }],
   name: [{ required: true, message: '请输入姓名', trigger: 'blur' }],
+  gender: [{ required: true, message: '请选择性别', trigger: 'change' }],
   teacher_number: [{ required: true, message: '请输入职工号', trigger: 'blur' }],
   student_number: [{ required: true, message: '请输入学号', trigger: 'blur' }],
   password: [{ validator: validatePassword, trigger: 'blur' }],
@@ -691,8 +693,8 @@ const downloadTemplate = () => {
     : 'name,teacher_number,subject,gender,phone,email,password\n'
   
   const example = importType.value === 'student'
-    ? '张三,2024001,1,male,13800000001,zhangsan@example.com,123456\n'
-    : '李老师,T2024001,数学,female,13800000002,lisi@example.com,123456\n'
+    ? '张三,2024001,1,male,13800000001,zhangsan@example.com,123456\n李四,2024002,1,female,13800000002,lisi@example.com,123456\n'
+    : '王老师,T2024001,数学,female,13800000001,wang@example.com,123456\n李老师,T2024002,英语,male,13800000002,li@example.com,123456\n'
   
   const content = headers + example
   const blob = new Blob(['\ufeff' + content], { type: 'text/csv;charset=utf-8;' })

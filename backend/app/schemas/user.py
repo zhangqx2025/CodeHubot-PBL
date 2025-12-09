@@ -42,6 +42,7 @@ class InstitutionLoginRequest(BaseModel):
 class UserCreate(UserBase):
     """用户创建 Schema"""
     password: str
+    gender: str  # 性别为必填字段
 
 class UserUpdate(BaseModel):
     """用户更新 Schema - 所有字段可选"""
