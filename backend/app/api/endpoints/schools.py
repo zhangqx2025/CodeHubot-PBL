@@ -617,7 +617,7 @@ def get_school_admin(
 def create_or_update_school_admin(
     school_id: int,
     teacher_number: str = Form(...),
-    password: str = Form(...),
+    password: Optional[str] = Form(None),
     name: Optional[str] = Form(None),
     phone: Optional[str] = Form(None),
     email: Optional[str] = Form(None),
@@ -628,6 +628,7 @@ def create_or_update_school_admin(
     创建或更新学校管理员
     权限：仅平台管理员
     如果学校已有管理员，则更新管理员信息；否则创建新管理员
+    注意：更新时如果密码为空，则不更新密码；创建时密码必填
     """
     # 权限检查
     if current_admin.role != 'platform_admin':
@@ -672,14 +673,16 @@ def create_or_update_school_admin(
         
         # 更新其他信息
         existing_admin.teacher_number = teacher_number
-        existing_admin.password_hash = get_password_hash(password)
+        # 只有密码不为空时才更新密码
+        if password:
+            existing_admin.password_hash = get_password_hash(password)
+            existing_admin.need_change_password = True
         if name:
             existing_admin.name = name
         if phone:
             existing_admin.phone = phone
         if email:
             existing_admin.email = email
-        existing_admin.need_change_password = True
         
         # 更新学校的管理员用户名
         school.admin_username = username
@@ -699,6 +702,14 @@ def create_or_update_school_admin(
         )
     else:
         # 创建新管理员
+        # 创建时密码必填
+        if not password:
+            return error_response(
+                message="创建学校管理员时密码不能为空",
+                code=400,
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+        
         # 检查用户名是否已存在
         existing_user = db.query(User).filter(User.username == username).first()
         if existing_user:

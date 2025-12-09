@@ -355,11 +355,11 @@
           <el-input 
             v-model="adminForm.password" 
             type="password"
-            placeholder="请输入登录密码"
+            :placeholder="adminInfo.has_admin ? '留空则不修改密码' : '请输入登录密码'"
             show-password
           />
           <div style="color: #909399; font-size: 12px; margin-top: 5px;">
-            {{ adminInfo.has_admin ? '如需修改密码请输入新密码' : '首次登录需修改密码' }}
+            {{ adminInfo.has_admin ? '留空则不修改密码，如需修改请输入新密码' : '首次登录后需修改密码' }}
           </div>
         </el-form-item>
         
@@ -439,7 +439,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, Refresh, Edit, View, User } from '@element-plus/icons-vue'
 import axios from 'axios'
@@ -513,11 +513,21 @@ const rules = {
   max_students: [{ required: true, message: '请设置学生容量', trigger: 'blur' }]
 }
 
-const adminRules = {
-  teacher_number: [{ required: true, message: '请输入职工号', trigger: 'blur' }],
-  password: [{ required: true, message: '请输入登录密码', trigger: 'blur' }],
-  name: [{ required: true, message: '请输入姓名', trigger: 'blur' }]
+// 管理员表单验证规则（动态生成，因为密码在更新时不是必填的）
+const getAdminRules = () => {
+  const hasAdmin = adminInfo.value?.has_admin || false
+  return {
+    teacher_number: [{ required: true, message: '请输入职工号', trigger: 'blur' }],
+    password: [{ 
+      required: !hasAdmin, // 创建时必填，更新时可选
+      message: '请输入登录密码', 
+      trigger: 'blur' 
+    }],
+    name: [{ required: true, message: '请输入姓名', trigger: 'blur' }]
+  }
 }
+
+const adminRules = computed(() => getAdminRules())
 
 // API请求
 const getAuthHeaders = () => {
@@ -732,7 +742,10 @@ const handleSubmitAdmin = async () => {
     
     const data = new FormData()
     data.append('teacher_number', adminForm.teacher_number)
-    data.append('password', adminForm.password)
+    // 只有密码不为空时才添加密码字段
+    if (adminForm.password) {
+      data.append('password', adminForm.password)
+    }
     if (adminForm.name) data.append('name', adminForm.name)
     if (adminForm.phone) data.append('phone', adminForm.phone)
     if (adminForm.email) data.append('email', adminForm.email)
