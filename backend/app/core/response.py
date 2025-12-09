@@ -12,7 +12,7 @@ def success_response(
     """Standard success response wrapper."""
     return JSONResponse(
         status_code=status_code,
-        content={"code": code, "message": message, "data": data},
+        content={"success": True, "code": code, "message": message, "data": data},
     )
 
 
@@ -25,6 +25,6 @@ def error_response(
     """Standard error response wrapper."""
     return JSONResponse(
         status_code=status_code,
-        content={"code": code, "message": message, "data": data},
+        content={"success": False, "code": code, "message": message, "data": data},
     )
 
