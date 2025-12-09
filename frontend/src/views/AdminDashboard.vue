@@ -24,10 +24,24 @@
           </el-menu-item>
           
           <!-- 学校管理（仅平台管理员） -->
-          <el-menu-item index="/admin/schools" v-if="isPlatformAdmin">
-            <el-icon><OfficeBuilding /></el-icon>
-            <template #title>学校管理</template>
-          </el-menu-item>
+          <el-sub-menu index="school-management" v-if="isPlatformAdmin">
+            <template #title>
+              <el-icon><OfficeBuilding /></el-icon>
+              <span>学校管理</span>
+            </template>
+            <el-menu-item index="/admin/schools">
+              <el-icon><School /></el-icon>
+              <span>学校列表</span>
+            </el-menu-item>
+            <el-menu-item index="/admin/school-courses">
+              <el-icon><Reading /></el-icon>
+              <span>学校课程配置</span>
+            </el-menu-item>
+            <el-menu-item index="/admin/video-permissions">
+              <el-icon><VideoPlay /></el-icon>
+              <span>视频权限</span>
+            </el-menu-item>
+          </el-sub-menu>
           
           <!-- 课程管理 -->
           <el-sub-menu index="course-management">
@@ -38,10 +52,6 @@
             <el-menu-item index="/admin/courses" v-if="isPlatformAdmin">
               <el-icon><Document /></el-icon>
               <span>课程列表</span>
-            </el-menu-item>
-            <el-menu-item index="/admin/school-courses" v-if="isPlatformAdmin">
-              <el-icon><School /></el-icon>
-              <span>学校课程配置</span>
             </el-menu-item>
             <el-menu-item index="/admin/school-course-library" v-if="isSchoolAdmin">
               <el-icon><Reading /></el-icon>
@@ -54,10 +64,6 @@
             <el-menu-item index="/admin/resources">
               <el-icon><FolderOpened /></el-icon>
               <span>资料管理</span>
-            </el-menu-item>
-            <el-menu-item index="/admin/video-permissions">
-              <el-icon><VideoPlay /></el-icon>
-              <span>视频权限</span>
             </el-menu-item>
             <el-menu-item index="/admin/tasks">
               <el-icon><Tickets /></el-icon>
@@ -317,7 +323,8 @@ import {
   Phone,
   VideoPlay,
   OfficeBuilding,
-  UserFilled
+  UserFilled,
+  Setting
 } from '@element-plus/icons-vue'
 import { getCurrentAdmin } from '@/api/admin'
 

@@ -348,6 +348,8 @@ def update_school(
     max_devices: Optional[int] = None,
     license_expire_at: Optional[str] = None,
     description: Optional[str] = None,
+    video_student_view_limit: Optional[int] = None,
+    video_teacher_view_limit: Optional[int] = None,
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(get_current_admin)
 ):
@@ -513,9 +515,8 @@ def assign_school_admin(
     user.school_name = school.school_name
     
     # 更新学校的管理员信息
-    if hasattr(school, 'admin_user_id'):
-        school.admin_user_id = user_id
-        school.admin_username = user.username
+    school.admin_user_id = user_id
+    school.admin_username = user.username
     
     db.commit()
     
