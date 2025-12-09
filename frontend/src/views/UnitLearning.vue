@@ -274,10 +274,10 @@
         </div>
       </div>
 
-      <!-- 右侧：AI助手 -->
-      <div class="right-panel">
+      <!-- 右侧：AI助手 (已隐藏) -->
+      <!-- <div class="right-panel">
         <ChatPanel />
-      </div>
+      </div> -->
     </div>
   </div>
 </template>
@@ -903,7 +903,7 @@ onMounted(async () => {
 .learning-layout {
   flex: 1;
   display: grid;
-  grid-template-columns: 280px 1fr 320px;
+  grid-template-columns: 280px 1fr;
   gap: 0;
   overflow: hidden;
 }
@@ -1262,7 +1262,7 @@ onMounted(async () => {
 
 @media (max-width: 1200px) {
   .learning-layout {
-    grid-template-columns: 240px 1fr 280px;
+    grid-template-columns: 240px 1fr;
   }
 }
 
