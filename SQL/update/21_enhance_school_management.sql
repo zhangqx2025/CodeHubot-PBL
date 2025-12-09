@@ -216,8 +216,29 @@ SET
   s.admin_username = u.username
 WHERE s.admin_user_id IS NULL;
 
+-- 11. 为学校添加视频权限控制字段
+SET @column_exists = (
+    SELECT COUNT(*) 
+    FROM INFORMATION_SCHEMA.COLUMNS 
+    WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'aiot_schools'
+    AND COLUMN_NAME = 'video_student_view_limit'
+);
+
+SET @sql = IF(
+    @column_exists = 0,
+    'ALTER TABLE `aiot_schools` 
+     ADD COLUMN `video_student_view_limit` INT(11) DEFAULT NULL COMMENT ''学生视频观看次数限制（NULL表示不限制）'' AFTER `admin_username`,
+     ADD COLUMN `video_teacher_view_limit` INT(11) DEFAULT NULL COMMENT ''教师视频观看次数限制（NULL表示不限制）'' AFTER `video_student_view_limit`',
+    'SELECT ''Columns video_student_view_limit and video_teacher_view_limit already exist'' AS message'
+);
+
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
 -- 完成
-SELECT '学校管理功能增强完成' AS message;
+SELECT '学校管理功能增强完成（含视频权限控制）' AS message;
 
 -- 显示统计信息
 SELECT 

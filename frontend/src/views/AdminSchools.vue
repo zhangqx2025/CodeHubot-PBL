@@ -228,6 +228,37 @@
           />
         </el-form-item>
 
+        <!-- 视频权限设置 -->
+        <el-divider>视频权限设置</el-divider>
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="学生观看次数">
+              <el-input-number 
+                v-model="form.video_student_view_limit" 
+                :min="0" 
+                placeholder="留空表示不限制"
+                style="width: 100%" 
+              />
+              <div style="color: #909399; font-size: 12px; margin-top: 5px;">
+                设置学生每个视频可观看的次数，留空或0表示不限制
+              </div>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="教师观看次数">
+              <el-input-number 
+                v-model="form.video_teacher_view_limit" 
+                :min="0" 
+                placeholder="留空表示不限制"
+                style="width: 100%" 
+              />
+              <div style="color: #909399; font-size: 12px; margin-top: 5px;">
+                设置教师每个视频可观看的次数，留空或0表示不限制
+              </div>
+            </el-form-item>
+          </el-col>
+        </el-row>
+
         <!-- 管理员信息（仅创建时显示） -->
         <el-divider v-if="dialogMode === 'create'">学校管理员信息（可选）</el-divider>
         <template v-if="dialogMode === 'create'">
@@ -297,6 +328,12 @@
         </el-descriptions-item>
         <el-descriptions-item label="设备容量">{{ detailData.max_devices }}</el-descriptions-item>
         <el-descriptions-item label="授权到期">{{ detailData.license_expire_at || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="学生观看限制">
+          {{ detailData.video_student_view_limit ? `${detailData.video_student_view_limit}次` : '不限制' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="教师观看限制">
+          {{ detailData.video_teacher_view_limit ? `${detailData.video_teacher_view_limit}次` : '不限制' }}
+        </el-descriptions-item>
         <el-descriptions-item label="学校管理员" :span="2">
           {{ detailData.admin_user ? `${detailData.admin_user.name} (${detailData.admin_user.username})` : '-' }}
         </el-descriptions-item>
@@ -355,6 +392,8 @@ const form = reactive({
   max_devices: 500,
   license_expire_at: null,
   description: '',
+  video_student_view_limit: null,
+  video_teacher_view_limit: null,
   admin_username: '',
   admin_password: '',
   admin_name: '',
@@ -448,7 +487,9 @@ const handleEdit = (row) => {
     max_students: row.max_students,
     max_devices: row.max_devices,
     license_expire_at: row.license_expire_at,
-    description: row.description
+    description: row.description,
+    video_student_view_limit: row.video_student_view_limit,
+    video_teacher_view_limit: row.video_teacher_view_limit
   })
   dialogVisible.value = true
 }
@@ -471,6 +512,8 @@ const resetForm = () => {
     max_devices: 500,
     license_expire_at: null,
     description: '',
+    video_student_view_limit: null,
+    video_teacher_view_limit: null,
     admin_username: '',
     admin_password: '',
     admin_name: '',

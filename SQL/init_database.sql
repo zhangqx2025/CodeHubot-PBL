@@ -866,6 +866,13 @@ CREATE TABLE `aiot_schools` (
   `max_teachers` int(11) DEFAULT NULL COMMENT '最大教师数',
   `max_students` int(11) DEFAULT NULL COMMENT '最大学生数',
   `max_devices` int(11) DEFAULT NULL COMMENT '最大设备数',
+  `admin_user_id` int(11) DEFAULT NULL COMMENT '学校管理员用户ID',
+  `admin_username` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '学校管理员用户名',
+  `video_student_view_limit` int(11) DEFAULT NULL COMMENT '学生视频观看次数限制（NULL表示不限制）',
+  `video_teacher_view_limit` int(11) DEFAULT NULL COMMENT '教师视频观看次数限制（NULL表示不限制）',
+  `current_teachers` int(11) DEFAULT 0 COMMENT '当前教师数',
+  `current_students` int(11) DEFAULT 0 COMMENT '当前学生数',
+  `description` text COLLATE utf8mb4_unicode_ci COMMENT '学校描述',
   `created_at` datetime NOT NULL,
   `updated_at` datetime NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci AUTO_INCREMENT=1;

@@ -87,6 +87,8 @@ def get_schools(
             'admin_user_id': getattr(school, 'admin_user_id', None),
             'admin_username': getattr(school, 'admin_username', None),
             'description': getattr(school, 'description', None),
+            'video_student_view_limit': getattr(school, 'video_student_view_limit', None),
+            'video_teacher_view_limit': getattr(school, 'video_teacher_view_limit', None),
             'created_at': school.created_at.isoformat() if school.created_at else None,
             'updated_at': school.updated_at.isoformat() if school.updated_at else None
         })
@@ -164,6 +166,8 @@ def get_school(
         'current_students': student_count,
         'max_devices': school.max_devices,
         'description': getattr(school, 'description', None),
+        'video_student_view_limit': getattr(school, 'video_student_view_limit', None),
+        'video_teacher_view_limit': getattr(school, 'video_teacher_view_limit', None),
         'created_at': school.created_at.isoformat() if school.created_at else None,
         'updated_at': school.updated_at.isoformat() if school.updated_at else None,
         'admin_user': None
@@ -197,6 +201,8 @@ def create_school(
     max_devices: int = 500,
     license_expire_at: Optional[str] = None,
     description: Optional[str] = None,
+    video_student_view_limit: Optional[int] = None,
+    video_teacher_view_limit: Optional[int] = None,
     admin_username: Optional[str] = None,
     admin_password: Optional[str] = None,
     admin_name: Optional[str] = None,
@@ -266,6 +272,12 @@ def create_school(
     # 如果有description字段，设置它
     if hasattr(new_school, 'description'):
         new_school.description = description
+    
+    # 设置视频权限
+    if hasattr(new_school, 'video_student_view_limit'):
+        new_school.video_student_view_limit = video_student_view_limit
+    if hasattr(new_school, 'video_teacher_view_limit'):
+        new_school.video_teacher_view_limit = video_teacher_view_limit
     
     db.add(new_school)
     db.flush()  # 获取school的id
@@ -416,6 +428,12 @@ def update_school(
             pass
     if description is not None and hasattr(school, 'description'):
         school.description = description
+    
+    # 更新视频权限
+    if video_student_view_limit is not None and hasattr(school, 'video_student_view_limit'):
+        school.video_student_view_limit = video_student_view_limit
+    if video_teacher_view_limit is not None and hasattr(school, 'video_teacher_view_limit'):
+        school.video_teacher_view_limit = video_teacher_view_limit
     
     db.commit()
     db.refresh(school)
