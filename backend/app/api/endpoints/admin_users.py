@@ -113,31 +113,45 @@ def create_user(
             status_code=status.HTTP_403_FORBIDDEN
         )
     
-    # 权限检查
-    if user_data.role == 'school_admin' and current_admin.role != 'platform_admin':
+    # 权限检查和学校ID确定
+    school_id = None
+    
+    # 学校管理员只能创建教师和学生，且自动使用其所属学校
+    if current_admin.role == 'school_admin':
+        if user_data.role == 'school_admin':
+            return error_response(
+                message="学校管理员不能创建学校管理员账号",
+                code=403,
+                status_code=status.HTTP_403_FORBIDDEN
+            )
+        if not current_admin.school_id:
+            return error_response(
+                message="您的账号未关联学校，无法创建用户",
+                code=403,
+                status_code=status.HTTP_403_FORBIDDEN
+            )
+        # 学校管理员创建用户时，自动使用其所属学校
+        school_id = current_admin.school_id
+    
+    # 平台管理员可以创建任意角色，但必须指定学校
+    elif current_admin.role == 'platform_admin':
+        if not user_data.school_id:
+            return error_response(
+                message="平台管理员创建用户时必须指定学校",
+                code=400,
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+        school_id = user_data.school_id
+    
+    else:
         return error_response(
-            message="只有平台管理员可以创建学校管理员账号",
+            message="无权限创建用户",
             code=403,
             status_code=status.HTTP_403_FORBIDDEN
         )
     
-    if user_data.role == 'teacher':
-        if current_admin.role not in ['platform_admin', 'school_admin']:
-            return error_response(
-                message="只有平台管理员和学校管理员可以创建教师账号",
-                code=403,
-                status_code=status.HTTP_403_FORBIDDEN
-            )
-        # 学校管理员只能创建本校教师
-        if current_admin.role == 'school_admin' and user_data.school_id != current_admin.school_id:
-            return error_response(
-                message="只能创建本校教师账号",
-                code=403,
-                status_code=status.HTTP_403_FORBIDDEN
-            )
-    
     # 验证学校是否存在，并获取学校编码
-    school = db.query(School).filter(School.id == user_data.school_id).first()
+    school = db.query(School).filter(School.id == school_id).first()
     if not school:
         return error_response(
             message="学校不存在",
@@ -200,7 +214,7 @@ def create_user(
         nickname=user_data.nickname,
         phone=user_data.phone,
         role=user_data.role or 'student',
-        school_id=user_data.school_id,
+        school_id=school_id,  # 使用验证后的学校ID
         class_id=user_data.class_id,
         group_id=user_data.group_id,
         school_name=school.school_name,
@@ -434,8 +448,8 @@ def reset_user_password(
 
 @router.post("/batch-import/students")
 async def batch_import_students(
-    school_id: int,
     file: UploadFile = File(...),
+    school_id: Optional[int] = None,
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(get_current_admin)
 ):
@@ -444,24 +458,38 @@ async def batch_import_students(
     CSV格式要求：
     name,student_number,class_id,gender,phone,email,password
     注意：用户名将自动生成为 学号@学校编码
+    
+    学校ID获取逻辑：
+    - 学校管理员：自动使用其所属学校ID（忽略参数中的 school_id）
+    - 平台管理员：必须通过参数指定 school_id
     """
-    # 权限检查
-    if current_admin.role not in ['platform_admin', 'school_admin']:
+    # 权限检查和确定学校ID
+    if current_admin.role == 'school_admin':
+        if not current_admin.school_id:
+            return error_response(
+                message="您的账号未关联学校，无法导入学生",
+                code=403,
+                status_code=status.HTTP_403_FORBIDDEN
+            )
+        # 学校管理员自动使用其所属学校
+        target_school_id = current_admin.school_id
+    elif current_admin.role == 'platform_admin':
+        if not school_id:
+            return error_response(
+                message="平台管理员必须指定学校ID",
+                code=400,
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+        target_school_id = school_id
+    else:
         return error_response(
             message="无权限操作",
             code=403,
             status_code=status.HTTP_403_FORBIDDEN
         )
     
-    if current_admin.role == 'school_admin' and school_id != current_admin.school_id:
-        return error_response(
-            message="只能导入本校学生",
-            code=403,
-            status_code=status.HTTP_403_FORBIDDEN
-        )
-    
     # 验证学校是否存在
-    school = db.query(School).filter(School.id == school_id).first()
+    school = db.query(School).filter(School.id == target_school_id).first()
     if not school:
         return error_response(
             message="学校不存在",
@@ -522,7 +550,7 @@ async def batch_import_students(
                     email=row.get('email') if row.get('email') else None,
                     password_hash=get_password_hash(password),
                     role='student',
-                    school_id=school_id,
+                    school_id=target_school_id,
                     school_name=school.school_name,
                     is_active=True,
                     need_change_password=True  # 首次登录需要修改密码
@@ -561,8 +589,8 @@ async def batch_import_students(
 
 @router.post("/batch-import/teachers")
 async def batch_import_teachers(
-    school_id: int,
     file: UploadFile = File(...),
+    school_id: Optional[int] = None,
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(get_current_admin)
 ):
@@ -571,24 +599,38 @@ async def batch_import_teachers(
     CSV格式要求：
     name,teacher_number,subject,gender,phone,email,password
     注意：用户名将自动生成为 工号@学校编码
+    
+    学校ID获取逻辑：
+    - 学校管理员：自动使用其所属学校ID（忽略参数中的 school_id）
+    - 平台管理员：必须通过参数指定 school_id
     """
-    # 权限检查
-    if current_admin.role not in ['platform_admin', 'school_admin']:
+    # 权限检查和确定学校ID
+    if current_admin.role == 'school_admin':
+        if not current_admin.school_id:
+            return error_response(
+                message="您的账号未关联学校，无法导入教师",
+                code=403,
+                status_code=status.HTTP_403_FORBIDDEN
+            )
+        # 学校管理员自动使用其所属学校
+        target_school_id = current_admin.school_id
+    elif current_admin.role == 'platform_admin':
+        if not school_id:
+            return error_response(
+                message="平台管理员必须指定学校ID",
+                code=400,
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+        target_school_id = school_id
+    else:
         return error_response(
             message="无权限操作",
             code=403,
             status_code=status.HTTP_403_FORBIDDEN
         )
     
-    if current_admin.role == 'school_admin' and school_id != current_admin.school_id:
-        return error_response(
-            message="只能导入本校教师",
-            code=403,
-            status_code=status.HTTP_403_FORBIDDEN
-        )
-    
     # 验证学校是否存在
-    school = db.query(School).filter(School.id == school_id).first()
+    school = db.query(School).filter(School.id == target_school_id).first()
     if not school:
         return error_response(
             message="学校不存在",
@@ -649,7 +691,7 @@ async def batch_import_teachers(
                     email=row.get('email') if row.get('email') else None,
                     password_hash=get_password_hash(password),
                     role='teacher',
-                    school_id=school_id,
+                    school_id=target_school_id,
                     school_name=school.school_name,
                     is_active=True,
                     need_change_password=True

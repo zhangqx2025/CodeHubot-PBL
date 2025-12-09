@@ -561,8 +561,7 @@ const handleSubmit = async () => {
     
     if (dialogMode.value === 'create') {
       data.password = form.password
-      data.school_id = adminInfo.value.school_id
-      data.school_name = adminInfo.value.school_name
+      // 学校ID由后端从管理员信息中获取，更安全
     }
     
     if (form.role === 'teacher') {
@@ -715,11 +714,11 @@ const handleImportSubmit = async () => {
     
     const formData = new FormData()
     formData.append('file', selectedFile.value)
-    formData.append('school_id', adminInfo.value.school_id)
+    // 学校ID由后端从管理员信息中获取，更安全
     
     const endpoint = importType.value === 'student'
-      ? `/api/v1/admin/users/batch-import/students?school_id=${adminInfo.value.school_id}`
-      : `/api/v1/admin/users/batch-import/teachers?school_id=${adminInfo.value.school_id}`
+      ? '/api/v1/admin/users/batch-import/students'
+      : '/api/v1/admin/users/batch-import/teachers'
     
     const response = await axios.post(endpoint, formData, {
       headers: {
@@ -790,7 +789,28 @@ const getRoleText = (role) => {
 }
 
 // 初始化
-onMounted(() => {
+// 获取当前管理员信息
+const loadAdminInfo = async () => {
+  try {
+    const response = await axios.get('/api/v1/admin/auth/me', {
+      headers: getAuthHeaders()
+    })
+    if (response.data && response.data.success) {
+      const admin = response.data.data
+      adminInfo.value = admin
+      // 更新 localStorage
+      localStorage.setItem('admin_info', JSON.stringify(admin))
+    }
+  } catch (error) {
+    console.error('获取管理员信息失败:', error)
+  }
+}
+
+onMounted(async () => {
+  // 如果 adminInfo 没有 school_id，重新获取
+  if (!adminInfo.value.school_id) {
+    await loadAdminInfo()
+  }
   loadUsers()
   loadStats()
   loadClasses()
