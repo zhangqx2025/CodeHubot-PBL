@@ -189,7 +189,7 @@ def refresh_access_token(request: RefreshTokenRequest, db: Session = Depends(get
     
     # 获取用户ID和用户角色
     user_id = payload.get("sub")
-    user_role = payload.get("user_role")
+    user_role = payload.get("user_role")  # 可能为None（旧版本token）
     
     if user_id is None:
         logger.warning("刷新令牌中没有用户ID")
@@ -199,16 +199,7 @@ def refresh_access_token(request: RefreshTokenRequest, db: Session = Depends(get
             status_code=status.HTTP_401_UNAUTHORIZED
         )
     
-    # 检查用户类型，确保是学生类型
-    if user_role != 'student':
-        logger.warning(f"刷新令牌失败 - 不是学生类型的用户: user_role={user_role}")
-        return error_response(
-            message="无效的用户类型",
-            code=401,
-            status_code=status.HTTP_401_UNAUTHORIZED
-        )
-    
-    logger.debug(f"刷新令牌解析成功 - 用户ID: {user_id}, 用户角色: {user_role}")
+    logger.debug(f"刷新令牌解析 - 用户ID: {user_id}, Token中的角色: {user_role}")
     
     # 验证用户是否存在（查询User表）
     user = db.query(User).filter(User.id == int(user_id)).first()
@@ -221,14 +212,25 @@ def refresh_access_token(request: RefreshTokenRequest, db: Session = Depends(get
             status_code=status.HTTP_401_UNAUTHORIZED
         )
     
-    # 验证用户角色是否匹配
-    if user.role != user_role:
+    # 检查用户角色是否是学生类型
+    if user.role != 'student':
+        logger.warning(f"刷新令牌失败 - 不是学生类型的用户: user_role={user.role}")
+        return error_response(
+            message="无效的用户类型",
+            code=401,
+            status_code=status.HTTP_401_UNAUTHORIZED
+        )
+    
+    # 如果token中有user_role字段，验证是否匹配（向后兼容：旧token没有此字段）
+    if user_role is not None and user.role != user_role:
         logger.warning(f"刷新令牌失败 - 用户角色不匹配: token角色={user_role}, 实际角色={user.role}")
         return error_response(
             message="用户角色不匹配",
             code=401,
             status_code=status.HTTP_401_UNAUTHORIZED
         )
+    
+    logger.debug(f"刷新令牌验证通过 - 用户ID: {user_id}, 实际角色: {user.role}")
     
     if not user.is_active:
         logger.warning(f"刷新令牌失败 - 用户账户已禁用: {user.username}")

@@ -63,10 +63,12 @@ const refreshAccessToken = async (userType) => {
   const refreshToken = localStorage.getItem(tokenKeys.refreshToken)
   
   if (!refreshToken) {
-    throw new Error('No refresh token available')
+    console.error('[Token刷新] 未找到refresh token')
+    throw new Error('未找到refresh token，请重新登录')
   }
 
   try {
+    console.log('[Token刷新] 发送刷新请求到:', getRefreshEndpoint(userType))
     const response = await axios.post(
       `${API_CONFIG.API_BASE}${getRefreshEndpoint(userType)}`,
       { refresh_token: refreshToken },
@@ -81,6 +83,7 @@ const refreshAccessToken = async (userType) => {
     const { access_token, refresh_token: newRefreshToken } = data
 
     // 更新本地存储
+    console.log('[Token刷新] 更新本地token')
     localStorage.setItem(tokenKeys.accessToken, access_token)
     if (newRefreshToken) {
       localStorage.setItem(tokenKeys.refreshToken, newRefreshToken)
@@ -89,8 +92,15 @@ const refreshAccessToken = async (userType) => {
     return access_token
   } catch (error) {
     // 刷新失败，清除所有token
+    console.error('[Token刷新] 刷新请求失败:', error.response?.data || error.message)
     clearAllTokens()
-    throw error
+    
+    // 提供更详细的错误信息
+    if (error.response?.status === 401) {
+      throw new Error('登录已过期，请重新登录')
+    } else {
+      throw new Error('Token刷新失败: ' + (error.response?.data?.message || error.message))
+    }
   }
 }
 
@@ -147,9 +157,11 @@ request.interceptors.response.use(
 
     // 401错误 - token过期或无效
     if (error.response && error.response.status === 401) {
+      console.log('[Token刷新] 检测到401错误，请求URL:', originalRequest.url)
+      
       // 如果是刷新token的请求失败，直接跳转登录
       if (originalRequest.url.includes('/auth/refresh')) {
-        console.error('刷新token失败，跳转到登录页')
+        console.error('[Token刷新] 刷新token请求失败，跳转到登录页')
         clearAllTokens()
         redirectToLogin()
         return Promise.reject(error)
@@ -157,7 +169,7 @@ request.interceptors.response.use(
 
       // 如果已经重试过，不再重试
       if (originalRequest._retry) {
-        console.error('重试失败，跳转到登录页')
+        console.error('[Token刷新] 请求已重试过，跳转到登录页')
         clearAllTokens()
         redirectToLogin()
         return Promise.reject(error)
@@ -166,8 +178,25 @@ request.interceptors.response.use(
       // 标记为已重试
       originalRequest._retry = true
 
+      // 检查用户类型和token
+      const userType = getUserType()
+      const tokenKeys = getTokenKeys(userType)
+      const refreshToken = localStorage.getItem(tokenKeys.refreshToken)
+      
+      console.log('[Token刷新] 用户类型:', userType)
+      console.log('[Token刷新] Refresh Token存在:', !!refreshToken)
+      
+      // 如果没有refresh token，直接跳转登录
+      if (!refreshToken) {
+        console.error('[Token刷新] 未找到refresh token，跳转到登录页')
+        clearAllTokens()
+        redirectToLogin()
+        return Promise.reject(error)
+      }
+
       // 如果正在刷新token，将请求加入队列
       if (isRefreshing) {
+        console.log('[Token刷新] 正在刷新中，请求加入队列')
         return new Promise((resolve, reject) => {
           subscribeTokenRefresh((token) => {
             originalRequest.headers.Authorization = `Bearer ${token}`
@@ -177,11 +206,12 @@ request.interceptors.response.use(
       }
 
       // 开始刷新token
+      console.log('[Token刷新] 开始刷新token...')
       isRefreshing = true
 
       try {
-        const userType = getUserType()
         const newToken = await refreshAccessToken(userType)
+        console.log('[Token刷新] 刷新成功')
         
         // 刷新成功，更新请求头
         originalRequest.headers.Authorization = `Bearer ${newToken}`
@@ -194,7 +224,7 @@ request.interceptors.response.use(
         // 重试原请求
         return request(originalRequest)
       } catch (refreshError) {
-        console.error('刷新token失败:', refreshError)
+        console.error('[Token刷新] 刷新失败:', refreshError)
         isRefreshing = false
         clearAllTokens()
         redirectToLogin()
