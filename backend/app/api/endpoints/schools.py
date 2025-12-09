@@ -218,7 +218,7 @@ def create_school(
     description: Optional[str] = Form(None),
     video_student_view_limit: Optional[int] = Form(None),
     video_teacher_view_limit: Optional[int] = Form(None),
-    admin_username: Optional[str] = Form(None),
+    admin_teacher_number: Optional[str] = Form(None),
     admin_password: Optional[str] = Form(None),
     admin_name: Optional[str] = Form(None),
     admin_phone: Optional[str] = Form(None),
@@ -299,13 +299,16 @@ def create_school(
     
     # 如果提供了管理员信息，创建学校管理员账号
     admin_user = None
-    if admin_username and admin_password:
+    if admin_teacher_number and admin_password:
+        # 自动生成用户名：职工号 + 学校编码
+        admin_username = f"{admin_teacher_number}@{school_code}"
+        
         # 检查用户名是否已存在
         existing_user = db.query(User).filter(User.username == admin_username).first()
         if existing_user:
             db.rollback()
             return error_response(
-                message=f"用户名 {admin_username} 已存在",
+                message=f"该职工号在本校已存在",
                 code=400,
                 status_code=status.HTTP_400_BAD_REQUEST
             )
@@ -314,9 +317,10 @@ def create_school(
         admin_user = User(
             username=admin_username,
             password_hash=get_password_hash(admin_password),
-            name=admin_name or admin_username,
+            name=admin_name or admin_teacher_number,
             phone=admin_phone,
             email=admin_email,
+            teacher_number=admin_teacher_number,
             role='school_admin',
             school_id=new_school.id,
             school_name=new_school.school_name,

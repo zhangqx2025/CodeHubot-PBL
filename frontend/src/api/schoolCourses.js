@@ -108,7 +108,7 @@ export const getAvailableCourses = () => {
  */
 export const getSchools = () => {
   return request({
-    url: '/admin/schools',
+    url: '/admin/schools/list',
     method: 'get'
   })
 }
