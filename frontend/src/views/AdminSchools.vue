@@ -430,7 +430,7 @@ const loadSchools = async () => {
       headers: getAuthHeaders()
     })
     
-    if (response.data && response.data.success) {
+    if (response.data && response.data.code === 0) {
       schools.value = response.data.data.items || []
       pagination.total = response.data.data.total || 0
     }
@@ -450,7 +450,7 @@ const handleView = async (row) => {
       headers: getAuthHeaders()
     })
     
-    if (response.data && response.data.success) {
+    if (response.data && response.data.code === 0) {
       detailData.value = response.data.data
       detailDialogVisible.value = true
     }

@@ -361,7 +361,7 @@ const loadSchoolCourses = async () => {
     
     const response = await getAllSchoolCourses(params)
     
-    if (response.data && response.data.success) {
+    if (response.data && response.data.code === 0) {
       const data = response.data.data || {}
       const items = data.items || []
       
@@ -386,7 +386,7 @@ const loadSchoolCourses = async () => {
 const loadSchools = async () => {
   try {
     const response = await getSchools()
-    if (response.data && response.data.success) {
+    if (response.data && response.data.code === 0) {
       const data = response.data.data || {}
       schools.value = data.items || []
     }
@@ -455,7 +455,7 @@ const handleAssignSubmit = async () => {
     
     const response = await assignCourseToSchool(data)
     
-    if (response.data && response.data.success) {
+    if (response.data && response.data.code === 0) {
       ElMessage.success('分配成功！')
       assignDialogVisible.value = false
       loadSchoolCourses()
@@ -507,7 +507,7 @@ const handleEditSubmit = async () => {
     
     const response = await updateSchoolCourse(editForm.uuid, data)
     
-    if (response.data && response.data.success) {
+    if (response.data && response.data.code === 0) {
       ElMessage.success('更新成功！')
       editDialogVisible.value = false
       loadSchoolCourses()
@@ -539,7 +539,7 @@ const handleRemove = async (row) => {
     loading.value = true
     const response = await removeSchoolCourse(row.uuid)
     
-    if (response.data && response.data.success) {
+    if (response.data && response.data.code === 0) {
       ElMessage.success('移除成功！')
       loadSchoolCourses()
     }

@@ -584,10 +584,10 @@ onMounted(async () => {
   position: fixed;
   right: 0;
   top: 0;
-  left: 250px;
+  left: 0;
   height: 60px;
   z-index: 999;
-  transition: left 0.3s ease;
+  transition: margin-left 0.3s ease;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
 
@@ -629,9 +629,9 @@ onMounted(async () => {
   position: fixed;
   right: 0;
   top: 60px;
-  left: 250px;
+  left: 0;
   overflow-y: auto;
-  transition: left 0.3s ease;
+  transition: margin-left 0.3s ease;
 }
 
 /* 淡入淡出动画 */
@@ -711,11 +711,11 @@ onMounted(async () => {
   }
   
   .admin-header {
-    left: 64px !important;
+    margin-left: 64px !important;
   }
   
   .admin-main {
-    left: 64px !important;
+    margin-left: 64px !important;
   }
   
   .collapse-btn {
