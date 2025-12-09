@@ -136,11 +136,46 @@ def create_user(
                 status_code=status.HTTP_403_FORBIDDEN
             )
     
+    # 验证学校是否存在，并获取学校编码
+    school = db.query(School).filter(School.id == user_data.school_id).first()
+    if not school:
+        return error_response(
+            message="学校不存在",
+            code=404,
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    
+    # 根据角色验证职工号或学号是否填写
+    if user_data.role == 'teacher' or user_data.role == 'school_admin':
+        if not user_data.teacher_number:
+            return error_response(
+                message="教师和学校管理员必须填写职工号",
+                code=400,
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+        # 自动生成用户名：职工号 + 学校编码
+        username = f"{user_data.teacher_number}@{school.school_code}"
+    elif user_data.role == 'student':
+        if not user_data.student_number:
+            return error_response(
+                message="学生必须填写学号",
+                code=400,
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+        # 自动生成用户名：学号 + 学校编码
+        username = f"{user_data.student_number}@{school.school_code}"
+    else:
+        return error_response(
+            message="无效的角色",
+            code=400,
+            status_code=status.HTTP_400_BAD_REQUEST
+        )
+    
     # 检查用户名是否已存在
-    existing_user = db.query(User).filter(User.username == user_data.username).first()
+    existing_user = db.query(User).filter(User.username == username).first()
     if existing_user:
         return error_response(
-            message="用户名已存在",
+            message="该职工号/学号在本校已存在",
             code=400,
             status_code=status.HTTP_400_BAD_REQUEST
         )
@@ -157,7 +192,7 @@ def create_user(
     
     # 创建新用户
     new_user = User(
-        username=user_data.username,
+        username=username,  # 使用自动生成的用户名
         email=user_data.email,
         password_hash=get_password_hash(user_data.password),
         name=user_data.name,
@@ -168,7 +203,7 @@ def create_user(
         school_id=user_data.school_id,
         class_id=user_data.class_id,
         group_id=user_data.group_id,
-        school_name=user_data.school_name,
+        school_name=school.school_name,
         teacher_number=user_data.teacher_number,
         student_number=user_data.student_number,
         subject=user_data.subject,
@@ -180,7 +215,7 @@ def create_user(
     db.commit()
     db.refresh(new_user)
     
-    logger.info(f"创建用户成功 - 用户名: {user_data.username}, ID: {new_user.id}, 操作者: {current_admin.username}")
+    logger.info(f"创建用户成功 - 用户名: {username}, ID: {new_user.id}, 操作者: {current_admin.username}")
     
     user_response = UserResponse.model_validate(new_user)
     return success_response(data=user_response.model_dump(mode='json'), message="用户创建成功")
@@ -327,6 +362,14 @@ def toggle_user_active(
             status_code=status.HTTP_403_FORBIDDEN
         )
     
+    # 防止管理员禁用自己的账号
+    if user.role == 'school_admin' and user.id == current_admin.id and user.is_active:
+        return error_response(
+            message="不能禁用自己的账号",
+            code=403,
+            status_code=status.HTTP_403_FORBIDDEN
+        )
+    
     # 切换状态
     user.is_active = not user.is_active
     db.commit()
@@ -399,7 +442,8 @@ async def batch_import_students(
     """批量导入学生（CSV格式）
     
     CSV格式要求：
-    username,name,student_number,class_id,gender,phone,email,password
+    name,student_number,class_id,gender,phone,email,password
+    注意：用户名将自动生成为 学号@学校编码
     """
     # 权限检查
     if current_admin.role not in ['platform_admin', 'school_admin']:
@@ -445,19 +489,22 @@ async def batch_import_students(
         for row_num, row in enumerate(csv_reader, start=2):  # 从第2行开始（第1行是标题）
             try:
                 # 验证必填字段
-                if not row.get('username') or not row.get('name'):
+                if not row.get('student_number') or not row.get('name'):
                     error_list.append({
                         'row': row_num,
-                        'error': '缺少必填字段（username, name）'
+                        'error': '缺少必填字段（student_number, name）'
                     })
                     continue
                 
+                # 自动生成用户名：学号 + 学校编码
+                username = f"{row['student_number']}@{school.school_code}"
+                
                 # 检查用户名是否已存在
-                if db.query(User).filter(User.username == row['username']).first():
+                if db.query(User).filter(User.username == username).first():
                     error_list.append({
                         'row': row_num,
-                        'username': row['username'],
-                        'error': '用户名已存在'
+                        'student_number': row['student_number'],
+                        'error': '该学号在本校已存在'
                     })
                     continue
                 
@@ -466,13 +513,13 @@ async def batch_import_students(
                 
                 # 创建学生用户
                 new_student = User(
-                    username=row['username'],
+                    username=username,
                     name=row['name'],
-                    student_number=row.get('student_number'),
+                    student_number=row['student_number'],
                     class_id=int(row['class_id']) if row.get('class_id') else None,
                     gender=row.get('gender'),
                     phone=row.get('phone'),
-                    email=row.get('email'),
+                    email=row.get('email') if row.get('email') else None,
                     password_hash=get_password_hash(password),
                     role='student',
                     school_id=school_id,
@@ -522,7 +569,8 @@ async def batch_import_teachers(
     """批量导入教师（CSV格式）
     
     CSV格式要求：
-    username,name,teacher_number,subject,gender,phone,email,password
+    name,teacher_number,subject,gender,phone,email,password
+    注意：用户名将自动生成为 工号@学校编码
     """
     # 权限检查
     if current_admin.role not in ['platform_admin', 'school_admin']:
@@ -568,19 +616,22 @@ async def batch_import_teachers(
         for row_num, row in enumerate(csv_reader, start=2):
             try:
                 # 验证必填字段
-                if not row.get('username') or not row.get('name'):
+                if not row.get('teacher_number') or not row.get('name'):
                     error_list.append({
                         'row': row_num,
-                        'error': '缺少必填字段（username, name）'
+                        'error': '缺少必填字段（teacher_number, name）'
                     })
                     continue
                 
+                # 自动生成用户名：工号 + 学校编码
+                username = f"{row['teacher_number']}@{school.school_code}"
+                
                 # 检查用户名是否已存在
-                if db.query(User).filter(User.username == row['username']).first():
+                if db.query(User).filter(User.username == username).first():
                     error_list.append({
                         'row': row_num,
-                        'username': row['username'],
-                        'error': '用户名已存在'
+                        'teacher_number': row['teacher_number'],
+                        'error': '该工号在本校已存在'
                     })
                     continue
                 
@@ -589,13 +640,13 @@ async def batch_import_teachers(
                 
                 # 创建教师用户
                 new_teacher = User(
-                    username=row['username'],
+                    username=username,
                     name=row['name'],
-                    teacher_number=row.get('teacher_number'),
+                    teacher_number=row['teacher_number'],
                     subject=row.get('subject'),
                     gender=row.get('gender'),
                     phone=row.get('phone'),
-                    email=row.get('email'),
+                    email=row.get('email') if row.get('email') else None,
                     password_hash=get_password_hash(password),
                     role='teacher',
                     school_id=school_id,

@@ -4,7 +4,7 @@ from datetime import datetime
 
 class UserBase(BaseModel):
     """用户基础 Schema"""
-    username: str
+    username: Optional[str] = None  # 用户名变为可选，将在后端自动生成
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
     nickname: Optional[str] = None

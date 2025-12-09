@@ -264,8 +264,8 @@
         <template v-if="dialogMode === 'create'">
           <el-row :gutter="20">
             <el-col :span="12">
-              <el-form-item label="管理员账号">
-                <el-input v-model="form.admin_username" placeholder="管理员登录账号" />
+              <el-form-item label="管理员工号">
+                <el-input v-model="form.admin_teacher_number" placeholder="管理员职工号" />
               </el-form-item>
             </el-col>
             <el-col :span="12">
@@ -291,6 +291,17 @@
               </el-form-item>
             </el-col>
           </el-row>
+          <el-alert
+            type="info"
+            :closable="false"
+            style="margin-top: 10px"
+          >
+            <template #default>
+              <div style="font-size: 13px;">
+                <strong>说明：</strong>管理员用户名将自动生成为"工号@学校编码"的格式
+              </div>
+            </template>
+          </el-alert>
         </template>
       </el-form>
       <template #footer>
@@ -394,7 +405,7 @@ const form = reactive({
   description: '',
   video_student_view_limit: null,
   video_teacher_view_limit: null,
-  admin_username: '',
+  admin_teacher_number: '',
   admin_password: '',
   admin_name: '',
   admin_phone: '',
@@ -514,7 +525,7 @@ const resetForm = () => {
     description: '',
     video_student_view_limit: null,
     video_teacher_view_limit: null,
-    admin_username: '',
+    admin_teacher_number: '',
     admin_password: '',
     admin_name: '',
     admin_phone: '',

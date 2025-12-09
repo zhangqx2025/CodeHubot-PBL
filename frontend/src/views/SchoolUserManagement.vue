@@ -126,6 +126,8 @@
               size="small" 
               :type="row.is_active ? 'warning' : 'success'"
               @click="handleToggleActive(row)"
+              :disabled="isCurrentAdmin(row) && row.is_active"
+              :title="isCurrentAdmin(row) && row.is_active ? '不能禁用自己的账号' : ''"
             >
               {{ row.is_active ? '禁用' : '启用' }}
             </el-button>
@@ -180,13 +182,24 @@
 
         <el-row :gutter="20">
           <el-col :span="12">
-            <el-form-item label="用户名" prop="username">
-              <el-input v-model="form.username" placeholder="登录用户名" :disabled="dialogMode === 'edit'" />
+            <el-form-item label="姓名" prop="name">
+              <el-input v-model="form.name" placeholder="真实姓名" />
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="姓名" prop="name">
-              <el-input v-model="form.name" placeholder="真实姓名" />
+            <el-form-item :label="form.role === 'teacher' ? '工号' : '学号'" :prop="form.role === 'teacher' ? 'teacher_number' : 'student_number'">
+              <el-input 
+                v-if="form.role === 'teacher'" 
+                v-model="form.teacher_number" 
+                placeholder="教师工号（必填）" 
+                :disabled="dialogMode === 'edit'"
+              />
+              <el-input 
+                v-else 
+                v-model="form.student_number" 
+                placeholder="学生学号（必填）" 
+                :disabled="dialogMode === 'edit'"
+              />
             </el-form-item>
           </el-col>
         </el-row>
@@ -206,12 +219,6 @@
 
         <el-row :gutter="20">
           <el-col :span="12">
-            <el-form-item :label="form.role === 'teacher' ? '工号' : '学号'">
-              <el-input v-model="form.teacher_number" v-if="form.role === 'teacher'" placeholder="教师工号" />
-              <el-input v-model="form.student_number" v-else placeholder="学生学号" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
             <el-form-item label="班级" v-if="form.role === 'student'">
               <el-select v-model="form.class_id" placeholder="请选择班级" style="width: 100%" filterable>
                 <el-option
@@ -226,20 +233,32 @@
               <el-input v-model="form.subject" placeholder="任教学科" />
             </el-form-item>
           </el-col>
-        </el-row>
-
-        <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item label="电话">
               <el-input v-model="form.phone" placeholder="联系电话" />
             </el-form-item>
           </el-col>
+        </el-row>
+
+        <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item label="邮箱">
               <el-input v-model="form.email" placeholder="电子邮箱" />
             </el-form-item>
           </el-col>
         </el-row>
+        
+        <el-alert
+          type="info"
+          :closable="false"
+          style="margin-top: 10px"
+        >
+          <template #default>
+            <div style="font-size: 13px;">
+              <strong>说明：</strong>用户名将自动生成为"{{ form.role === 'teacher' ? '工号' : '学号' }}@学校编码"的格式，无需手动输入
+            </div>
+          </template>
+        </el-alert>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
@@ -298,9 +317,14 @@
         >
           <template #default>
             <div>
-              <p><strong>学生导入格式：</strong>username, name, student_number, class_id, gender, phone, email, password</p>
-              <p><strong>教师导入格式：</strong>username, name, teacher_number, subject, gender, phone, email, password</p>
-              <p>注意：如果不提供密码，默认密码为 123456</p>
+              <p><strong>学生导入格式：</strong>name, student_number, class_id, gender, phone, email, password</p>
+              <p><strong>教师导入格式：</strong>name, teacher_number, subject, gender, phone, email, password</p>
+              <p><strong>重要提示：</strong></p>
+              <ul style="margin: 5px 0; padding-left: 20px;">
+                <li>用户名将自动生成为"学号/工号@学校编码"</li>
+                <li>学号/工号为必填字段</li>
+                <li>如果不提供密码，默认密码为 123456</li>
+              </ul>
             </div>
           </template>
         </el-alert>
@@ -366,7 +390,6 @@ const stats = reactive({
 const form = reactive({
   user_id: null,
   role: 'student',
-  username: '',
   name: '',
   password: '',
   confirm_password: '',
@@ -399,8 +422,9 @@ const validateConfirmPassword = (rule, value, callback) => {
 
 const rules = {
   role: [{ required: true, message: '请选择角色', trigger: 'change' }],
-  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
   name: [{ required: true, message: '请输入姓名', trigger: 'blur' }],
+  teacher_number: [{ required: true, message: '请输入职工号', trigger: 'blur' }],
+  student_number: [{ required: true, message: '请输入学号', trigger: 'blur' }],
   password: [{ validator: validatePassword, trigger: 'blur' }],
   confirm_password: [{ validator: validateConfirmPassword, trigger: 'blur' }]
 }
@@ -487,7 +511,6 @@ const handleEdit = (row) => {
   Object.assign(form, {
     user_id: row.id,
     role: row.role,
-    username: row.username,
     name: row.name,
     gender: row.gender,
     teacher_number: row.teacher_number,
@@ -505,7 +528,6 @@ const resetForm = () => {
   Object.assign(form, {
     user_id: null,
     role: 'student',
-    username: '',
     name: '',
     password: '',
     confirm_password: '',
@@ -531,7 +553,6 @@ const handleSubmit = async () => {
     
     const data = {
       role: form.role,
-      username: form.username,
       name: form.name,
       gender: form.gender,
       phone: form.phone,
@@ -580,8 +601,19 @@ const handleSubmit = async () => {
   }
 }
 
+// 判断是否是当前登录的管理员
+const isCurrentAdmin = (row) => {
+  return row.role === 'school_admin' && row.id === adminInfo.value.id
+}
+
 // 启用/禁用用户
 const handleToggleActive = async (row) => {
+  // 防止禁用自己的账号
+  if (isCurrentAdmin(row) && row.is_active) {
+    ElMessage.warning('不能禁用自己的账号')
+    return
+  }
+  
   try {
     await ElMessageBox.confirm(
       `确定要${row.is_active ? '禁用' : '启用'}用户"${row.name}"吗？`,
@@ -656,12 +688,12 @@ const handleFileChange = (file) => {
 // 下载模板
 const downloadTemplate = () => {
   const headers = importType.value === 'student'
-    ? 'username,name,student_number,class_id,gender,phone,email,password\n'
-    : 'username,name,teacher_number,subject,gender,phone,email,password\n'
+    ? 'name,student_number,class_id,gender,phone,email,password\n'
+    : 'name,teacher_number,subject,gender,phone,email,password\n'
   
   const example = importType.value === 'student'
-    ? 'student001,张三,2024001,1,male,13800000001,zhangsan@example.com,123456\n'
-    : 'teacher001,李老师,T2024001,数学,female,13800000002,lisi@example.com,123456\n'
+    ? '张三,2024001,1,male,13800000001,zhangsan@example.com,123456\n'
+    : '李老师,T2024001,数学,female,13800000002,lisi@example.com,123456\n'
   
   const content = headers + example
   const blob = new Blob(['\ufeff' + content], { type: 'text/csv;charset=utf-8;' })
