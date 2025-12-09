@@ -171,6 +171,14 @@ const routes = [
         }
       },
       {
+        path: 'school-courses',
+        name: 'AdminSchoolCourses',
+        component: () => import('../views/AdminSchoolCourses.vue'),
+        meta: {
+          title: '学校课程配置 - PBL系统管理后台'
+        }
+      },
+      {
         path: 'units',
         name: 'AdminUnits',
         component: () => import('../views/AdminUnits.vue'),
