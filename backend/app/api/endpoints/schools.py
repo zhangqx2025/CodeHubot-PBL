@@ -21,7 +21,7 @@ router = APIRouter()
 logger = get_logger(__name__)
 
 
-@router.get("")
+@router.get("/list")
 def get_schools(
     is_active: Optional[bool] = None,
     search: Optional[str] = None,
