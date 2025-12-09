@@ -2,7 +2,7 @@
 学校管理 API
 用于平台管理员管理学校
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Form
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import List, Optional
@@ -202,27 +202,27 @@ def get_school(
 
 @router.post("")
 def create_school(
-    school_code: str,
-    school_name: str,
-    province: Optional[str] = None,
-    city: Optional[str] = None,
-    district: Optional[str] = None,
-    address: Optional[str] = None,
-    contact_person: Optional[str] = None,
-    contact_phone: Optional[str] = None,
-    contact_email: Optional[str] = None,
-    max_teachers: int = 100,
-    max_students: int = 1000,
-    max_devices: int = 500,
-    license_expire_at: Optional[str] = None,
-    description: Optional[str] = None,
-    video_student_view_limit: Optional[int] = None,
-    video_teacher_view_limit: Optional[int] = None,
-    admin_username: Optional[str] = None,
-    admin_password: Optional[str] = None,
-    admin_name: Optional[str] = None,
-    admin_phone: Optional[str] = None,
-    admin_email: Optional[str] = None,
+    school_code: str = Form(...),
+    school_name: str = Form(...),
+    province: Optional[str] = Form(None),
+    city: Optional[str] = Form(None),
+    district: Optional[str] = Form(None),
+    address: Optional[str] = Form(None),
+    contact_person: Optional[str] = Form(None),
+    contact_phone: Optional[str] = Form(None),
+    contact_email: Optional[str] = Form(None),
+    max_teachers: int = Form(100),
+    max_students: int = Form(1000),
+    max_devices: int = Form(500),
+    license_expire_at: Optional[str] = Form(None),
+    description: Optional[str] = Form(None),
+    video_student_view_limit: Optional[int] = Form(None),
+    video_teacher_view_limit: Optional[int] = Form(None),
+    admin_username: Optional[str] = Form(None),
+    admin_password: Optional[str] = Form(None),
+    admin_name: Optional[str] = Form(None),
+    admin_phone: Optional[str] = Form(None),
+    admin_email: Optional[str] = Form(None),
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(get_current_admin)
 ):
@@ -362,21 +362,21 @@ def create_school(
 @router.put("/{school_id}")
 def update_school(
     school_id: int,
-    school_name: Optional[str] = None,
-    province: Optional[str] = None,
-    city: Optional[str] = None,
-    district: Optional[str] = None,
-    address: Optional[str] = None,
-    contact_person: Optional[str] = None,
-    contact_phone: Optional[str] = None,
-    contact_email: Optional[str] = None,
-    max_teachers: Optional[int] = None,
-    max_students: Optional[int] = None,
-    max_devices: Optional[int] = None,
-    license_expire_at: Optional[str] = None,
-    description: Optional[str] = None,
-    video_student_view_limit: Optional[int] = None,
-    video_teacher_view_limit: Optional[int] = None,
+    school_name: Optional[str] = Form(None),
+    province: Optional[str] = Form(None),
+    city: Optional[str] = Form(None),
+    district: Optional[str] = Form(None),
+    address: Optional[str] = Form(None),
+    contact_person: Optional[str] = Form(None),
+    contact_phone: Optional[str] = Form(None),
+    contact_email: Optional[str] = Form(None),
+    max_teachers: Optional[int] = Form(None),
+    max_students: Optional[int] = Form(None),
+    max_devices: Optional[int] = Form(None),
+    license_expire_at: Optional[str] = Form(None),
+    description: Optional[str] = Form(None),
+    video_student_view_limit: Optional[int] = Form(None),
+    video_teacher_view_limit: Optional[int] = Form(None),
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(get_current_admin)
 ):
@@ -501,7 +501,7 @@ def toggle_school_active(
 @router.post("/{school_id}/assign-admin")
 def assign_school_admin(
     school_id: int,
-    user_id: int,
+    user_id: int = Form(...),
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(get_current_admin)
 ):
