@@ -496,3 +496,63 @@ class PBLVideoUserPermission(Base):
     is_active = Column(Integer, default=1, comment='是否启用')
     created_at = Column(TIMESTAMP, server_default=func.now())
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+
+
+class PBLVideoPlayProgress(Base):
+    """视频播放进度追踪表"""
+    __tablename__ = "pbl_video_play_progress"
+
+    id = Column(BigInteger, primary_key=True, index=True)
+    uuid = Column(String(36), unique=True, default=generate_uuid, nullable=False)
+    resource_id = Column(BigInteger, ForeignKey("pbl_resources.id"), nullable=False)
+    user_id = Column(Integer, nullable=False)  # Foreign Key to aiot_core_users
+    session_id = Column(String(64), nullable=False, comment='播放会话ID')
+    
+    # 播放进度信息
+    current_position = Column(Integer, default=0, comment='当前播放位置（秒）')
+    duration = Column(Integer, default=0, comment='视频总时长（秒）')
+    play_duration = Column(Integer, default=0, comment='本次会话累计播放时长（秒）')
+    real_watch_duration = Column(Integer, default=0, comment='真实观看时长（秒）')
+    
+    # 播放状态
+    status = Column(String(20), default='playing', comment='播放状态')
+    last_event = Column(String(50), comment='最后一次事件')
+    last_event_time = Column(TIMESTAMP, comment='最后一次事件时间')
+    
+    # 播放行为统计
+    seek_count = Column(Integer, default=0, comment='拖动次数')
+    pause_count = Column(Integer, default=0, comment='暂停次数')
+    pause_duration = Column(Integer, default=0, comment='累计暂停时长（秒）')
+    replay_count = Column(Integer, default=0, comment='重播次数')
+    
+    # 播放范围
+    watched_ranges = Column(Text, comment='已观看的时间段（JSON数组）')
+    
+    # 完成度
+    completion_rate = Column(DECIMAL(5, 2), default=0.00, comment='完成度（百分比）')
+    is_completed = Column(Integer, default=0, comment='是否观看完成')
+    
+    # 客户端信息
+    ip_address = Column(String(45), comment='客户端IP地址')
+    user_agent = Column(String(500), comment='用户代理')
+    device_type = Column(String(50), comment='设备类型')
+    
+    # 时间信息
+    start_time = Column(TIMESTAMP, server_default=func.now(), nullable=False, comment='开始播放时间')
+    end_time = Column(TIMESTAMP, comment='结束播放时间')
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+
+
+class PBLVideoPlayEvent(Base):
+    """视频播放事件表"""
+    __tablename__ = "pbl_video_play_events"
+
+    id = Column(BigInteger, primary_key=True, index=True)
+    session_id = Column(String(64), nullable=False, comment='播放会话ID')
+    resource_id = Column(BigInteger, ForeignKey("pbl_resources.id"), nullable=False)
+    user_id = Column(Integer, nullable=False)  # Foreign Key to aiot_core_users
+    event_type = Column(String(50), nullable=False, comment='事件类型')
+    event_data = Column(Text, comment='事件数据（JSON格式）')
+    position = Column(Integer, default=0, comment='事件发生时的播放位置（秒）')
+    timestamp = Column(TIMESTAMP, server_default=func.now(), nullable=False)

@@ -111,16 +111,7 @@ CREATE TABLE IF NOT EXISTS `pbl_learning_progress` (
   CONSTRAINT `fk_learning_progress_resource` FOREIGN KEY (`resource_id`) REFERENCES `pbl_resources` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='PBL学习进度详细追踪表';
 
--- 6. 添加UUID生成函数（如果MySQL版本支持）
-DELIMITER $$
-CREATE FUNCTION IF NOT EXISTS generate_uuid() RETURNS VARCHAR(36)
-DETERMINISTIC
-BEGIN
-  RETURN UUID();
-END$$
-DELIMITER ;
-
--- 7. 插入示例班级数据（可选）
+-- 6. 插入示例班级数据（可选）
 INSERT INTO `pbl_classes` (`uuid`, `school_id`, `name`, `grade`, `academic_year`) VALUES
 (UUID(), 1, '高一(1)班', '高一', '2024-2025'),
 (UUID(), 1, '高一(2)班', '高一', '2024-2025'),

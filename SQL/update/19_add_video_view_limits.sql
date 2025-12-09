@@ -95,35 +95,7 @@ DEALLOCATE PREPARE stmt;
 -- UPDATE `pbl_resources` SET `max_views` = 5 WHERE `type` = 'video' AND `max_views` IS NULL;
 
 -- ----------------------------
--- 5. 创建视图：查询每个学生对每个视频的观看次数
--- ----------------------------
-CREATE OR REPLACE VIEW `v_video_watch_stats` AS
-SELECT 
-    r.id AS resource_id,
-    r.uuid AS resource_uuid,
-    r.title AS resource_title,
-    r.max_views,
-    u.id AS user_id,
-    u.username,
-    u.real_name,
-    COUNT(vwr.id) AS watch_count,
-    MAX(vwr.watch_time) AS last_watch_time,
-    SUM(vwr.duration) AS total_duration,
-    SUM(CASE WHEN vwr.completed = 1 THEN 1 ELSE 0 END) AS completed_count,
-    CASE 
-        WHEN r.max_views IS NULL THEN 1 -- 不限制，允许观看
-        WHEN r.max_views = 0 THEN 0 -- 禁止观看
-        WHEN COUNT(vwr.id) >= r.max_views THEN 0 -- 已达到上限，不允许
-        ELSE 1 -- 未达到上限，允许观看
-    END AS can_watch
-FROM `pbl_resources` r
-CROSS JOIN `aiot_core_users` u
-LEFT JOIN `pbl_video_watch_records` vwr ON r.id = vwr.resource_id AND u.id = vwr.user_id
-WHERE r.type = 'video' AND u.role = 'student'
-GROUP BY r.id, r.uuid, r.title, r.max_views, u.id, u.username, u.real_name;
-
--- ----------------------------
--- 6. 显示统计信息
+-- 5. 显示统计信息
 -- ----------------------------
 SELECT '视频观看次数限制功能添加完成' AS status;
 
@@ -151,15 +123,45 @@ WHERE `type` = 'video';
    UPDATE `pbl_resources` SET `max_views` = 0 WHERE `uuid` = '视频UUID';
 
 4. 查询某个学生对某个视频的观看次数：
-   SELECT watch_count, can_watch 
-   FROM `v_video_watch_stats` 
-   WHERE resource_uuid = '视频UUID' AND user_id = 学生ID;
+   SELECT 
+       COUNT(vwr.id) AS watch_count,
+       r.max_views,
+       CASE 
+           WHEN r.max_views IS NULL THEN 1
+           WHEN r.max_views = 0 THEN 0
+           WHEN COUNT(vwr.id) >= r.max_views THEN 0
+           ELSE 1
+       END AS can_watch
+   FROM `pbl_resources` r
+   LEFT JOIN `pbl_video_watch_records` vwr ON r.id = vwr.resource_id AND vwr.user_id = 学生ID
+   WHERE r.uuid = '视频UUID'
+   GROUP BY r.id, r.max_views;
 
 5. 查询某个学生所有视频的观看情况：
-   SELECT * FROM `v_video_watch_stats` WHERE user_id = 学生ID;
+   SELECT 
+       r.uuid AS resource_uuid,
+       r.title AS resource_title,
+       COUNT(vwr.id) AS watch_count,
+       r.max_views,
+       MAX(vwr.watch_time) AS last_watch_time
+   FROM `pbl_resources` r
+   LEFT JOIN `pbl_video_watch_records` vwr ON r.id = vwr.resource_id AND vwr.user_id = 学生ID
+   WHERE r.type = 'video'
+   GROUP BY r.id, r.uuid, r.title, r.max_views;
 
-6. 查询已达到观看次数限制的学生：
-   SELECT * FROM `v_video_watch_stats` WHERE can_watch = 0 AND max_views > 0;
+6. 查询已达到观看次数限制的学生（针对某个视频）：
+   SELECT 
+       u.id AS user_id,
+       u.username,
+       u.real_name,
+       COUNT(vwr.id) AS watch_count,
+       r.max_views
+   FROM `aiot_core_users` u
+   JOIN `pbl_video_watch_records` vwr ON u.id = vwr.user_id
+   JOIN `pbl_resources` r ON vwr.resource_id = r.id
+   WHERE r.id = 资源ID AND r.max_views IS NOT NULL AND r.max_views > 0
+   GROUP BY u.id, u.username, u.real_name, r.max_views
+   HAVING COUNT(vwr.id) >= r.max_views;
 
 7. 记录一次视频观看行为：
    INSERT INTO `pbl_video_watch_records` 
@@ -278,76 +280,7 @@ EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
 -- ----------------------------
--- 11. 创建增强的视图：包含个性化权限和有效期检查
--- ----------------------------
-CREATE OR REPLACE VIEW `v_video_user_permissions_detail` AS
-SELECT 
-    r.id AS resource_id,
-    r.uuid AS resource_uuid,
-    r.title AS resource_title,
-    r.max_views AS global_max_views,
-    r.valid_from AS global_valid_from,
-    r.valid_until AS global_valid_until,
-    u.id AS user_id,
-    u.username,
-    u.real_name,
-    -- 个性化配置
-    vup.id AS permission_id,
-    vup.max_views AS user_max_views,
-    vup.valid_from AS user_valid_from,
-    vup.valid_until AS user_valid_until,
-    vup.reason AS permission_reason,
-    vup.is_active AS permission_active,
-    -- 实际生效的配置（个性化 > 全局）
-    COALESCE(vup.max_views, r.max_views) AS effective_max_views,
-    COALESCE(vup.valid_from, r.valid_from) AS effective_valid_from,
-    COALESCE(vup.valid_until, r.valid_until) AS effective_valid_until,
-    -- 观看统计
-    COUNT(vwr.id) AS watch_count,
-    MAX(vwr.watch_time) AS last_watch_time,
-    SUM(vwr.duration) AS total_duration,
-    SUM(CASE WHEN vwr.completed = 1 THEN 1 ELSE 0 END) AS completed_count,
-    -- 权限判断
-    CASE 
-        -- 个性化配置未启用，使用全局配置
-        WHEN vup.id IS NOT NULL AND vup.is_active = 0 THEN 0
-        -- 检查观看次数限制
-        WHEN COALESCE(vup.max_views, r.max_views) = 0 THEN 0  -- 禁止观看
-        WHEN COALESCE(vup.max_views, r.max_views) IS NOT NULL 
-             AND COUNT(vwr.id) >= COALESCE(vup.max_views, r.max_views) THEN 0  -- 已达上限
-        -- 检查有效期
-        WHEN COALESCE(vup.valid_from, r.valid_from) IS NOT NULL 
-             AND NOW() < COALESCE(vup.valid_from, r.valid_from) THEN 0  -- 未到开始时间
-        WHEN COALESCE(vup.valid_until, r.valid_until) IS NOT NULL 
-             AND NOW() > COALESCE(vup.valid_until, r.valid_until) THEN 0  -- 已过结束时间
-        ELSE 1  -- 允许观看
-    END AS can_watch,
-    -- 不能观看的原因
-    CASE 
-        WHEN vup.id IS NOT NULL AND vup.is_active = 0 THEN '个性化权限已禁用'
-        WHEN COALESCE(vup.max_views, r.max_views) = 0 THEN '该视频已被禁止观看'
-        WHEN COALESCE(vup.max_views, r.max_views) IS NOT NULL 
-             AND COUNT(vwr.id) >= COALESCE(vup.max_views, r.max_views) THEN 
-             CONCAT('已达到观看次数上限（', COALESCE(vup.max_views, r.max_views), '次）')
-        WHEN COALESCE(vup.valid_from, r.valid_from) IS NOT NULL 
-             AND NOW() < COALESCE(vup.valid_from, r.valid_from) THEN 
-             CONCAT('视频将于 ', DATE_FORMAT(COALESCE(vup.valid_from, r.valid_from), '%Y-%m-%d %H:%i'), ' 开放')
-        WHEN COALESCE(vup.valid_until, r.valid_until) IS NOT NULL 
-             AND NOW() > COALESCE(vup.valid_until, r.valid_until) THEN 
-             CONCAT('视频观看期限已于 ', DATE_FORMAT(COALESCE(vup.valid_until, r.valid_until), '%Y-%m-%d %H:%i'), ' 结束')
-        ELSE ''
-    END AS cannot_watch_reason
-FROM `pbl_resources` r
-CROSS JOIN `aiot_core_users` u
-LEFT JOIN `pbl_video_user_permissions` vup ON r.id = vup.resource_id AND u.id = vup.user_id
-LEFT JOIN `pbl_video_watch_records` vwr ON r.id = vwr.resource_id AND u.id = vwr.user_id
-WHERE r.type = 'video' AND u.role = 'student'
-GROUP BY r.id, r.uuid, r.title, r.max_views, r.valid_from, r.valid_until,
-         u.id, u.username, u.real_name,
-         vup.id, vup.max_views, vup.valid_from, vup.valid_until, vup.reason, vup.is_active;
-
--- ----------------------------
--- 12. 显示统计信息
+-- 11. 显示统计信息
 -- ----------------------------
 SELECT '视频用户权限表创建完成' AS status;
 
@@ -360,7 +293,7 @@ FROM `pbl_resources`
 WHERE `type` = 'video';
 
 -- ----------------------------
--- 13. 扩展使用示例说明
+-- 12. 扩展使用示例说明
 -- ----------------------------
 /*
 === 基础使用示例（第19部分） ===
@@ -375,15 +308,45 @@ WHERE `type` = 'video';
    UPDATE `pbl_resources` SET `max_views` = 0 WHERE `uuid` = '视频UUID';
 
 4. 查询某个学生对某个视频的观看次数：
-   SELECT watch_count, can_watch 
-   FROM `v_video_watch_stats` 
-   WHERE resource_uuid = '视频UUID' AND user_id = 学生ID;
+   SELECT 
+       COUNT(vwr.id) AS watch_count,
+       r.max_views,
+       CASE 
+           WHEN r.max_views IS NULL THEN 1
+           WHEN r.max_views = 0 THEN 0
+           WHEN COUNT(vwr.id) >= r.max_views THEN 0
+           ELSE 1
+       END AS can_watch
+   FROM `pbl_resources` r
+   LEFT JOIN `pbl_video_watch_records` vwr ON r.id = vwr.resource_id AND vwr.user_id = 学生ID
+   WHERE r.uuid = '视频UUID'
+   GROUP BY r.id, r.max_views;
 
 5. 查询某个学生所有视频的观看情况：
-   SELECT * FROM `v_video_watch_stats` WHERE user_id = 学生ID;
+   SELECT 
+       r.uuid AS resource_uuid,
+       r.title AS resource_title,
+       COUNT(vwr.id) AS watch_count,
+       r.max_views,
+       MAX(vwr.watch_time) AS last_watch_time
+   FROM `pbl_resources` r
+   LEFT JOIN `pbl_video_watch_records` vwr ON r.id = vwr.resource_id AND vwr.user_id = 学生ID
+   WHERE r.type = 'video'
+   GROUP BY r.id, r.uuid, r.title, r.max_views;
 
-6. 查询已达到观看次数限制的学生：
-   SELECT * FROM `v_video_watch_stats` WHERE can_watch = 0 AND max_views > 0;
+6. 查询已达到观看次数限制的学生（针对某个视频）：
+   SELECT 
+       u.id AS user_id,
+       u.username,
+       u.real_name,
+       COUNT(vwr.id) AS watch_count,
+       r.max_views
+   FROM `aiot_core_users` u
+   JOIN `pbl_video_watch_records` vwr ON u.id = vwr.user_id
+   JOIN `pbl_resources` r ON vwr.resource_id = r.id
+   WHERE r.id = 资源ID AND r.max_views IS NOT NULL AND r.max_views > 0
+   GROUP BY u.id, u.username, u.real_name, r.max_views
+   HAVING COUNT(vwr.id) >= r.max_views;
 
 7. 记录一次视频观看行为：
    INSERT INTO `pbl_video_watch_records` 
@@ -435,20 +398,73 @@ SET `valid_from` = '2025-12-08 00:00:00',
 WHERE `uuid` = '视频UUID';
 
 -- 5. 查询某个学生对某个视频的权限
-SELECT * FROM `v_video_user_permissions_detail`
-WHERE user_id = 学生ID AND resource_id = 视频资源ID;
+SELECT 
+    r.id AS resource_id,
+    r.uuid AS resource_uuid,
+    r.title AS resource_title,
+    r.max_views AS global_max_views,
+    r.valid_from AS global_valid_from,
+    r.valid_until AS global_valid_until,
+    vup.id AS permission_id,
+    vup.max_views AS user_max_views,
+    vup.valid_from AS user_valid_from,
+    vup.valid_until AS user_valid_until,
+    COALESCE(vup.max_views, r.max_views) AS effective_max_views,
+    COALESCE(vup.valid_from, r.valid_from) AS effective_valid_from,
+    COALESCE(vup.valid_until, r.valid_until) AS effective_valid_until,
+    COUNT(vwr.id) AS watch_count,
+    MAX(vwr.watch_time) AS last_watch_time,
+    CASE 
+        WHEN vup.id IS NOT NULL AND vup.is_active = 0 THEN 0
+        WHEN COALESCE(vup.max_views, r.max_views) = 0 THEN 0
+        WHEN COALESCE(vup.max_views, r.max_views) IS NOT NULL 
+             AND COUNT(vwr.id) >= COALESCE(vup.max_views, r.max_views) THEN 0
+        WHEN COALESCE(vup.valid_from, r.valid_from) IS NOT NULL 
+             AND NOW() < COALESCE(vup.valid_from, r.valid_from) THEN 0
+        WHEN COALESCE(vup.valid_until, r.valid_until) IS NOT NULL 
+             AND NOW() > COALESCE(vup.valid_until, r.valid_until) THEN 0
+        ELSE 1
+    END AS can_watch
+FROM `pbl_resources` r
+LEFT JOIN `pbl_video_user_permissions` vup ON r.id = vup.resource_id AND vup.user_id = 学生ID
+LEFT JOIN `pbl_video_watch_records` vwr ON r.id = vwr.resource_id AND vwr.user_id = 学生ID
+WHERE r.id = 视频资源ID
+GROUP BY r.id, r.uuid, r.title, r.max_views, r.valid_from, r.valid_until,
+         vup.id, vup.max_views, vup.valid_from, vup.valid_until, vup.is_active;
 
 -- 6. 查询某个学生所有不能观看的视频及原因
 SELECT 
-    resource_title AS 视频标题,
-    can_watch AS 是否可观看,
-    cannot_watch_reason AS 原因,
-    effective_max_views AS 观看次数限制,
-    watch_count AS 已观看次数,
-    effective_valid_from AS 开始时间,
-    effective_valid_until AS 结束时间
-FROM `v_video_user_permissions_detail`
-WHERE user_id = 学生ID AND can_watch = 0;
+    r.title AS 视频标题,
+    0 AS 是否可观看,
+    CASE 
+        WHEN vup.id IS NOT NULL AND vup.is_active = 0 THEN '个性化权限已禁用'
+        WHEN COALESCE(vup.max_views, r.max_views) = 0 THEN '该视频已被禁止观看'
+        WHEN COALESCE(vup.max_views, r.max_views) IS NOT NULL 
+             AND COUNT(vwr.id) >= COALESCE(vup.max_views, r.max_views) THEN 
+             CONCAT('已达到观看次数上限（', COALESCE(vup.max_views, r.max_views), '次）')
+        WHEN COALESCE(vup.valid_from, r.valid_from) IS NOT NULL 
+             AND NOW() < COALESCE(vup.valid_from, r.valid_from) THEN 
+             CONCAT('视频将于 ', DATE_FORMAT(COALESCE(vup.valid_from, r.valid_from), '%Y-%m-%d %H:%i'), ' 开放')
+        WHEN COALESCE(vup.valid_until, r.valid_until) IS NOT NULL 
+             AND NOW() > COALESCE(vup.valid_until, r.valid_until) THEN 
+             CONCAT('视频观看期限已于 ', DATE_FORMAT(COALESCE(vup.valid_until, r.valid_until), '%Y-%m-%d %H:%i'), ' 结束')
+        ELSE ''
+    END AS 原因,
+    COALESCE(vup.max_views, r.max_views) AS 观看次数限制,
+    COUNT(vwr.id) AS 已观看次数,
+    COALESCE(vup.valid_from, r.valid_from) AS 开始时间,
+    COALESCE(vup.valid_until, r.valid_until) AS 结束时间
+FROM `pbl_resources` r
+LEFT JOIN `pbl_video_user_permissions` vup ON r.id = vup.resource_id AND vup.user_id = 学生ID
+LEFT JOIN `pbl_video_watch_records` vwr ON r.id = vwr.resource_id AND vwr.user_id = 学生ID
+WHERE r.type = 'video'
+GROUP BY r.id, r.title, r.max_views, r.valid_from, r.valid_until,
+         vup.id, vup.max_views, vup.valid_from, vup.valid_until, vup.is_active
+HAVING (vup.id IS NOT NULL AND vup.is_active = 0)
+    OR (COALESCE(vup.max_views, r.max_views) = 0)
+    OR (COALESCE(vup.max_views, r.max_views) IS NOT NULL AND COUNT(vwr.id) >= COALESCE(vup.max_views, r.max_views))
+    OR (COALESCE(vup.valid_from, r.valid_from) IS NOT NULL AND NOW() < COALESCE(vup.valid_from, r.valid_from))
+    OR (COALESCE(vup.valid_until, r.valid_until) IS NOT NULL AND NOW() > COALESCE(vup.valid_until, r.valid_until));
 
 -- 7. 批量为多个学生设置相同的权限
 INSERT INTO `pbl_video_user_permissions` 
@@ -482,16 +498,20 @@ WHERE `resource_id` = 视频资源ID AND `user_id` = 学生ID;
 
 -- 11. 查询即将过期的视频（7天内）
 SELECT 
-    resource_title AS 视频标题,
-    user_id AS 学生ID,
-    real_name AS 学生姓名,
-    effective_valid_until AS 过期时间,
-    DATEDIFF(effective_valid_until, NOW()) AS 剩余天数
-FROM `v_video_user_permissions_detail`
-WHERE effective_valid_until IS NOT NULL
-  AND effective_valid_until > NOW()
-  AND DATEDIFF(effective_valid_until, NOW()) <= 7
-ORDER BY effective_valid_until;
+    r.title AS 视频标题,
+    u.id AS 学生ID,
+    u.real_name AS 学生姓名,
+    COALESCE(vup.valid_until, r.valid_until) AS 过期时间,
+    DATEDIFF(COALESCE(vup.valid_until, r.valid_until), NOW()) AS 剩余天数
+FROM `pbl_resources` r
+CROSS JOIN `aiot_core_users` u
+LEFT JOIN `pbl_video_user_permissions` vup ON r.id = vup.resource_id AND u.id = vup.user_id
+WHERE r.type = 'video' 
+  AND u.role = 'student'
+  AND COALESCE(vup.valid_until, r.valid_until) IS NOT NULL
+  AND COALESCE(vup.valid_until, r.valid_until) > NOW()
+  AND DATEDIFF(COALESCE(vup.valid_until, r.valid_until), NOW()) <= 7
+ORDER BY COALESCE(vup.valid_until, r.valid_until);
 
 -- 12. 统计个性化权限使用情况
 SELECT 

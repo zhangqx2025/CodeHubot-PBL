@@ -55,125 +55,178 @@ WHERE uuid IS NULL OR uuid = '';
 
 -- 10. 确保所有UUID字段都有唯一索引（如果还没有的话）
 -- MySQL 不支持 ALTER TABLE ADD UNIQUE KEY IF NOT EXISTS 语法
--- 使用存储过程来安全地创建唯一索引
+-- 使用准备语句来安全地创建唯一索引
 
-DELIMITER $$
-
-DROP PROCEDURE IF EXISTS add_uuid_unique_index$$
-
-CREATE PROCEDURE add_uuid_unique_index()
-BEGIN
-    -- 声明变量
-    DECLARE index_exists INT DEFAULT 0;
-    
-    -- pbl_courses
-    SELECT COUNT(*) INTO index_exists
+-- pbl_courses
+SET @index_exists = (
+    SELECT COUNT(*) 
     FROM information_schema.statistics 
     WHERE table_schema = DATABASE() 
     AND table_name = 'pbl_courses' 
-    AND index_name = 'uk_uuid';
-    
-    IF index_exists = 0 THEN
-        ALTER TABLE pbl_courses ADD UNIQUE KEY uk_uuid (uuid);
-    END IF;
-    
-    -- pbl_units
-    SELECT COUNT(*) INTO index_exists
+    AND index_name = 'uk_uuid'
+);
+
+SET @sql = IF(
+    @index_exists = 0,
+    'ALTER TABLE pbl_courses ADD UNIQUE KEY uk_uuid (uuid)',
+    'SELECT ''Index uk_uuid already exists on pbl_courses'' AS message'
+);
+
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- pbl_units
+SET @index_exists = (
+    SELECT COUNT(*) 
     FROM information_schema.statistics 
     WHERE table_schema = DATABASE() 
     AND table_name = 'pbl_units' 
-    AND index_name = 'uk_uuid';
-    
-    IF index_exists = 0 THEN
-        ALTER TABLE pbl_units ADD UNIQUE KEY uk_uuid (uuid);
-    END IF;
-    
-    -- pbl_resources
-    SELECT COUNT(*) INTO index_exists
+    AND index_name = 'uk_uuid'
+);
+
+SET @sql = IF(
+    @index_exists = 0,
+    'ALTER TABLE pbl_units ADD UNIQUE KEY uk_uuid (uuid)',
+    'SELECT ''Index uk_uuid already exists on pbl_units'' AS message'
+);
+
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- pbl_resources
+SET @index_exists = (
+    SELECT COUNT(*) 
     FROM information_schema.statistics 
     WHERE table_schema = DATABASE() 
     AND table_name = 'pbl_resources' 
-    AND index_name = 'uk_uuid';
-    
-    IF index_exists = 0 THEN
-        ALTER TABLE pbl_resources ADD UNIQUE KEY uk_uuid (uuid);
-    END IF;
-    
-    -- pbl_tasks
-    SELECT COUNT(*) INTO index_exists
+    AND index_name = 'uk_uuid'
+);
+
+SET @sql = IF(
+    @index_exists = 0,
+    'ALTER TABLE pbl_resources ADD UNIQUE KEY uk_uuid (uuid)',
+    'SELECT ''Index uk_uuid already exists on pbl_resources'' AS message'
+);
+
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- pbl_tasks
+SET @index_exists = (
+    SELECT COUNT(*) 
     FROM information_schema.statistics 
     WHERE table_schema = DATABASE() 
     AND table_name = 'pbl_tasks' 
-    AND index_name = 'uk_uuid';
-    
-    IF index_exists = 0 THEN
-        ALTER TABLE pbl_tasks ADD UNIQUE KEY uk_uuid (uuid);
-    END IF;
-    
-    -- pbl_projects
-    SELECT COUNT(*) INTO index_exists
+    AND index_name = 'uk_uuid'
+);
+
+SET @sql = IF(
+    @index_exists = 0,
+    'ALTER TABLE pbl_tasks ADD UNIQUE KEY uk_uuid (uuid)',
+    'SELECT ''Index uk_uuid already exists on pbl_tasks'' AS message'
+);
+
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- pbl_projects
+SET @index_exists = (
+    SELECT COUNT(*) 
     FROM information_schema.statistics 
     WHERE table_schema = DATABASE() 
     AND table_name = 'pbl_projects' 
-    AND index_name = 'uk_uuid';
-    
-    IF index_exists = 0 THEN
-        ALTER TABLE pbl_projects ADD UNIQUE KEY uk_uuid (uuid);
-    END IF;
-    
-    -- pbl_ai_conversations
-    SELECT COUNT(*) INTO index_exists
+    AND index_name = 'uk_uuid'
+);
+
+SET @sql = IF(
+    @index_exists = 0,
+    'ALTER TABLE pbl_projects ADD UNIQUE KEY uk_uuid (uuid)',
+    'SELECT ''Index uk_uuid already exists on pbl_projects'' AS message'
+);
+
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- pbl_ai_conversations
+SET @index_exists = (
+    SELECT COUNT(*) 
     FROM information_schema.statistics 
     WHERE table_schema = DATABASE() 
     AND table_name = 'pbl_ai_conversations' 
-    AND index_name = 'uk_uuid';
-    
-    IF index_exists = 0 THEN
-        ALTER TABLE pbl_ai_conversations ADD UNIQUE KEY uk_uuid (uuid);
-    END IF;
-    
-    -- pbl_achievements
-    SELECT COUNT(*) INTO index_exists
+    AND index_name = 'uk_uuid'
+);
+
+SET @sql = IF(
+    @index_exists = 0,
+    'ALTER TABLE pbl_ai_conversations ADD UNIQUE KEY uk_uuid (uuid)',
+    'SELECT ''Index uk_uuid already exists on pbl_ai_conversations'' AS message'
+);
+
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- pbl_achievements
+SET @index_exists = (
+    SELECT COUNT(*) 
     FROM information_schema.statistics 
     WHERE table_schema = DATABASE() 
     AND table_name = 'pbl_achievements' 
-    AND index_name = 'uk_uuid';
-    
-    IF index_exists = 0 THEN
-        ALTER TABLE pbl_achievements ADD UNIQUE KEY uk_uuid (uuid);
-    END IF;
-    
-    -- pbl_classes
-    SELECT COUNT(*) INTO index_exists
+    AND index_name = 'uk_uuid'
+);
+
+SET @sql = IF(
+    @index_exists = 0,
+    'ALTER TABLE pbl_achievements ADD UNIQUE KEY uk_uuid (uuid)',
+    'SELECT ''Index uk_uuid already exists on pbl_achievements'' AS message'
+);
+
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- pbl_classes
+SET @index_exists = (
+    SELECT COUNT(*) 
     FROM information_schema.statistics 
     WHERE table_schema = DATABASE() 
     AND table_name = 'pbl_classes' 
-    AND index_name = 'uk_uuid';
-    
-    IF index_exists = 0 THEN
-        ALTER TABLE pbl_classes ADD UNIQUE KEY uk_uuid (uuid);
-    END IF;
-    
-    -- pbl_groups
-    SELECT COUNT(*) INTO index_exists
+    AND index_name = 'uk_uuid'
+);
+
+SET @sql = IF(
+    @index_exists = 0,
+    'ALTER TABLE pbl_classes ADD UNIQUE KEY uk_uuid (uuid)',
+    'SELECT ''Index uk_uuid already exists on pbl_classes'' AS message'
+);
+
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- pbl_groups
+SET @index_exists = (
+    SELECT COUNT(*) 
     FROM information_schema.statistics 
     WHERE table_schema = DATABASE() 
     AND table_name = 'pbl_groups' 
-    AND index_name = 'uk_uuid';
-    
-    IF index_exists = 0 THEN
-        ALTER TABLE pbl_groups ADD UNIQUE KEY uk_uuid (uuid);
-    END IF;
-    
-END$$
+    AND index_name = 'uk_uuid'
+);
 
-DELIMITER ;
+SET @sql = IF(
+    @index_exists = 0,
+    'ALTER TABLE pbl_groups ADD UNIQUE KEY uk_uuid (uuid)',
+    'SELECT ''Index uk_uuid already exists on pbl_groups'' AS message'
+);
 
--- 调用存储过程创建唯一索引
-CALL add_uuid_unique_index();
-
--- 删除存储过程
-DROP PROCEDURE IF EXISTS add_uuid_unique_index;
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 -- 验证UUID生成情况
 SELECT 'pbl_courses' as table_name, COUNT(*) as total_records, 
