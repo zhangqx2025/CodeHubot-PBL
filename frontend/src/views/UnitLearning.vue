@@ -40,7 +40,7 @@
       </div>
     </nav>
 
-    <!-- 三栏学习布局 -->
+    <!-- 两栏学习布局 -->
     <div class="learning-layout">
       <!-- 左侧：学习路径与目录 -->
       <div class="left-panel">
@@ -274,10 +274,10 @@
         </div>
       </div>
 
-      <!-- 右侧：AI助手 -->
-      <div class="right-panel">
+      <!-- 右侧：AI助手 (已隐藏) -->
+      <!-- <div class="right-panel">
         <ChatPanel />
-      </div>
+      </div> -->
     </div>
   </div>
 </template>
@@ -287,7 +287,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ArrowLeft, ArrowRight, Check, Lock, VideoPlay } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import ChatPanel from '@/components/ChatPanel.vue'
+// import ChatPanel from '@/components/ChatPanel.vue' // AI助手已隐藏
 import VideoPlayer from '@/components/VideoPlayer.vue'
 import { 
   getUnitDetail, 
@@ -373,10 +373,13 @@ const loadUnitData = async (unitUuid) => {
       }
     }
     
-    // 构建学习路径：合并资料和任务
+    // 构建学习路径：合并资料和任务，并按 order 字段统一排序
     learningPath.value = []
     
-    // 添加学习资料到路径
+    // 创建临时数组存储所有学习项（资源和任务）
+    const allLearningItems = []
+    
+    // 添加学习资料
     if (unitData.resources && unitData.resources.length > 0) {
       unitData.resources.forEach(resource => {
         const step = {
@@ -384,8 +387,9 @@ const loadUnitData = async (unitUuid) => {
           uuid: resource.uuid,
           title: resource.title,
           type: resource.type, // video, document, link
-          status: 'available', // 后续根据学习进度设置
+          status: 'locked', // 默认锁定，第一个项设置为 available
           duration: resource.duration ? `${resource.duration}分钟` : '',
+          order: resource.order || 0,
           data: {
             url: resource.url,
             content: resource.content,
@@ -394,11 +398,11 @@ const loadUnitData = async (unitUuid) => {
             video_id: resource.video_id
           }
         }
-        learningPath.value.push(step)
+        allLearningItems.push(step)
       })
     }
     
-    // 添加任务到路径
+    // 添加任务
     if (unitData.tasks && unitData.tasks.length > 0) {
       unitData.tasks.forEach(task => {
         const step = {
@@ -407,17 +411,29 @@ const loadUnitData = async (unitUuid) => {
           title: task.title,
           type: 'task',
           taskCategory: task.type, // analysis, coding, design, deployment
-          status: 'available', // 后续根据任务完成状态设置
+          status: 'locked', // 默认锁定，第一个项设置为 available
           duration: task.estimated_time || '',
+          order: task.order || 0,
           data: {
             description: task.description,
             requirements: typeof task.requirements === 'string' ? JSON.parse(task.requirements) : (task.requirements || []),
             prerequisites: task.prerequisites
           }
         }
-        learningPath.value.push(step)
+        allLearningItems.push(step)
       })
     }
+    
+    // 按 order 字段统一排序
+    allLearningItems.sort((a, b) => a.order - b.order)
+    
+    // 第一个学习项设置为可访问，其余锁定
+    if (allLearningItems.length > 0) {
+      allLearningItems[0].status = 'available'
+    }
+    
+    // 设置学习路径
+    learningPath.value = allLearningItems
     
     // 加载学习进度，更新各步骤的完成状态
     await loadLearningProgress(unitUuid)
@@ -638,15 +654,39 @@ const loadLearningProgress = async (unitUuid) => {
       })
     }
     
-    // 根据完成状态解锁后续步骤
-    learningPath.value.forEach((step, index) => {
-      if (step.status === 'completed' && index < learningPath.value.length - 1) {
-        const nextStep = learningPath.value[index + 1]
-        if (nextStep.status === 'locked') {
-          nextStep.status = 'available'
+    // 实现顺序解锁逻辑
+    // 规则：
+    // 1. 第一个步骤始终可访问
+    // 2. 已完成的步骤后面的第一个未完成步骤设置为可访问
+    // 3. 其他步骤保持锁定状态
+    
+    if (learningPath.value.length > 0) {
+      // 第一个步骤始终可访问
+      if (learningPath.value[0].status === 'locked') {
+        learningPath.value[0].status = 'available'
+      }
+      
+      // 遍历所有步骤，解锁已完成步骤后的第一个未完成步骤
+      for (let i = 0; i < learningPath.value.length - 1; i++) {
+        const currentStep = learningPath.value[i]
+        const nextStep = learningPath.value[i + 1]
+        
+        // 如果当前步骤已完成，解锁下一步骤
+        if (currentStep.status === 'completed') {
+          if (nextStep.status === 'locked') {
+            nextStep.status = 'available'
+          }
+        } else {
+          // 如果当前步骤未完成，后续所有步骤都应该锁定
+          for (let j = i + 1; j < learningPath.value.length; j++) {
+            if (learningPath.value[j].status !== 'completed') {
+              learningPath.value[j].status = 'locked'
+            }
+          }
+          break
         }
       }
-    })
+    }
   } catch (error) {
     console.error('加载学习进度失败:', error)
     // 不显示错误消息，静默失败
@@ -903,7 +943,7 @@ onMounted(async () => {
 .learning-layout {
   flex: 1;
   display: grid;
-  grid-template-columns: 280px 1fr 320px;
+  grid-template-columns: 280px 1fr;
   gap: 0;
   overflow: hidden;
 }
@@ -1262,7 +1302,7 @@ onMounted(async () => {
 
 @media (max-width: 1200px) {
   .learning-layout {
-    grid-template-columns: 240px 1fr 280px;
+    grid-template-columns: 240px 1fr;
   }
 }
 
