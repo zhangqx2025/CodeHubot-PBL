@@ -99,3 +99,7 @@ class RefreshTokenResponse(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str
+
+class ResetPasswordRequest(BaseModel):
+    """重置密码请求"""
+    new_password: str = Field(..., min_length=6, max_length=50, description="新密码")

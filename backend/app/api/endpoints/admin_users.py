@@ -12,7 +12,7 @@ from ...core.security import get_password_hash
 from ...models.admin import Admin, User
 from ...models.school import School
 from ...models.pbl import PBLClass
-from ...schemas.user import UserCreate, UserResponse, UserUpdate
+from ...schemas.user import UserCreate, UserResponse, UserUpdate, ResetPasswordRequest
 from ...core.logging_config import get_logger
 
 router = APIRouter()
@@ -400,7 +400,7 @@ def toggle_user_active(
 @router.post("/{user_id}/reset-password")
 def reset_user_password(
     user_id: int,
-    new_password: str,
+    request: ResetPasswordRequest,
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(get_current_admin)
 ):
@@ -439,7 +439,7 @@ def reset_user_password(
         )
     
     # 重置密码
-    user.password_hash = get_password_hash(new_password)
+    user.password_hash = get_password_hash(request.new_password)
     user.need_change_password = True  # 标记需要修改密码
     db.commit()
     
