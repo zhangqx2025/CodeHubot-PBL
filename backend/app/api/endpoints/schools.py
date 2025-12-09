@@ -65,6 +65,21 @@ def get_schools(
     # 序列化结果
     result = []
     for school in schools:
+        # 统计当前教师和学生数（实时查询）
+        teacher_count = db.query(func.count(User.id)).filter(
+            User.school_id == school.id,
+            User.role.in_(['teacher', 'school_admin']),
+            User.deleted_at == None,
+            User.is_active == True
+        ).scalar() or 0
+        
+        student_count = db.query(func.count(User.id)).filter(
+            User.school_id == school.id,
+            User.role == 'student',
+            User.deleted_at == None,
+            User.is_active == True
+        ).scalar() or 0
+        
         result.append({
             'id': school.id,
             'uuid': school.uuid,
@@ -80,9 +95,9 @@ def get_schools(
             'is_active': school.is_active,
             'license_expire_at': school.license_expire_at.isoformat() if school.license_expire_at else None,
             'max_teachers': school.max_teachers,
-            'current_teachers': getattr(school, 'current_teachers', 0),
+            'current_teachers': teacher_count,
             'max_students': school.max_students,
-            'current_students': getattr(school, 'current_students', 0),
+            'current_students': student_count,
             'max_devices': school.max_devices,
             'admin_user_id': getattr(school, 'admin_user_id', None),
             'admin_username': getattr(school, 'admin_username', None),
