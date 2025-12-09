@@ -26,8 +26,13 @@ def get_users(
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(get_current_admin)
 ):
-    """获取用户列表"""
+    """获取用户列表（仅显示PBL相关角色用户）"""
     query = db.query(User)
+    
+    # 只显示 PBL 管理后台相关的角色：school_admin, teacher, student
+    # 排除个人用户(individual)和其他角色
+    pbl_roles = ['school_admin', 'teacher', 'student']
+    query = query.filter(User.role.in_(pbl_roles))
     
     # 权限控制：非平台管理员只能查看本校用户
     if current_admin.role != 'platform_admin':
@@ -61,7 +66,7 @@ def get_user(
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(get_current_admin)
 ):
-    """获取用户详情"""
+    """获取用户详情（仅限PBL相关角色）"""
     user = db.query(User).filter(User.id == user_id).first()
     
     if not user:
@@ -69,6 +74,15 @@ def get_user(
             message="用户不存在",
             code=404,
             status_code=status.HTTP_404_NOT_FOUND
+        )
+    
+    # 只允许查看 PBL 相关角色的用户
+    pbl_roles = ['school_admin', 'teacher', 'student']
+    if user.role not in pbl_roles:
+        return error_response(
+            message="该用户不在管理范围内",
+            code=403,
+            status_code=status.HTTP_403_FORBIDDEN
         )
     
     # 权限控制：非平台管理员只能查看本校用户
@@ -89,15 +103,17 @@ def create_user(
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(get_current_admin)
 ):
-    """创建用户"""
-    # 权限检查
-    if user_data.role == 'platform_admin' and current_admin.role != 'platform_admin':
+    """创建用户（仅限PBL相关角色）"""
+    # 只允许创建 PBL 相关角色的用户
+    pbl_roles = ['school_admin', 'teacher', 'student']
+    if user_data.role not in pbl_roles:
         return error_response(
-            message="只有平台管理员可以创建平台管理员账号",
+            message="只能创建学校管理员、教师或学生账号",
             code=403,
             status_code=status.HTTP_403_FORBIDDEN
         )
     
+    # 权限检查
     if user_data.role == 'school_admin' and current_admin.role != 'platform_admin':
         return error_response(
             message="只有平台管理员可以创建学校管理员账号",
@@ -176,7 +192,7 @@ def update_user(
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(get_current_admin)
 ):
-    """更新用户信息"""
+    """更新用户信息（仅限PBL相关角色）"""
     user = db.query(User).filter(User.id == user_id).first()
     
     if not user:
@@ -184,6 +200,15 @@ def update_user(
             message="用户不存在",
             code=404,
             status_code=status.HTTP_404_NOT_FOUND
+        )
+    
+    # 只允许管理 PBL 相关角色的用户
+    pbl_roles = ['school_admin', 'teacher', 'student']
+    if user.role not in pbl_roles:
+        return error_response(
+            message="该用户不在管理范围内",
+            code=403,
+            status_code=status.HTTP_403_FORBIDDEN
         )
     
     # 权限控制：非平台管理员只能管理本校用户
@@ -217,7 +242,7 @@ def delete_user(
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(get_current_admin)
 ):
-    """删除用户（软删除）"""
+    """删除用户（软删除，仅限PBL相关角色）"""
     user = db.query(User).filter(User.id == user_id).first()
     
     if not user:
@@ -225,6 +250,15 @@ def delete_user(
             message="用户不存在",
             code=404,
             status_code=status.HTTP_404_NOT_FOUND
+        )
+    
+    # 只允许删除 PBL 相关角色的用户
+    pbl_roles = ['school_admin', 'teacher', 'student']
+    if user.role not in pbl_roles:
+        return error_response(
+            message="该用户不在管理范围内",
+            code=403,
+            status_code=status.HTTP_403_FORBIDDEN
         )
     
     # 权限控制
@@ -259,7 +293,7 @@ def toggle_user_active(
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(get_current_admin)
 ):
-    """启用/禁用用户"""
+    """启用/禁用用户（仅限PBL相关角色）"""
     user = db.query(User).filter(User.id == user_id).first()
     
     if not user:
@@ -267,6 +301,15 @@ def toggle_user_active(
             message="用户不存在",
             code=404,
             status_code=status.HTTP_404_NOT_FOUND
+        )
+    
+    # 只允许操作 PBL 相关角色的用户
+    pbl_roles = ['school_admin', 'teacher', 'student']
+    if user.role not in pbl_roles:
+        return error_response(
+            message="该用户不在管理范围内",
+            code=403,
+            status_code=status.HTTP_403_FORBIDDEN
         )
     
     # 权限控制
@@ -303,7 +346,7 @@ def reset_user_password(
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(get_current_admin)
 ):
-    """重置用户密码"""
+    """重置用户密码（仅限PBL相关角色）"""
     user = db.query(User).filter(User.id == user_id).first()
     
     if not user:
@@ -311,6 +354,15 @@ def reset_user_password(
             message="用户不存在",
             code=404,
             status_code=status.HTTP_404_NOT_FOUND
+        )
+    
+    # 只允许重置 PBL 相关角色用户的密码
+    pbl_roles = ['school_admin', 'teacher', 'student']
+    if user.role not in pbl_roles:
+        return error_response(
+            message="该用户不在管理范围内",
+            code=403,
+            status_code=status.HTTP_403_FORBIDDEN
         )
     
     # 权限控制
