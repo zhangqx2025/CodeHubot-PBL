@@ -10,7 +10,7 @@ from ...core.response import success_response, error_response
 from ...core.deps import get_db, get_current_admin
 from ...core.security import get_password_hash
 from ...models.admin import Admin, User
-from ...models.school import School
+from ...models.school import School, Class
 from ...schemas.user import UserCreate, UserResponse, UserUpdate
 from ...core.logging_config import get_logger
 
@@ -514,6 +514,15 @@ async def batch_import_students(
         success_count = 0
         error_list = []
         
+        # 获取该学校的所有班级，用于名称查找
+        classes_dict = {}
+        classes = db.query(Class).filter(
+            Class.school_id == target_school_id,
+            Class.deleted_at == None
+        ).all()
+        for cls in classes:
+            classes_dict[cls.class_name] = cls.id
+        
         for row_num, row in enumerate(csv_reader, start=2):  # 从第2行开始（第1行是标题）
             try:
                 # 验证必填字段
@@ -536,18 +545,46 @@ async def batch_import_students(
                     })
                     continue
                 
+                # 转换性别：男->male, 女->female
+                gender_map = {
+                    '男': 'male',
+                    '女': 'female',
+                    'male': 'male',
+                    'female': 'female'
+                }
+                gender = gender_map.get(row.get('gender', '').strip())
+                if not gender:
+                    error_list.append({
+                        'row': row_num,
+                        'error': '性别格式错误，请填写"男"或"女"'
+                    })
+                    continue
+                
+                # 处理班级：如果提供了班级名称，查找对应的班级ID
+                # 如果班级名称为空，则不分配班级但允许导入
+                class_id = None
+                if row.get('class_name'):
+                    class_name = row['class_name'].strip()
+                    if class_name:  # 班级名称不为空
+                        if class_name in classes_dict:
+                            class_id = classes_dict[class_name]
+                        else:
+                            # 班级不存在，给出警告但不阻止导入
+                            error_list.append({
+                                'row': row_num,
+                                'warning': f'班级"{class_name}"不存在，已导入但未分配班级'
+                            })
+                
                 # 生成默认密码（如果没有提供）
                 password = row.get('password') or '123456'
                 
-                # 创建学生用户
+                # 创建学生用户（不收集电话和邮箱）
                 new_student = User(
                     username=username,
                     name=row['name'],
                     student_number=row['student_number'],
-                    class_id=int(row['class_id']) if row.get('class_id') else None,
-                    gender=row.get('gender'),
-                    phone=row.get('phone'),
-                    email=row.get('email') if row.get('email') else None,
+                    class_id=class_id,
+                    gender=gender,
                     password_hash=get_password_hash(password),
                     role='student',
                     school_id=target_school_id,

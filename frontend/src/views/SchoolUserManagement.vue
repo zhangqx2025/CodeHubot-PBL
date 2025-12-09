@@ -94,19 +94,16 @@
             {{ row.teacher_number || row.student_number || '-' }}
           </template>
         </el-table-column>
-        <el-table-column prop="class_name" label="班级" width="120">
+        <el-table-column prop="class_name" label="班级" width="150">
           <template #default="{ row }">
             {{ row.class_name || '-' }}
           </template>
         </el-table-column>
-        <el-table-column prop="phone" label="电话" width="130">
+        <el-table-column prop="gender" label="性别" width="100">
           <template #default="{ row }">
-            {{ row.phone || '-' }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="email" label="邮箱" min-width="180">
-          <template #default="{ row }">
-            {{ row.email || '-' }}
+            <el-tag :type="row.gender === 'male' ? 'primary' : 'danger'" size="small">
+              {{ row.gender === 'male' ? '男' : row.gender === 'female' ? '女' : '其他' }}
+            </el-tag>
           </template>
         </el-table-column>
         <el-table-column label="状态" width="80">
@@ -233,19 +230,6 @@
               <el-input v-model="form.subject" placeholder="任教学科" />
             </el-form-item>
           </el-col>
-          <el-col :span="12">
-            <el-form-item label="电话">
-              <el-input v-model="form.phone" placeholder="联系电话" />
-            </el-form-item>
-          </el-col>
-        </el-row>
-
-        <el-row :gutter="20">
-          <el-col :span="12">
-            <el-form-item label="邮箱">
-              <el-input v-model="form.email" placeholder="电子邮箱" />
-            </el-form-item>
-          </el-col>
         </el-row>
         
         <el-alert
@@ -317,13 +301,14 @@
         >
           <template #default>
             <div>
-              <p><strong>学生导入格式：</strong>name, student_number, class_id, gender, phone, email, password</p>
-              <p><strong>教师导入格式：</strong>name, teacher_number, subject, gender, phone, email, password</p>
+              <p><strong>学生导入格式：</strong>name, student_number, class_name, gender, password</p>
+              <p><strong>教师导入格式：</strong>name, teacher_number, subject, gender, password</p>
               <p><strong>重要提示：</strong></p>
               <ul style="margin: 5px 0; padding-left: 20px;">
                 <li>用户名将自动生成为"学号/工号@学校编码"</li>
                 <li><strong>必填字段：</strong>姓名(name)、学号/工号、性别(gender)</li>
-                <li>性别可选值：male(男)、female(女)、other(其他)</li>
+                <li><strong>性别：</strong>直接填写"男"或"女"即可</li>
+                <li><strong>班级：</strong>填写已创建的班级名称（如：一年级1班）</li>
                 <li>如果不提供密码，默认密码为 123456</li>
               </ul>
             </div>
@@ -398,9 +383,7 @@ const form = reactive({
   teacher_number: '',
   student_number: '',
   class_id: null,
-  subject: '',
-  phone: '',
-  email: ''
+  subject: ''
 })
 
 const validatePassword = (rule, value, callback) => {
@@ -518,9 +501,7 @@ const handleEdit = (row) => {
     teacher_number: row.teacher_number,
     student_number: row.student_number,
     class_id: row.class_id,
-    subject: row.subject,
-    phone: row.phone,
-    email: row.email
+    subject: row.subject
   })
   dialogVisible.value = true
 }
@@ -537,9 +518,7 @@ const resetForm = () => {
     teacher_number: '',
     student_number: '',
     class_id: null,
-    subject: '',
-    phone: '',
-    email: ''
+    subject: ''
   })
   formRef.value?.resetFields()
 }
@@ -556,9 +535,7 @@ const handleSubmit = async () => {
     const data = {
       role: form.role,
       name: form.name,
-      gender: form.gender,
-      phone: form.phone,
-      email: form.email
+      gender: form.gender
     }
     
     if (dialogMode.value === 'create') {
@@ -689,12 +666,12 @@ const handleFileChange = (file) => {
 // 下载模板
 const downloadTemplate = () => {
   const headers = importType.value === 'student'
-    ? 'name,student_number,class_id,gender,phone,email,password\n'
-    : 'name,teacher_number,subject,gender,phone,email,password\n'
+    ? 'name,student_number,class_name,gender,password\n'
+    : 'name,teacher_number,subject,gender,password\n'
   
   const example = importType.value === 'student'
-    ? '张三,2024001,1,male,13800000001,zhangsan@example.com,123456\n李四,2024002,1,female,13800000002,lisi@example.com,123456\n'
-    : '王老师,T2024001,数学,female,13800000001,wang@example.com,123456\n李老师,T2024002,英语,male,13800000002,li@example.com,123456\n'
+    ? '张三,2024001,一年级1班,男,123456\n李四,2024002,一年级1班,女,123456\n'
+    : '王老师,T2024001,数学,女,123456\n李老师,T2024002,英语,男,123456\n'
   
   const content = headers + example
   const blob = new Blob(['\ufeff' + content], { type: 'text/csv;charset=utf-8;' })
