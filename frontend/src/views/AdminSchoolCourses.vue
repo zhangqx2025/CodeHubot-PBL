@@ -352,11 +352,27 @@ const loadSchoolCourses = async () => {
       limit: pagination.pageSize
     }
     
+    if (filters.schoolId) {
+      params.school_id = filters.schoolId
+    }
+    if (filters.status) {
+      params.status = filters.status
+    }
+    
     const response = await getAllSchoolCourses(params)
     
     if (response.data && response.data.success) {
-      schoolCourses.value = response.data.data || []
-      pagination.total = response.data.total || 0
+      const data = response.data.data || {}
+      const items = data.items || []
+      
+      // 处理数据，将嵌套的 school 和 course 对象扁平化
+      schoolCourses.value = items.map(item => ({
+        ...item,
+        school_name: item.school?.school_name || '-',
+        course_title: item.course?.title || '-'
+      }))
+      
+      pagination.total = data.total || 0
     }
   } catch (error) {
     console.error('加载学校课程数据失败:', error)
@@ -371,7 +387,8 @@ const loadSchools = async () => {
   try {
     const response = await getSchools()
     if (response.data && response.data.success) {
-      schools.value = response.data.data || []
+      const data = response.data.data || {}
+      schools.value = data.items || []
     }
   } catch (error) {
     console.error('加载学校列表失败:', error)
@@ -381,12 +398,19 @@ const loadSchools = async () => {
 // 加载课程列表
 const loadCourses = async () => {
   try {
-    const response = await getCourses()
-    if (response.data && response.data.success) {
-      courses.value = response.data.data || []
+    // getCourses 返回的已经是处理过的数据（response.data.data）
+    const data = await getCourses()
+    // 检查数据格式，可能是数组或包含 items 的对象
+    if (Array.isArray(data)) {
+      courses.value = data
+    } else if (data && data.items) {
+      courses.value = data.items
+    } else {
+      courses.value = []
     }
   } catch (error) {
     console.error('加载课程列表失败:', error)
+    courses.value = []
   }
 }
 
