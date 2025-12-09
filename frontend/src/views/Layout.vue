@@ -87,34 +87,9 @@
           text-color="#374151"
           active-text-color="#3b82f6"
         >
-          <el-menu-item index="/" class="menu-item">
-            <el-icon><House /></el-icon>
-            <template #title>学习首页</template>
-          </el-menu-item>
-          
           <el-menu-item index="/courses" class="menu-item">
             <el-icon><Reading /></el-icon>
-            <template #title>课程学习</template>
-          </el-menu-item>
-          
-          <el-menu-item index="/projects" class="menu-item">
-            <el-icon><Folder /></el-icon>
-            <template #title>项目实践</template>
-          </el-menu-item>
-          
-          <el-menu-item index="/outputs" class="menu-item">
-            <el-icon><Document /></el-icon>
-            <template #title>项目成果</template>
-          </el-menu-item>
-          
-          <el-menu-item index="/portfolio" class="menu-item">
-            <el-icon><Collection /></el-icon>
-            <template #title>学习档案</template>
-          </el-menu-item>
-          
-          <el-menu-item index="/progress" class="menu-item">
-            <el-icon><TrendCharts /></el-icon>
-            <template #title>学习进度</template>
+            <template #title>我的课程</template>
           </el-menu-item>
           
           <el-menu-item index="/profile" class="menu-item">

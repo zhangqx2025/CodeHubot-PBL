@@ -15,23 +15,14 @@ const routes = [
   {
     path: '/',
     component: Layout,
-    redirect: '/',
+    redirect: '/courses',
     children: [
-      {
-        path: '',
-        name: 'Dashboard',
-        component: () => import('../views/Dashboard.vue'),
-        meta: {
-          title: '学习首页 - 跨学科项目式学习平台',
-          requiresAuth: true
-        }
-      },
       {
         path: 'courses',
         name: 'MyCourses',
         component: () => import('../views/MyCourses.vue'),
         meta: {
-          title: '课程学习 - 跨学科项目式学习平台',
+          title: '我的课程 - 跨学科项目式学习平台',
           requiresAuth: true
         }
       },
