@@ -59,6 +59,35 @@ def create_course(
     
     return success_response(data=serialize_course(new_course), message="课程创建成功")
 
+@router.get("/templates")
+def get_course_templates(
+    skip: int = 0,
+    limit: int = 100,
+    category: Optional[str] = None,
+    is_public: Optional[int] = None,
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(get_current_admin)
+):
+    """获取课程模板列表"""
+    query = db.query(PBLCourseTemplate)
+    
+    if category:
+        query = query.filter(PBLCourseTemplate.category == category)
+    
+    if is_public is not None:
+        query = query.filter(PBLCourseTemplate.is_public == is_public)
+    
+    # 按使用次数和创建时间排序
+    templates = query.order_by(
+        PBLCourseTemplate.usage_count.desc(),
+        PBLCourseTemplate.created_at.desc()
+    ).offset(skip).limit(limit).all()
+    
+    # 序列化模板列表
+    templates_data = [CourseTemplate.model_validate(template).model_dump(mode='json') for template in templates]
+    
+    return success_response(data=templates_data)
+
 @router.get("/{course_uuid}")
 def get_course(
     course_uuid: str,
@@ -220,33 +249,3 @@ def update_course_status(
     db.refresh(course)
     
     return success_response(data=serialize_course(course), message="课程状态更新成功")
-
-
-@router.get("/templates")
-def get_course_templates(
-    skip: int = 0,
-    limit: int = 100,
-    category: Optional[str] = None,
-    is_public: Optional[int] = None,
-    db: Session = Depends(get_db),
-    current_admin: Admin = Depends(get_current_admin)
-):
-    """获取课程模板列表"""
-    query = db.query(PBLCourseTemplate)
-    
-    if category:
-        query = query.filter(PBLCourseTemplate.category == category)
-    
-    if is_public is not None:
-        query = query.filter(PBLCourseTemplate.is_public == is_public)
-    
-    # 按使用次数和创建时间排序
-    templates = query.order_by(
-        PBLCourseTemplate.usage_count.desc(),
-        PBLCourseTemplate.created_at.desc()
-    ).offset(skip).limit(limit).all()
-    
-    # 序列化模板列表
-    templates_data = [CourseTemplate.model_validate(template).model_dump(mode='json') for template in templates]
-    
-    return success_response(data=templates_data)
