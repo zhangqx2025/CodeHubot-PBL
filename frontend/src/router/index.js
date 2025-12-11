@@ -202,6 +202,13 @@ const routes = [
         }
       },
       {
+        path: 'template-library',
+        redirect: '/admin/template-permissions',
+        meta: {
+          title: '模板库管理 - PBL系统管理后台'
+        }
+      },
+      {
         path: 'available-templates',
         name: 'AvailableTemplates',
         component: () => import('../views/AvailableTemplates.vue'),
