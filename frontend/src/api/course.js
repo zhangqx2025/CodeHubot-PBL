@@ -64,3 +64,5 @@ export const getUnitResources = async (id) => {
   }
 }
 
+// 别名导出（为了兼容不同的命名习惯）
+export const getCourseList = getCourses

@@ -125,3 +125,116 @@ export const removeMemberFromGroup = async (groupId, studentId) => {
     throw new Error(handleApiError(error))
   }
 }
+
+// ===== 班级教师管理 =====
+
+/**
+ * 获取班级教师列表
+ */
+export const getClassTeachers = async (classId) => {
+  try {
+    const response = await request.get(`/admin/classes-groups/classes/${classId}/teachers`)
+    return response.data.data || response.data
+  } catch (error) {
+    throw new Error(handleApiError(error))
+  }
+}
+
+/**
+ * 为班级分配教师
+ */
+export const assignTeacherToClass = async (classId, data) => {
+  try {
+    const response = await request.post(
+      `/admin/classes-groups/classes/${classId}/teachers`,
+      null,
+      { params: data }
+    )
+    return response.data
+  } catch (error) {
+    throw new Error(handleApiError(error))
+  }
+}
+
+/**
+ * 从班级移除教师
+ */
+export const removeTeacherFromClass = async (classId, teacherId) => {
+  try {
+    const response = await request.delete(
+      `/admin/classes-groups/classes/${classId}/teachers/${teacherId}`
+    )
+    return response.data
+  } catch (error) {
+    throw new Error(handleApiError(error))
+  }
+}
+
+// ===== 班级课程管理 =====
+
+/**
+ * 获取班级课程列表
+ */
+export const getClassCourses = async (classId) => {
+  try {
+    const response = await request.get(`/admin/classes-groups/classes/${classId}/courses`)
+    return response.data.data || response.data
+  } catch (error) {
+    throw new Error(handleApiError(error))
+  }
+}
+
+/**
+ * 为班级分配课程
+ */
+export const assignCourseToClass = async (classId, data) => {
+  try {
+    const response = await request.post(
+      `/admin/classes-groups/classes/${classId}/courses`,
+      null,
+      { params: data }
+    )
+    return response.data
+  } catch (error) {
+    throw new Error(handleApiError(error))
+  }
+}
+
+/**
+ * 从班级移除课程
+ */
+export const removeCourseFromClass = async (classId, courseUuid, removeEnrollments = false) => {
+  try {
+    const response = await request.delete(
+      `/admin/classes-groups/classes/${classId}/courses/${courseUuid}`,
+      {
+        params: { remove_student_enrollments: removeEnrollments }
+      }
+    )
+    return response.data
+  } catch (error) {
+    throw new Error(handleApiError(error))
+  }
+}
+
+// ===== 班级学习进度 =====
+
+/**
+ * 获取班级学生课程学习进度
+ */
+export const getClassLearningProgress = async (classId, courseId = null) => {
+  try {
+    const params = courseId ? { course_id: courseId } : {}
+    const response = await request.get(`/admin/classes-groups/classes/${classId}/progress`, { params })
+    return response.data.data || response.data
+  } catch (error) {
+    throw new Error(handleApiError(error))
+  }
+}
+
+// ===== 导出别名（为了兼容不同的命名习惯） =====
+export const addClassTeacher = assignTeacherToClass
+export const removeClassTeacher = removeTeacherFromClass
+export const assignClassCourse = assignCourseToClass
+export const removeClassCourse = removeCourseFromClass
+export const getClassProgress = getClassLearningProgress

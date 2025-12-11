@@ -22,10 +22,6 @@
               <el-icon><Reading /></el-icon>
               <span>{{ course.units?.length || 0 }}个学习单元</span>
             </div>
-            <div class="stat-item">
-              <el-icon><Notebook /></el-icon>
-              <span>{{ course.projects?.length || 0 }}个实践项目</span>
-            </div>
           </div>
         </div>
         
@@ -39,7 +35,7 @@
     <div class="course-progress-section">
       <h3>学习进度</h3>
       <el-progress 
-        :percentage="courseProgress" 
+        :percentage="overallProgress" 
         :stroke-width="12"
         :color="progressColor"
       >
@@ -48,7 +44,7 @@
         </template>
       </el-progress>
       <div class="progress-text">
-        已完成 {{ completedUnits }} / {{ totalUnits }} 个单元
+        已完成 {{ completedUnits }} / {{ totalUnits }} 个单元，总体进度 {{ overallProgress }}%
       </div>
     </div>
 
@@ -83,7 +79,10 @@
           <!-- 单元内容 -->
           <div class="unit-content">
             <div class="unit-header">
-              <h4 class="unit-title">{{ unit.title }}</h4>
+              <h4 class="unit-title">
+                <span class="unit-number">{{ index + 1 }}.</span>
+                {{ unit.title }}
+              </h4>
               <el-tag 
                 :type="getUnitStatusType(unit.status)" 
                 size="small"
@@ -94,15 +93,29 @@
             
             <p class="unit-description">{{ unit.description }}</p>
             
-            <div class="unit-meta">
-              <span class="meta-item">
-                <el-icon><Document /></el-icon>
-                {{ unit.resources_count || 0 }}个资料
-              </span>
-              <span class="meta-item">
-                <el-icon><Edit /></el-icon>
-                {{ unit.tasks_count || 0 }}个任务
-              </span>
+            <!-- 单元学习进度 - 分类统计 -->
+            <div class="unit-progress-detail">
+              <div class="progress-item" v-if="unit.video_count > 0">
+                <span class="progress-icon">
+                  <el-icon><VideoPlay /></el-icon>
+                </span>
+                <span class="progress-label">视频</span>
+                <span class="progress-stats">{{ unit.completed_videos || 0 }}/{{ unit.video_count }}</span>
+              </div>
+              <div class="progress-item" v-if="unit.document_count > 0">
+                <span class="progress-icon">
+                  <el-icon><Document /></el-icon>
+                </span>
+                <span class="progress-label">文档</span>
+                <span class="progress-stats">{{ unit.completed_documents || 0 }}/{{ unit.document_count }}</span>
+              </div>
+              <div class="progress-item" v-if="unit.tasks_count > 0">
+                <span class="progress-icon">
+                  <el-icon><Edit /></el-icon>
+                </span>
+                <span class="progress-label">作业</span>
+                <span class="progress-stats">{{ unit.completed_tasks || 0 }}/{{ unit.tasks_count }}</span>
+              </div>
             </div>
             
             <!-- 单元操作 -->
@@ -172,7 +185,6 @@ import {
   Clock,
   TrendCharts,
   Reading,
-  Notebook,
   CircleCheck,
   Lock,
   VideoPlay,
@@ -189,16 +201,27 @@ const course = ref(null)
 
 // 计算属性
 const totalUnits = computed(() => course.value?.units?.length || 0)
-const completedUnits = computed(() => 
-  course.value?.units?.filter(u => u.status === 'completed').length || 0
-)
-const courseProgress = computed(() => {
-  if (totalUnits.value === 0) return 0
+
+// 计算已完成的单元数（单元进度达到100%才算完成）
+const completedUnits = computed(() => {
+  if (!course.value?.units) return 0
+  return course.value.units.filter(u => {
+    // 如果有status字段且为completed，则认为已完成
+    // 或者进度达到100%也认为已完成
+    return u.status === 'completed' || u.progress >= 100
+  }).length
+})
+
+// 计算总体学习进度（基于完成的单元数，而不是平均进度）
+const overallProgress = computed(() => {
+  if (!course.value?.units || course.value.units.length === 0) return 0
+  
+  // 进度 = 已完成单元数 / 总单元数 * 100
   return Math.round((completedUnits.value / totalUnits.value) * 100)
 })
 
 const progressColor = computed(() => {
-  const percentage = courseProgress.value
+  const percentage = overallProgress.value
   if (percentage < 30) return '#f56c6c'
   if (percentage < 70) return '#e6a23c'
   return '#67c23a'
@@ -291,8 +314,8 @@ onMounted(() => {
 
 <style scoped>
 .course-detail {
-  max-width: 1200px;
-  margin: 0 auto;
+  width: 100%;
+  margin: 0;
   padding: 24px;
 }
 
@@ -477,6 +500,14 @@ onMounted(() => {
   font-size: 18px;
   font-weight: 600;
   color: #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.unit-number {
+  color: #3b82f6;
+  font-weight: 700;
 }
 
 .unit-description {
@@ -497,6 +528,41 @@ onMounted(() => {
   gap: 4px;
   font-size: 13px;
   color: #64748b;
+}
+
+.unit-progress-detail {
+  margin-bottom: 16px;
+  padding: 12px;
+  background: #f8fafc;
+  border-radius: 8px;
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.progress-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.progress-icon {
+  display: flex;
+  align-items: center;
+  color: #3b82f6;
+  font-size: 16px;
+}
+
+.progress-label {
+  font-weight: 500;
+  color: #475569;
+}
+
+.progress-stats {
+  font-weight: 600;
+  color: #1e293b;
 }
 
 .unit-actions {

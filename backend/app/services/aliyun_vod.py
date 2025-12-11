@@ -4,6 +4,7 @@
 """
 from typing import Optional
 import logging
+import json
 
 from aliyunsdkcore.client import AcsClient
 from aliyunsdkcore.request import CommonRequest
@@ -28,8 +29,7 @@ class AliyunVODService:
             logger.warning("⚠️ 阿里云VOD配置未设置，视频播放功能将不可用")
             self._client = None
         else:
-            # 创建AcsClient时必须指定正确的region_id
-            # 阿里云SDK会根据region_id自动设置对应的endpoint
+            # 创建AcsClient，使用配置的region_id
             self._client = AcsClient(
                 self.access_key_id,
                 self.access_key_secret,
@@ -63,15 +63,24 @@ class AliyunVODService:
             raise Exception("阿里云VOD未配置，无法获取播放凭证")
         
         try:
-            # 创建请求
-            request = GetVideoPlayAuthRequest.GetVideoPlayAuthRequest()
+            # 使用CommonRequest来完全控制endpoint和参数
+            request = CommonRequest()
             request.set_accept_format('json')
-            request.set_VideoId(video_id)
-            request.set_AuthInfoTimeout(auth_timeout)
+            request.set_domain(f'vod.{self.region_id}.aliyuncs.com')
+            request.set_method('POST')
+            request.set_protocol_type('https')
+            request.set_version('2017-03-21')
+            request.set_action_name('GetVideoPlayAuth')
             
-            # 发送请求（region_id已在创建AcsClient时指定）
+            # 添加请求参数
+            request.add_query_param('VideoId', video_id)
+            request.add_query_param('AuthInfoTimeout', str(auth_timeout))
+            
+            logger.debug(f"🔍 请求阿里云VOD: endpoint=vod.{self.region_id}.aliyuncs.com, video_id={video_id}")
+            
+            # 发送请求
             response = self._client.do_action_with_exception(request)
-            response_data = eval(response)
+            response_data = json.loads(response)
             
             logger.info(f"✅ 成功获取视频播放凭证: video_id={video_id}")
             
@@ -106,7 +115,8 @@ class AliyunVODService:
         try:
             request = CommonRequest()
             request.set_accept_format('json')
-            request.set_domain('vod.{}.aliyuncs.com'.format(self.region_id))
+            # 使用配置的region_id对应的endpoint
+            request.set_domain(f'vod.{self.region_id}.aliyuncs.com')
             request.set_method('POST')
             request.set_protocol_type('https')
             request.set_version('2017-03-21')
@@ -115,7 +125,7 @@ class AliyunVODService:
             request.add_query_param('VideoId', video_id)
             
             response = self._client.do_action_with_exception(request)
-            response_data = eval(response)
+            response_data = json.loads(response)
             
             video_info = response_data.get("Video", {})
             logger.info(f"✅ 成功获取视频信息: video_id={video_id}")

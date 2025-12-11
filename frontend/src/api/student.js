@@ -135,9 +135,7 @@ export const getTaskProgress = async (taskId) => {
 // - time_spent: 花费时间（秒）
 export const trackLearningProgress = async (progressData) => {
   try {
-    const data = await httpClient.post('/student/learning-progress/track', null, {
-      params: progressData
-    })
+    const data = await httpClient.post('/student/learning-progress/track', progressData)
     return data
   } catch (error) {
     throw error
@@ -184,6 +182,16 @@ export const getUnitProgress = async (unitId) => {
   }
 }
 
+// 重置学习进度（将资源或任务标记为未完成）
+export const resetLearningProgress = async (params) => {
+  try {
+    const data = await httpClient.delete('/student/learning-progress/reset-progress', { params })
+    return data
+  } catch (error) {
+    throw error
+  }
+}
+
 /**
  * 学生端 - 视频播放相关 API
  */
@@ -202,6 +210,20 @@ export const getVideoPlayAuth = async (resourceUuid) => {
 export const getVideoInfo = async (resourceUuid) => {
   try {
     const data = await httpClient.get(`/video/info/${resourceUuid}`)
+    return data
+  } catch (error) {
+    throw error
+  }
+}
+
+/**
+ * 学生端 - 用户相关 API
+ */
+
+// 修改密码
+export const changePassword = async (passwordData) => {
+  try {
+    const data = await httpClient.post('/student/auth/change-password', passwordData)
     return data
   } catch (error) {
     throw error

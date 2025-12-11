@@ -103,3 +103,8 @@ class RefreshTokenResponse(BaseModel):
 class ResetPasswordRequest(BaseModel):
     """重置密码请求"""
     new_password: str = Field(..., min_length=6, max_length=128, description="新密码（6-128个字符）")
+
+class ChangePasswordRequest(BaseModel):
+    """修改密码请求（需要提供当前密码）"""
+    current_password: str = Field(..., description="当前密码")
+    new_password: str = Field(..., min_length=8, max_length=128, description="新密码（至少8位，包含大写字母、小写字母、数字三种中的两种）")

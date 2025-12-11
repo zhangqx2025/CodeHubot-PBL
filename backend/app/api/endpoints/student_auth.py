@@ -1,12 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from datetime import timedelta
+from typing import Tuple
 
 from ...core.response import success_response, error_response
 from ...core.security import verify_password, get_password_hash, create_access_token, create_refresh_token, verify_token
 from ...core.deps import get_db, get_current_user
 from ...core.logging_config import get_logger
-from ...schemas.user import UserLogin, UserCreate, UserResponse, TokenResponse, RefreshTokenRequest, RefreshTokenResponse, InstitutionLoginRequest
+from ...schemas.user import UserLogin, UserCreate, UserResponse, TokenResponse, RefreshTokenRequest, RefreshTokenResponse, InstitutionLoginRequest, ChangePasswordRequest
 from ...models.admin import User
 from ...models.school import School
 from ...utils.timezone import get_beijing_time_naive
@@ -253,4 +254,74 @@ def refresh_access_token(request: RefreshTokenRequest, db: Session = Depends(get
             "token_type": "bearer"
         },
         message="令牌刷新成功"
+    )
+
+def validate_password_strength(password: str) -> Tuple[bool, str]:
+    """
+    验证密码强度：至少8位，包含大写字母、小写字母、数字三种中的两种
+    返回：(是否有效, 错误消息)
+    """
+    if len(password) < 8:
+        return False, "密码至少需要8位"
+    
+    has_upper = any(c.isupper() for c in password)
+    has_lower = any(c.islower() for c in password)
+    has_digit = any(c.isdigit() for c in password)
+    
+    type_count = sum([has_upper, has_lower, has_digit])
+    
+    if type_count < 2:
+        return False, "密码必须包含大写字母、小写字母、数字三种中的至少两种"
+    
+    return True, ""
+
+@router.post("/change-password")
+def change_password(
+    request: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    修改当前用户的密码
+    需要提供当前密码进行验证
+    """
+    logger.info(f"收到修改密码请求 - 用户: {current_user.username} (ID: {current_user.id})")
+    
+    # 验证当前密码
+    if not verify_password(request.current_password, current_user.password_hash):
+        logger.warning(f"修改密码失败 - 当前密码错误: {current_user.username}")
+        return error_response(
+            message="当前密码错误",
+            code=400,
+            status_code=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # 验证新密码强度
+    is_valid, error_msg = validate_password_strength(request.new_password)
+    if not is_valid:
+        logger.warning(f"修改密码失败 - 密码强度不足: {current_user.username}, {error_msg}")
+        return error_response(
+            message=error_msg,
+            code=400,
+            status_code=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # 检查新密码是否与当前密码相同
+    if verify_password(request.new_password, current_user.password_hash):
+        logger.warning(f"修改密码失败 - 新密码与当前密码相同: {current_user.username}")
+        return error_response(
+            message="新密码不能与当前密码相同",
+            code=400,
+            status_code=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # 更新密码
+    current_user.password_hash = get_password_hash(request.new_password)
+    db.commit()
+    
+    logger.info(f"密码修改成功 - 用户: {current_user.username} (ID: {current_user.id})")
+    
+    return success_response(
+        data={},
+        message="密码修改成功"
     )

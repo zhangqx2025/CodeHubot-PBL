@@ -82,12 +82,12 @@ export const API_ENDPOINTS = {
     TASKS: (id) => `/units/${id}/tasks`
   },
   
-  // 任务相关
+  // 任务相关（学生端）
   TASKS: {
-    LIST: '/tasks',
-    DETAIL: (id) => `/tasks/${id}`,
-    PROGRESS: (id) => `/tasks/${id}/progress`,
-    SUBMIT: (id) => `/tasks/${id}/submit`
+    LIST: '/student/tasks',
+    DETAIL: (id) => `/student/tasks/${id}`,
+    PROGRESS: (id) => `/student/tasks/${id}/progress`,
+    SUBMIT: (id) => `/student/tasks/${id}/submit`
   },
   
   // 项目相关
