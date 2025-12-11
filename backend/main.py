@@ -7,7 +7,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
 import time
 
-from app.api.endpoints import projects, admin_auth, admin_courses, admin_units, admin_resources, student_courses, student_auth, admin_tasks, student_tasks, admin_users, enrollments, classes_groups, learning_progress, assessments, assessment_templates, datasets, ethics, experts, social_activities, admin_outputs, portfolios, school_courses, schools, video_play, video_progress
+from app.api.endpoints import projects, admin_auth, admin_courses, admin_units, admin_resources, student_courses, student_auth, admin_tasks, student_tasks, admin_users, enrollments, classes_groups, learning_progress, assessments, assessment_templates, datasets, ethics, experts, social_activities, admin_outputs, portfolios, school_courses, schools, video_play, video_progress, class_progress
 from app.core.response import error_response
 from app.core.logging_config import setup_logging, get_logger
 from app.db.session import engine
@@ -87,6 +87,7 @@ app.include_router(schools.router, prefix="/api/v1/admin/schools", tags=["school
 app.include_router(school_courses.router, prefix="/api/v1/admin/school-courses", tags=["school-courses"])
 app.include_router(enrollments.router, prefix="/api/v1/admin/enrollments", tags=["admin-enrollments"])
 app.include_router(learning_progress.router, prefix="/api/v1/admin/learning-progress", tags=["admin-learning-progress"])
+app.include_router(class_progress.router, prefix="/api/v1/admin/class-progress", tags=["admin-class-progress"])
 
 # PBL routers
 app.include_router(projects.router, prefix="/api/v1/pbl", tags=["pbl-projects"])

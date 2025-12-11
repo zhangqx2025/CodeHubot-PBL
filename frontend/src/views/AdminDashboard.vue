@@ -115,6 +115,10 @@
                 <el-icon><TrendCharts /></el-icon>
                 <span>学习进度</span>
               </el-menu-item>
+              <el-menu-item index="/admin/class-progress">
+                <el-icon><DataLine /></el-icon>
+                <span>班级学习进度跟踪</span>
+              </el-menu-item>
               <el-menu-item index="/admin/portfolios">
                 <el-icon><Stamp /></el-icon>
                 <span>学习档案</span>
@@ -201,6 +205,12 @@
               <template #title>课程分配</template>
             </el-menu-item>
             
+            <!-- 班级学习进度跟踪 -->
+            <el-menu-item index="/admin/class-progress">
+              <el-icon><DataLine /></el-icon>
+              <template #title>班级学习进度跟踪</template>
+            </el-menu-item>
+            
             <!-- 学校课程库 -->
             <el-menu-item index="/admin/school-course-library">
               <el-icon><Reading /></el-icon>
@@ -219,6 +229,12 @@
             <el-menu-item index="/admin/classes">
               <el-icon><School /></el-icon>
               <template #title>学生分组</template>
+            </el-menu-item>
+            
+            <!-- 班级学习进度跟踪 -->
+            <el-menu-item index="/admin/class-progress">
+              <el-icon><DataLine /></el-icon>
+              <template #title>班级学习进度跟踪</template>
             </el-menu-item>
             
             <!-- 学习进度 -->

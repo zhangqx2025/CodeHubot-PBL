@@ -266,6 +266,14 @@ const routes = [
         }
       },
       {
+        path: 'class-progress',
+        name: 'AdminClassProgress',
+        component: () => import('../views/AdminClassProgress.vue'),
+        meta: {
+          title: '班级学习进度跟踪 - PBL系统管理后台'
+        }
+      },
+      {
         path: 'assessments',
         name: 'AdminAssessments',
         component: () => import('../views/AdminAssessments.vue'),
