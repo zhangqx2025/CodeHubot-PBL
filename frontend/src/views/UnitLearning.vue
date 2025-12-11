@@ -134,8 +134,8 @@
             {{ currentStep?.title || '请选择学习步骤' }}
             <el-tag v-if="currentStep?.status === 'completed'" type="success" effect="dark" size="small" class="ml-2">已完成</el-tag>
           </h2>
-          <!-- 新增手动标记按钮 -->
-          <div class="header-actions" v-if="currentStep">
+          <!-- 手动标记按钮（仅对非任务类型的学习资源有效） -->
+          <div class="header-actions" v-if="currentStep && currentStep.type !== 'task'">
              <el-button 
                v-if="currentStep.status !== 'completed'" 
                type="success" 
@@ -232,8 +232,9 @@
                     <el-input 
                       v-model="submissionContent" 
                       type="textarea" 
-                      :rows="4" 
+                      :rows="10" 
                       placeholder="请输入你的作业内容"
+                      class="fixed-textarea"
                     />
                   </el-form-item>
                   <el-form-item>
@@ -309,7 +310,8 @@ import {
   trackLearningProgress,
   getUnitResourcesProgress,
   getVideoPlayAuth,
-  submitTask as submitTaskAPI
+  submitTask as submitTaskAPI,
+  resetLearningProgress
 } from '@/api/student'
 
 const router = useRouter()
@@ -941,12 +943,29 @@ const manualCompleteStep = async () => {
 }
 
 // 手动取消完成
-const manualUncompleteStep = () => {
+const manualUncompleteStep = async () => {
   if (currentStep.value) {
-    currentStep.value.status = 'available'
-    ElMessage.info('已撤销完成状态')
-    // 注意：这里不删除后端记录，只是前端状态变化
-    // 如果需要删除后端记录，需要添加相应的API
+    try {
+      // 调用后端API删除学习进度记录
+      const params = {}
+      if (currentStep.value.type === 'task') {
+        params.task_uuid = currentStep.value.uuid
+      } else {
+        params.resource_uuid = currentStep.value.uuid
+      }
+      
+      await resetLearningProgress(params)
+      
+      // 更新前端状态
+      currentStep.value.status = 'available'
+      ElMessage.success('已撤销完成状态')
+      
+      // 重新加载学习进度以确保数据同步
+      await loadLearningProgress(currentUnit.value.uuid)
+    } catch (error) {
+      console.error('撤销完成状态失败:', error)
+      ElMessage.error(error.message || '操作失败，请重试')
+    }
   }
 }
 
@@ -1380,5 +1399,13 @@ onMounted(async () => {
   padding: 40px;
   background: white;
   height: 100vh;
+}
+
+/* 固定textarea大小，禁用拖拽 */
+.fixed-textarea :deep(textarea) {
+  resize: none !important;
+  min-height: 240px;
+  max-height: 240px;
+  overflow-y: auto;
 }
 </style>

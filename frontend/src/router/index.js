@@ -186,6 +186,22 @@ const routes = [
         }
       },
       {
+        path: 'template-library',
+        name: 'TemplateLibrary',
+        component: () => import('../views/TemplateLibrary.vue'),
+        meta: {
+          title: '模板库管理 - PBL系统管理后台'
+        }
+      },
+      {
+        path: 'available-templates',
+        name: 'AvailableTemplates',
+        component: () => import('../views/AvailableTemplates.vue'),
+        meta: {
+          title: '可用模板库 - PBL系统管理后台'
+        }
+      },
+      {
         path: 'units',
         name: 'AdminUnits',
         component: () => import('../views/AdminUnits.vue'),
@@ -246,7 +262,7 @@ const routes = [
         name: 'AdminClasses',
         component: () => import('../views/ClubClasses.vue'),
         meta: {
-          title: '班级小组管理 - PBL系统管理后台'
+          title: '项目式课程管理 - PBL系统管理后台'
         }
       },
       {

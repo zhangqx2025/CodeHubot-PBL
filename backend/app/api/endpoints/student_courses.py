@@ -8,25 +8,35 @@ from ...models.pbl import PBLCourse, PBLUnit, PBLProject, PBLResource, PBLTask, 
 
 router = APIRouter()
 
-def serialize_course_list_item(course: PBLCourse, enrollment: PBLCourseEnrollment = None) -> dict:
+def serialize_course_list_item(course: PBLCourse, enrollment: PBLCourseEnrollment = None, db: Session = None, user_id: int = None) -> dict:
     """序列化课程列表项"""
-    # 如果有选课记录，使用选课记录中的进度；否则计算进度
+    units = course.units
+    total_units = len(units)
+    
+    # 计算学生实际完成的单元数（通过学习进度记录）
+    completed_units = 0
+    if db and user_id:
+        # 查询该学生已完成的单元数量
+        unit_ids = [unit.id for unit in units]
+        if unit_ids:
+            completed_count = db.query(PBLLearningProgress).filter(
+                PBLLearningProgress.user_id == user_id,
+                PBLLearningProgress.unit_id.in_(unit_ids),
+                PBLLearningProgress.progress_type == 'unit_complete',
+                PBLLearningProgress.status == 'completed'
+            ).count()
+            completed_units = completed_count
+    
+    # 计算课程进度
+    progress = int((completed_units / total_units * 100) if total_units > 0 else 0)
+    
+    # 如果有选课记录，获取选课信息
     if enrollment:
-        progress = enrollment.progress
         enrollment_status = enrollment.enrollment_status
         enrolled_at = enrollment.enrolled_at.isoformat() if enrollment.enrolled_at else None
     else:
-        # 计算课程进度（简化版，后续可以根据实际学习进度计算）
-        units = course.units
-        total_units = len(units)
-        completed_units = len([u for u in units if u.status == 'completed'])
-        progress = int((completed_units / total_units * 100) if total_units > 0 else 0)
         enrollment_status = None
         enrolled_at = None
-    
-    units = course.units
-    total_units = len(units)
-    completed_units = len([u for u in units if u.status == 'completed'])
     
     return {
         'id': course.id,
@@ -46,10 +56,64 @@ def serialize_course_list_item(course: PBLCourse, enrollment: PBLCourseEnrollmen
         'updated_at': course.updated_at.isoformat() if course.updated_at else None
     }
 
-def serialize_unit_summary(unit: PBLUnit) -> dict:
+def serialize_unit_summary(unit: PBLUnit, db: Session = None, user_id: int = None) -> dict:
     """序列化单元摘要信息"""
     resources_count = len(unit.resources)
     tasks_count = len(unit.tasks)
+    
+    # 初始化分类统计
+    video_count = 0
+    document_count = 0
+    completed_videos = 0
+    completed_documents = 0
+    completed_tasks = 0
+    
+    # 计算单元学习进度
+    progress = 0
+    if db and user_id:
+        # 分类统计资源
+        for resource in unit.resources:
+            if resource.type == 'video':
+                video_count += 1
+            elif resource.type == 'document':
+                document_count += 1
+            
+            # 检查资源是否完成
+            resource_progress = db.query(PBLLearningProgress).filter(
+                PBLLearningProgress.user_id == user_id,
+                PBLLearningProgress.unit_id == unit.id,
+                PBLLearningProgress.resource_id == resource.id,
+                PBLLearningProgress.status == 'completed'
+            ).first()
+            if resource_progress:
+                if resource.type == 'video':
+                    completed_videos += 1
+                elif resource.type == 'document':
+                    completed_documents += 1
+        
+        # 统计已完成或已提交的任务数量（review状态也算完成）
+        for task in unit.tasks:
+            task_progress = db.query(PBLLearningProgress).filter(
+                PBLLearningProgress.user_id == user_id,
+                PBLLearningProgress.unit_id == unit.id,
+                PBLLearningProgress.task_id == task.id,
+                PBLLearningProgress.status.in_(['completed', 'review'])
+            ).first()
+            if task_progress:
+                completed_tasks += 1
+        
+        # 计算总进度百分比
+        total_items = resources_count + tasks_count
+        if total_items > 0:
+            completed_items = completed_videos + completed_documents + completed_tasks
+            progress = int((completed_items / total_items) * 100)
+    else:
+        # 如果没有用户信息，只统计数量
+        for resource in unit.resources:
+            if resource.type == 'video':
+                video_count += 1
+            elif resource.type == 'document':
+                document_count += 1
     
     return {
         'id': unit.id,
@@ -60,10 +124,17 @@ def serialize_unit_summary(unit: PBLUnit) -> dict:
         'status': unit.status,
         'resources_count': resources_count,
         'tasks_count': tasks_count,
+        'progress': progress,
+        # 新增详细统计
+        'video_count': video_count,
+        'document_count': document_count,
+        'completed_videos': completed_videos,
+        'completed_documents': completed_documents,
+        'completed_tasks': completed_tasks,
         'created_at': unit.created_at.isoformat() if unit.created_at else None
     }
 
-def serialize_course_detail(course: PBLCourse) -> dict:
+def serialize_course_detail(course: PBLCourse, db: Session = None, user_id: int = None) -> dict:
     """序列化课程详情"""
     units = sorted(course.units, key=lambda x: x.order)
     projects = course.projects
@@ -77,7 +148,7 @@ def serialize_course_detail(course: PBLCourse) -> dict:
         'duration': course.duration,
         'difficulty': course.difficulty,
         'status': course.status,
-        'units': [serialize_unit_summary(unit) for unit in units],
+        'units': [serialize_unit_summary(unit, db, user_id) for unit in units],
         'projects': [{
             'id': p.id,
             'uuid': p.uuid,
@@ -161,7 +232,7 @@ def get_my_courses(
         ).first()
         
         if course:
-            result_items.append(serialize_course_list_item(course, enrollment))
+            result_items.append(serialize_course_list_item(course, enrollment, db, current_user.id))
     
     return success_response(data={
         'total': len(result_items),
@@ -206,7 +277,7 @@ def get_course_detail(
             status_code=status.HTTP_403_FORBIDDEN
         )
     
-    return success_response(data=serialize_course_detail(course))
+    return success_response(data=serialize_course_detail(course, db, current_user.id))
 
 @router.get("/units/{unit_uuid}")
 def get_unit_detail(
@@ -283,7 +354,7 @@ def get_course_units(
     # 为每个单元添加用户的完成状态
     units_data = []
     for unit in units:
-        unit_data = serialize_unit_summary(unit)
+        unit_data = serialize_unit_summary(unit, db, current_user.id)
         
         # 检查该用户是否完成了该单元
         unit_complete = db.query(PBLLearningProgress).filter(

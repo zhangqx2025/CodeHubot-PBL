@@ -311,7 +311,8 @@ class TemplateSchoolPermissionWithDetails(TemplateSchoolPermission):
 # --- Course Template Schemas ---
 class CourseTemplateBase(BaseModel):
     """课程模板基础模型"""
-    name: str
+    template_code: str
+    title: str
     description: Optional[str] = None
     cover_image: Optional[str] = None
     duration: Optional[str] = None
@@ -328,7 +329,8 @@ class CourseTemplateCreate(CourseTemplateBase):
 
 class CourseTemplateUpdate(BaseModel):
     """更新课程模板"""
-    name: Optional[str] = None
+    template_code: Optional[str] = None
+    title: Optional[str] = None
     description: Optional[str] = None
     cover_image: Optional[str] = None
     duration: Optional[str] = None

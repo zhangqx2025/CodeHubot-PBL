@@ -12,6 +12,13 @@ class PBLCourse(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     uuid = Column(String(36), unique=True, default=generate_uuid, nullable=False)
+    template_id = Column(BigInteger)  # Foreign Key to pbl_course_templates
+    template_version = Column(String(20))
+    permission_id = Column(BigInteger)  # Foreign Key to pbl_template_school_permissions
+    is_customized = Column(Integer, default=0)
+    sync_with_template = Column(Integer, default=1)
+    class_id = Column(Integer, ForeignKey("pbl_classes.id"))  # 关联班级
+    class_name = Column(String(100))  # 冗余字段
     title = Column(String(200), nullable=False)
     description = Column(Text)
     cover_image = Column(String(255))
@@ -25,6 +32,27 @@ class PBLCourse(Base):
 
     units = relationship("PBLUnit", back_populates="course", cascade="all, delete-orphan")
     projects = relationship("PBLProject", back_populates="course")
+
+
+class PBLCourseTemplate(Base):
+    """课程模板表"""
+    __tablename__ = "pbl_course_templates"
+
+    id = Column(BigInteger, primary_key=True, index=True)
+    uuid = Column(String(36), unique=True, default=generate_uuid, nullable=False)
+    template_code = Column(String(50), nullable=False)
+    title = Column(String(200), nullable=False)
+    description = Column(Text)
+    cover_image = Column(String(500))
+    duration = Column(String(50))
+    difficulty = Column(Enum('beginner', 'intermediate', 'advanced'), default='beginner')
+    category = Column(String(50))
+    version = Column(String(20), default='1.0.0')
+    is_public = Column(Integer, default=1)
+    creator_id = Column(Integer)
+    usage_count = Column(Integer, default=0)
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
 
 
 class PBLUnit(Base):
@@ -155,7 +183,8 @@ class PBLCourseEnrollment(Base):
     id = Column(Integer, primary_key=True, index=True)
     course_id = Column(Integer, ForeignKey("pbl_courses.id"), nullable=False)
     user_id = Column(Integer, nullable=False) # Foreign Key to core_users
-    enrollment_status = Column(Enum('enrolled', 'dropped', 'completed'), default='enrolled')
+    class_id = Column(Integer)  # 通过哪个班级获得此课程
+    status = Column(Enum('active', 'dropped', 'completed'), default='active')
     enrolled_at = Column(TIMESTAMP)
     dropped_at = Column(TIMESTAMP)
     completed_at = Column(TIMESTAMP)
@@ -198,11 +227,62 @@ class PBLClass(Base):
     uuid = Column(String(36), unique=True, default=generate_uuid, nullable=False)
     school_id = Column(Integer, nullable=False)
     name = Column(String(100), nullable=False)
+    class_type = Column(Enum('club', 'project', 'interest', 'competition', 'regular'), default='regular')
+    description = Column(Text)
     grade = Column(String(50))
     academic_year = Column(String(20))
     class_teacher_id = Column(Integer)
     max_students = Column(Integer, default=50)
+    current_members = Column(Integer, default=0)
     is_active = Column(Integer, default=1)
+    is_open = Column(Integer, default=1)
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+
+
+class PBLClassMember(Base):
+    """班级成员表（多对多关系）"""
+    __tablename__ = "pbl_class_members"
+
+    id = Column(Integer, primary_key=True, index=True)
+    class_id = Column(Integer, ForeignKey("pbl_classes.id"), nullable=False)
+    student_id = Column(Integer, nullable=False)  # Foreign Key to core_users
+    role = Column(Enum('member', 'leader', 'deputy'), default='member')
+    joined_at = Column(TIMESTAMP, server_default=func.now())
+    left_at = Column(TIMESTAMP)
+    is_active = Column(Integer, default=1)
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+
+
+class PBLClassTeacher(Base):
+    """班级教师关联表（多对多关系）"""
+    __tablename__ = "pbl_class_teachers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    class_id = Column(Integer, ForeignKey("pbl_classes.id"), nullable=False)
+    teacher_id = Column(Integer, nullable=False)  # Foreign Key to core_users
+    subject = Column(String(50))  # 教师在该班级教授的科目
+    is_primary = Column(Integer, default=0)  # 是否为班主任
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+
+
+class PBLClassCourse(Base):
+    """班级课程分配表"""
+    __tablename__ = "pbl_class_courses"
+
+    id = Column(Integer, primary_key=True, index=True)
+    uuid = Column(String(36), unique=True, default=generate_uuid, nullable=False)
+    class_id = Column(Integer, ForeignKey("pbl_classes.id"), nullable=False)
+    course_id = Column(BigInteger, ForeignKey("pbl_courses.id"), nullable=False)
+    auto_enroll = Column(Integer, default=1)  # 是否自动为班级成员选课
+    assigned_by = Column(Integer, nullable=False)  # Foreign Key to core_users
+    assigned_at = Column(TIMESTAMP, server_default=func.now())
+    start_date = Column(TIMESTAMP)
+    end_date = Column(TIMESTAMP)
+    status = Column(Enum('active', 'inactive', 'completed'), default='active')
+    remarks = Column(String(500))
     created_at = Column(TIMESTAMP, server_default=func.now())
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
 
@@ -557,3 +637,36 @@ class PBLVideoPlayEvent(Base):
     event_data = Column(Text, comment='事件数据（JSON格式）')
     position = Column(Integer, default=0, comment='事件发生时的播放位置（秒）')
     timestamp = Column(TIMESTAMP, server_default=func.now(), nullable=False)
+
+
+class PBLTemplateSchoolPermission(Base):
+    """课程模板学校开放权限表"""
+    __tablename__ = "pbl_template_school_permissions"
+
+    id = Column(BigInteger, primary_key=True, index=True)
+    uuid = Column(String(36), unique=True, default=generate_uuid, nullable=False)
+    
+    # 关联信息
+    template_id = Column(BigInteger, ForeignKey("pbl_course_templates.id"), nullable=False)
+    school_id = Column(Integer, nullable=False)  # Foreign Key to core_schools
+    
+    # 权限设置
+    is_active = Column(Integer, default=1, comment='是否激活')
+    can_customize = Column(Integer, default=1, comment='是否允许自定义修改')
+    
+    # 使用限制
+    max_instances = Column(Integer, default=None, comment='最大创建实例数')
+    current_instances = Column(Integer, default=0, comment='当前已创建实例数')
+    
+    # 有效期设置
+    valid_from = Column(TIMESTAMP, default=None, comment='有效开始时间')
+    valid_until = Column(TIMESTAMP, default=None, comment='有效结束时间')
+    
+    # 管理信息
+    granted_by = Column(Integer, nullable=False, comment='授权人ID')
+    granted_at = Column(TIMESTAMP, server_default=func.now(), comment='授权时间')
+    remarks = Column(Text, comment='备注说明')
+    
+    # 时间戳
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())

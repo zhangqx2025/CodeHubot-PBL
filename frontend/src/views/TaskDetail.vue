@@ -66,9 +66,9 @@
       </el-card>
 
       <!-- 提交作业 -->
-      <el-card class="submission-card" v-if="taskProgress.status !== 'completed'">
+      <el-card class="submission-card">
         <template #header>
-          <span>提交作业</span>
+          <span>{{ taskProgress.status === 'review' ? '重新提交作业' : taskProgress.status === 'completed' ? '重新提交作业（将覆盖原有评分）' : '提交作业' }}</span>
         </template>
         
         <el-form :model="submissionForm" label-width="100px">
@@ -76,8 +76,9 @@
             <el-input
               v-model="submissionForm.content"
               type="textarea"
-              :rows="8"
+              :rows="12"
               placeholder="请输入作业内容"
+              class="fixed-textarea"
             />
           </el-form-item>
           <el-form-item label="附件链接">
@@ -90,14 +91,12 @@
             <el-button 
               type="primary" 
               @click="handleSubmit"
-              :disabled="taskProgress.status === 'review' || taskProgress.status === 'completed'"
               :loading="submitting"
             >
-              {{ taskProgress.status === 'review' ? '已提交，等待评分' : '提交作业' }}
+              {{ taskProgress.status === 'review' ? '重新提交' : taskProgress.status === 'completed' ? '重新提交' : '提交作业' }}
             </el-button>
             <el-button 
               @click="handleSaveDraft"
-              :disabled="taskProgress.status === 'review' || taskProgress.status === 'completed'"
             >
               保存草稿
             </el-button>
@@ -246,15 +245,33 @@ const loadTaskDetail = async () => {
   try {
     const taskUuid = route.params.uuid
     const result = await getTaskDetail(taskUuid)
+    
+    console.log('=== 加载任务详情 ===')
+    console.log('完整返回数据:', result)
+    console.log('任务进度数据:', result.progress)
+    console.log('submission字段:', result.progress?.submission)
+    
     task.value = result
     taskProgress.value = result.progress || {}
     
-    // 如果有提交内容，填充到表单
+    // 始终填充之前提交的内容到表单（如果存在）
     if (taskProgress.value.submission) {
+      console.log('找到submission数据，开始填充表单')
+      console.log('content:', taskProgress.value.submission.content)
+      console.log('attachment_url:', taskProgress.value.submission.attachment_url)
+      
       submissionForm.content = taskProgress.value.submission.content || ''
       submissionForm.attachment_url = taskProgress.value.submission.attachment_url || ''
+      
+      console.log('表单填充完成:', submissionForm)
+    } else {
+      console.log('未找到submission数据，清空表单')
+      // 如果没有提交记录，确保表单为空
+      submissionForm.content = ''
+      submissionForm.attachment_url = ''
     }
   } catch (error) {
+    console.error('加载任务详情失败:', error)
     ElMessage.error(error.message || '加载任务详情失败')
   } finally {
     loading.value = false
@@ -377,5 +394,13 @@ onMounted(() => {
   color: #606266;
   line-height: 1.8;
   white-space: pre-wrap;
+}
+
+/* 固定textarea大小，禁用拖拽 */
+.fixed-textarea :deep(textarea) {
+  resize: none !important;
+  min-height: 280px;
+  max-height: 280px;
+  overflow-y: auto;
 }
 </style>

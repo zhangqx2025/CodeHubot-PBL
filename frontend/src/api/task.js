@@ -37,9 +37,14 @@ export const getTaskDetail = async (id) => {
   }
 }
 
-export const updateTaskProgress = async (id, progressData) => {
+export const updateTaskProgress = async (id, progressValue, taskStatus = null) => {
   try {
-    const response = await httpClient.post(API_ENDPOINTS.TASKS.PROGRESS(id), progressData)
+    const response = await httpClient.patch(API_ENDPOINTS.TASKS.PROGRESS(id), null, {
+      params: {
+        progress_value: progressValue,
+        task_status: taskStatus
+      }
+    })
     return response.data.data || response.data
   } catch (error) {
     throw new Error(handleApiError(error))

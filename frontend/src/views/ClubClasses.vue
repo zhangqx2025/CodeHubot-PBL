@@ -5,9 +5,9 @@
       <div class="header-left">
         <h1 class="page-title">
           <el-icon class="title-icon"><School /></el-icon>
-          社团班管理
+          项目式课程管理
         </h1>
-        <p class="page-subtitle">灵活组织学生、自动分配课程</p>
+        <p class="page-subtitle">创建班级、组织学生、从模板导入或自定义课程</p>
       </div>
       <el-button type="primary" size="large" @click="showCreateDialog" class="create-btn">
         <el-icon><Plus /></el-icon>
@@ -417,7 +417,7 @@
       </template>
     </el-dialog>
 
-    <!-- 班级小组管理对话框 -->
+    <!-- 小组管理对话框 -->
     <el-dialog 
       v-model="classGroupsDialogVisible" 
       :title="`小组管理 - ${currentClassName}`"
@@ -1007,7 +1007,7 @@ const submitCreateCourse = async () => {
 
 // ===== 小组管理方法 =====
 
-// 加载班级小组列表
+// 加载小组列表
 const loadClassGroups = async (classId) => {
   groupLoading.value = true
   try {

@@ -10,15 +10,9 @@
       </div>
     </el-card>
 
-    <!-- 课程筛选 -->
+    <!-- 课程搜索 -->
     <el-card class="filter-card" shadow="never">
       <div class="course-filters">
-        <el-radio-group v-model="filterStatus" @change="loadCourses">
-          <el-radio-button label="all">全部课程</el-radio-button>
-          <el-radio-button label="in-progress">进行中</el-radio-button>
-          <el-radio-button label="completed">已完成</el-radio-button>
-        </el-radio-group>
-        
         <el-input
           v-model="searchQuery"
           placeholder="搜索课程..."
@@ -50,14 +44,6 @@
             <div class="course-difficulty" :class="`difficulty-${course.difficulty}`">
               {{ getDifficultyText(course.difficulty) }}
             </div>
-            <div class="course-progress-overlay">
-              <el-progress 
-                type="circle" 
-                :percentage="course.progress" 
-                :width="60"
-                :stroke-width="4"
-              />
-            </div>
           </div>
 
           <!-- 课程信息 -->
@@ -74,20 +60,13 @@
                 <el-icon><Reading /></el-icon>
                 <span>{{ course.total_units }}个单元</span>
               </div>
-              <div class="meta-item">
-                <el-icon><Check /></el-icon>
-                <span>已完成{{ course.completed_units }}个</span>
-              </div>
             </div>
 
-            <!-- 进度条 -->
-            <div class="course-progress-bar">
-              <el-progress 
-                :percentage="course.progress" 
-                :show-text="false"
-                :stroke-width="6"
-              />
-              <span class="progress-text">学习进度 {{ course.progress }}%</span>
+            <!-- 课程特点标签 -->
+            <div class="course-features">
+              <el-tag type="info" size="small" effect="plain">项目式学习</el-tag>
+              <el-tag type="success" size="small" effect="plain">实战项目</el-tag>
+              <el-tag type="warning" size="small" effect="plain">边做边学</el-tag>
             </div>
           </div>
 
@@ -124,7 +103,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Search, Clock, Reading, Check } from '@element-plus/icons-vue'
+import { Search, Clock, Reading } from '@element-plus/icons-vue'
 import { getMyCourses } from '@/api/student'
 
 const router = useRouter()
@@ -132,21 +111,11 @@ const router = useRouter()
 // 状态管理
 const loading = ref(false)
 const courses = ref([])
-const filterStatus = ref('all')
 const searchQuery = ref('')
 
 // 计算属性
 const filteredCourses = computed(() => {
   let result = courses.value
-
-  // 状态筛选
-  if (filterStatus.value !== 'all') {
-    if (filterStatus.value === 'in-progress') {
-      result = result.filter(c => c.progress > 0 && c.progress < 100)
-    } else if (filterStatus.value === 'completed') {
-      result = result.filter(c => c.progress === 100)
-    }
-  }
 
   // 搜索筛选
   if (searchQuery.value) {
@@ -243,13 +212,13 @@ onMounted(() => {
 
 .course-filters {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
   gap: 16px;
 }
 
 .search-input {
-  width: 300px;
+  width: 350px;
 }
 
 .courses-grid {
@@ -321,19 +290,6 @@ onMounted(() => {
   color: white;
 }
 
-.course-progress-overlay {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-.course-card:hover .course-progress-overlay {
-  opacity: 1;
-}
-
 .course-info {
   padding: 20px;
   flex: 1;
@@ -380,15 +336,11 @@ onMounted(() => {
   font-size: 16px;
 }
 
-.course-progress-bar {
-  margin-top: 12px;
-}
-
-.progress-text {
-  display: block;
-  font-size: 12px;
-  color: #64748b;
-  margin-top: 8px;
+.course-features {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+  flex-wrap: wrap;
 }
 
 .course-actions {

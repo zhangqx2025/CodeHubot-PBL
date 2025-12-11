@@ -265,8 +265,31 @@ def track_learning_activity(
         PBLCourseEnrollment.enrollment_status == 'enrolled'
     ).first()
     
-    if enrollment and track_data.progress_value > enrollment.progress:
-        enrollment.progress = track_data.progress_value
+    if enrollment:
+        # 如果是单元完成记录，重新计算整个课程的进度
+        if track_data.progress_type == 'unit_complete' and is_completed:
+            # 获取课程的所有单元
+            units = db.query(PBLUnit).filter(PBLUnit.course_id == course.id).all()
+            total_units = len(units)
+            
+            if total_units > 0:
+                # 查询该学生已完成的单元数量
+                unit_ids = [unit.id for unit in units]
+                completed_count = db.query(PBLLearningProgress).filter(
+                    PBLLearningProgress.user_id == current_user.id,
+                    PBLLearningProgress.unit_id.in_(unit_ids),
+                    PBLLearningProgress.progress_type == 'unit_complete',
+                    PBLLearningProgress.status == 'completed'
+                ).count()
+                
+                # 计算课程进度百分比
+                course_progress = int((completed_count / total_units * 100))
+                enrollment.progress = course_progress
+                
+                # 如果完成了所有单元，标记课程为已完成
+                if course_progress >= 100:
+                    enrollment.enrollment_status = 'completed'
+                    enrollment.completed_at = datetime.now()
     
     db.commit()
     
@@ -287,6 +310,65 @@ def track_learning_activity(
         },
         message="学习行为记录成功"
     )
+
+@router.delete("/reset-progress")
+def reset_learning_progress(
+    resource_uuid: Optional[str] = None,
+    task_uuid: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """重置学习进度（将资源或任务标记为未完成）"""
+    try:
+        # 根据UUID查找对应的ID
+        if resource_uuid:
+            resource = db.query(PBLResource).filter(PBLResource.uuid == resource_uuid).first()
+            if not resource:
+                return error_response(
+                    message="资源不存在",
+                    code=404,
+                    status_code=status.HTTP_404_NOT_FOUND
+                )
+            
+            # 删除该资源的所有学习进度记录
+            db.query(PBLLearningProgress).filter(
+                PBLLearningProgress.user_id == current_user.id,
+                PBLLearningProgress.resource_id == resource.id
+            ).delete()
+            
+            logger.debug(f"重置资源进度 - 用户: {current_user.id}, 资源: {resource_uuid}")
+        
+        if task_uuid:
+            task = db.query(PBLTask).filter(PBLTask.uuid == task_uuid).first()
+            if not task:
+                return error_response(
+                    message="任务不存在",
+                    code=404,
+                    status_code=status.HTTP_404_NOT_FOUND
+                )
+            
+            # 删除该任务的所有学习进度记录
+            db.query(PBLLearningProgress).filter(
+                PBLLearningProgress.user_id == current_user.id,
+                PBLLearningProgress.task_id == task.id
+            ).delete()
+            
+            logger.debug(f"重置任务进度 - 用户: {current_user.id}, 任务: {task_uuid}")
+        
+        db.commit()
+        
+        return success_response(
+            data={'reset': True},
+            message="学习进度已重置"
+        )
+    except Exception as e:
+        db.rollback()
+        logger.error(f"重置学习进度失败: {str(e)}")
+        return error_response(
+            message="重置失败",
+            code=500,
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 @router.get("/unit/{unit_uuid}/resources-progress")
 def get_unit_resources_progress(

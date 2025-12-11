@@ -97,7 +97,7 @@
               </el-menu-item>
               <el-menu-item index="/admin/classes">
                 <el-icon><School /></el-icon>
-                <span>班级小组</span>
+                <span>项目式课程</span>
               </el-menu-item>
             </el-sub-menu>
             
@@ -185,16 +185,30 @@
               <template #title>用户管理</template>
             </el-menu-item>
             
-            <!-- 班级小组管理 -->
+            <!-- 项目式课程管理 -->
             <el-menu-item index="/admin/classes">
               <el-icon><School /></el-icon>
-              <template #title>班级小组管理</template>
+              <template #title>项目式课程管理</template>
             </el-menu-item>
             
             <!-- 学校课程库 -->
             <el-menu-item index="/admin/school-course-library">
               <el-icon><Reading /></el-icon>
               <template #title>学校课程库</template>
+            </el-menu-item>
+            
+            <!-- 可用模板库 - 仅学校管理员 -->
+            <el-menu-item index="/admin/available-templates" v-if="!isPlatformAdmin">
+              <el-icon><Files /></el-icon>
+              <template #title>可用模板库</template>
+            </el-menu-item>
+          </template>
+          
+          <!-- 模板库管理 - 仅平台管理员 -->
+          <template v-if="isPlatformAdmin">
+            <el-menu-item index="/admin/template-library">
+              <el-icon><Collection /></el-icon>
+              <template #title>模板库管理</template>
             </el-menu-item>
           </template>
           
@@ -399,6 +413,8 @@ const pageTitle = computed(() => {
     '/admin/courses': '课程管理',
     '/admin/school-courses': '学校课程配置',
     '/admin/school-course-library': '学校课程库',
+    '/admin/template-library': '模板库管理',
+    '/admin/available-templates': '可用模板库',
     '/admin/units': '学习单元',
     '/admin/resources': '资料管理',
     '/admin/video-permissions': '视频权限管理',
@@ -407,7 +423,7 @@ const pageTitle = computed(() => {
     '/admin/outputs': '成果管理',
     '/admin/users': '用户管理',
     '/admin/school-user-management': '用户管理',
-    '/admin/classes': '班级小组管理',
+    '/admin/classes': '项目式课程管理',
     '/admin/progress': '学习进度',
     '/admin/portfolios': '学习档案',
     '/admin/assessments': '评价管理',

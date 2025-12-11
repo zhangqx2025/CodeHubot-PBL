@@ -20,11 +20,6 @@
       </div>
       
       <div class="header-right">
-        <!-- 通知 -->
-        <el-badge :value="notificationCount" :hidden="notificationCount === 0">
-          <el-button :icon="Bell" circle />
-        </el-badge>
-        
         <!-- 用户信息 -->
         <el-dropdown @command="handleUserCommand">
           <div class="user-info">
@@ -113,7 +108,6 @@ import {
   Expand,
   Fold,
   Search,
-  Bell,
   ArrowDown,
   Setting,
   QuestionFilled,
@@ -128,7 +122,6 @@ const authStore = useAuthStore()
 
 const isCollapsed = ref(false)
 const searchText = ref('')
-const notificationCount = ref(3)
 
 const userInfo = reactive({
   name: '学生用户',
