@@ -246,3 +246,106 @@ class CourseEnrollment(CourseEnrollmentBase):
 class CourseEnrollmentWithDetails(CourseEnrollment):
     """学生选课详情（包含课程信息）"""
     course: Optional[Course] = None
+
+# --- Learning Progress Schemas ---
+class LearningProgressTrack(BaseModel):
+    """学习进度追踪请求"""
+    course_uuid: str
+    unit_uuid: Optional[str] = None
+    resource_uuid: Optional[str] = None
+    task_uuid: Optional[str] = None
+    progress_type: str = 'resource_view'  # video_watch, document_read, task_submit, etc.
+    progress_value: int = 0  # 0-100
+    time_spent: int = 0  # 秒
+    metadata: Optional[dict] = None
+
+
+# --- Template School Permission Schemas ---
+class TemplateSchoolPermissionBase(BaseModel):
+    """课程模板学校开放权限基础模型"""
+    template_id: int
+    school_id: int
+    is_active: Optional[int] = 1
+    can_customize: Optional[int] = 1
+    max_instances: Optional[int] = None
+    valid_from: Optional[datetime] = None
+    valid_until: Optional[datetime] = None
+    remarks: Optional[str] = None
+
+
+class TemplateSchoolPermissionCreate(TemplateSchoolPermissionBase):
+    """创建模板开放权限"""
+    pass
+
+
+class TemplateSchoolPermissionUpdate(BaseModel):
+    """更新模板开放权限"""
+    is_active: Optional[int] = None
+    can_customize: Optional[int] = None
+    max_instances: Optional[int] = None
+    valid_from: Optional[datetime] = None
+    valid_until: Optional[datetime] = None
+    remarks: Optional[str] = None
+
+
+class TemplateSchoolPermission(TemplateSchoolPermissionBase):
+    """模板开放权限返回模型"""
+    id: int
+    uuid: str
+    current_instances: int
+    granted_by: int
+    granted_at: datetime
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+
+class TemplateSchoolPermissionWithDetails(TemplateSchoolPermission):
+    """模板开放权限详情（包含模板和学校信息）"""
+    template: Optional[dict] = None
+    school: Optional[dict] = None
+
+
+# --- Course Template Schemas ---
+class CourseTemplateBase(BaseModel):
+    """课程模板基础模型"""
+    name: str
+    description: Optional[str] = None
+    cover_image: Optional[str] = None
+    duration: Optional[str] = None
+    difficulty: Optional[str] = 'beginner'
+    category: Optional[str] = None
+    version: Optional[str] = '1.0.0'
+    is_public: Optional[int] = 1
+
+
+class CourseTemplateCreate(CourseTemplateBase):
+    """创建课程模板"""
+    pass
+
+
+class CourseTemplateUpdate(BaseModel):
+    """更新课程模板"""
+    name: Optional[str] = None
+    description: Optional[str] = None
+    cover_image: Optional[str] = None
+    duration: Optional[str] = None
+    difficulty: Optional[str] = None
+    category: Optional[str] = None
+    version: Optional[str] = None
+    is_public: Optional[int] = None
+
+
+class CourseTemplate(CourseTemplateBase):
+    """课程模板返回模型"""
+    id: int
+    uuid: str
+    creator_id: Optional[int] = None
+    usage_count: int
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
