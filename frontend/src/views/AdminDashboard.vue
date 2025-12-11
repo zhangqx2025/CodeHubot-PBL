@@ -107,10 +107,6 @@
                 <el-icon><DataAnalysis /></el-icon>
                 <span>教学管理</span>
               </template>
-              <el-menu-item index="/admin/enrollments">
-                <el-icon><Notebook /></el-icon>
-                <span>选课管理</span>
-              </el-menu-item>
               <el-menu-item index="/admin/progress">
                 <el-icon><TrendCharts /></el-icon>
                 <span>学习进度</span>
@@ -189,16 +185,10 @@
               <template #title>用户管理</template>
             </el-menu-item>
             
-            <!-- 班级管理 -->
+            <!-- 班级小组管理 -->
             <el-menu-item index="/admin/classes">
               <el-icon><School /></el-icon>
-              <template #title>班级管理</template>
-            </el-menu-item>
-            
-            <!-- 课程分配 -->
-            <el-menu-item index="/admin/enrollments">
-              <el-icon><Notebook /></el-icon>
-              <template #title>课程分配</template>
+              <template #title>班级小组管理</template>
             </el-menu-item>
             
             <!-- 学校课程库 -->
@@ -418,7 +408,6 @@ const pageTitle = computed(() => {
     '/admin/users': '用户管理',
     '/admin/school-user-management': '用户管理',
     '/admin/classes': '班级小组管理',
-    '/admin/enrollments': '选课管理',
     '/admin/progress': '学习进度',
     '/admin/portfolios': '学习档案',
     '/admin/assessments': '评价管理',

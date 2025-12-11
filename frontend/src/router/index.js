@@ -244,17 +244,9 @@ const routes = [
       {
         path: 'classes',
         name: 'AdminClasses',
-        component: () => import('../views/AdminClasses.vue'),
+        component: () => import('../views/ClubClasses.vue'),
         meta: {
           title: '班级小组管理 - PBL系统管理后台'
-        }
-      },
-      {
-        path: 'enrollments',
-        name: 'AdminEnrollments',
-        component: () => import('../views/AdminEnrollments.vue'),
-        meta: {
-          title: '选课管理 - PBL系统管理后台'
         }
       },
       {
