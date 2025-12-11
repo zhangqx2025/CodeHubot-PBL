@@ -72,7 +72,7 @@
           <el-card shadow="hover" class="template-card">
             <template #header>
               <div class="template-header">
-                <span class="template-title">{{ template.name }}</span>
+                <span class="template-title">{{ template.title }}</span>
                 <el-tag :type="getDifficultyType(template.difficulty)" size="small">
                   {{ getDifficultyText(template.difficulty) }}
                 </el-tag>
@@ -421,7 +421,7 @@ const handleCreateCourse = (template) => {
   }
   
   currentTemplate.value = template
-  courseForm.title = template.name
+  courseForm.title = template.title
   courseForm.description = template.description
   courseForm.class_id = null
   createDialogVisible.value = true

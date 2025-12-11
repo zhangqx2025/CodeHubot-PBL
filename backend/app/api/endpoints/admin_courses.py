@@ -1,13 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
+import uuid as uuid_lib
 
 from ...db.session import SessionLocal
 from ...core.response import success_response, error_response
 from ...core.deps import get_db, get_current_admin
 from ...models.admin import Admin
 from ...models.pbl import PBLCourse, PBLUnit, PBLResource, PBLTask, PBLCourseTemplate
-from ...schemas.pbl import CourseBase, Course, CourseTemplate
+from ...schemas.pbl import CourseBase, Course, CourseTemplate, CourseTemplateCreate, CourseTemplateUpdate
 
 router = APIRouter()
 
@@ -61,32 +62,205 @@ def create_course(
 
 @router.get("/templates")
 def get_course_templates(
-    skip: int = 0,
-    limit: int = 100,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    search: Optional[str] = Query(None, description="搜索关键词（标题或编码）"),
     category: Optional[str] = None,
     is_public: Optional[int] = None,
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(get_current_admin)
 ):
-    """获取课程模板列表"""
+    """获取课程模板列表（支持分页和搜索）"""
     query = db.query(PBLCourseTemplate)
     
+    # 搜索
+    if search:
+        query = query.filter(
+            (PBLCourseTemplate.title.like(f'%{search}%')) | 
+            (PBLCourseTemplate.template_code.like(f'%{search}%'))
+        )
+    
+    # 筛选
     if category:
         query = query.filter(PBLCourseTemplate.category == category)
     
     if is_public is not None:
         query = query.filter(PBLCourseTemplate.is_public == is_public)
     
-    # 按使用次数和创建时间排序
+    # 总数
+    total = query.count()
+    
+    # 按使用次数和创建时间排序，并分页
     templates = query.order_by(
         PBLCourseTemplate.usage_count.desc(),
         PBLCourseTemplate.created_at.desc()
-    ).offset(skip).limit(limit).all()
+    ).offset((page - 1) * page_size).limit(page_size).all()
     
     # 序列化模板列表
     templates_data = [CourseTemplate.model_validate(template).model_dump(mode='json') for template in templates]
     
-    return success_response(data=templates_data)
+    return success_response(data={
+        "items": templates_data,
+        "total": total,
+        "page": page,
+        "page_size": page_size
+    })
+
+
+@router.post("/templates")
+def create_course_template(
+    template_data: CourseTemplateCreate,
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(get_current_admin)
+):
+    """创建课程模板（仅平台管理员）"""
+    # 检查权限
+    if current_admin.role != 'platform_admin':
+        raise HTTPException(status_code=403, detail="仅平台管理员可以创建课程模板")
+    
+    # 检查模板编码是否已存在
+    existing = db.query(PBLCourseTemplate).filter(
+        PBLCourseTemplate.template_code == template_data.template_code
+    ).first()
+    if existing:
+        return error_response(
+            message=f"模板编码 {template_data.template_code} 已存在",
+            code=400,
+            status_code=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # 创建模板
+    new_template = PBLCourseTemplate(
+        uuid=str(uuid_lib.uuid4()),
+        template_code=template_data.template_code,
+        title=template_data.title,
+        description=template_data.description,
+        cover_image=template_data.cover_image,
+        duration=template_data.duration,
+        difficulty=template_data.difficulty or 'beginner',
+        category=template_data.category,
+        version=template_data.version or '1.0.0',
+        is_public=template_data.is_public,
+        creator_id=current_admin.id,
+        usage_count=0
+    )
+    
+    db.add(new_template)
+    db.commit()
+    db.refresh(new_template)
+    
+    template_result = CourseTemplate.model_validate(new_template).model_dump(mode='json')
+    return success_response(data=template_result, message="课程模板创建成功")
+
+
+@router.get("/templates/{template_uuid}")
+def get_course_template(
+    template_uuid: str,
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(get_current_admin)
+):
+    """获取课程模板详情"""
+    template = db.query(PBLCourseTemplate).filter(
+        PBLCourseTemplate.uuid == template_uuid
+    ).first()
+    
+    if not template:
+        return error_response(
+            message="课程模板不存在",
+            code=404,
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    
+    template_data = CourseTemplate.model_validate(template).model_dump(mode='json')
+    return success_response(data=template_data)
+
+
+@router.put("/templates/{template_uuid}")
+def update_course_template(
+    template_uuid: str,
+    template_data: CourseTemplateUpdate,
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(get_current_admin)
+):
+    """更新课程模板（仅平台管理员）"""
+    # 检查权限
+    if current_admin.role != 'platform_admin':
+        raise HTTPException(status_code=403, detail="仅平台管理员可以修改课程模板")
+    
+    template = db.query(PBLCourseTemplate).filter(
+        PBLCourseTemplate.uuid == template_uuid
+    ).first()
+    
+    if not template:
+        return error_response(
+            message="课程模板不存在",
+            code=404,
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    
+    # 如果要修改模板编码，检查是否与其他模板冲突
+    if template_data.template_code and template_data.template_code != template.template_code:
+        existing = db.query(PBLCourseTemplate).filter(
+            PBLCourseTemplate.template_code == template_data.template_code,
+            PBLCourseTemplate.id != template.id
+        ).first()
+        if existing:
+            return error_response(
+                message=f"模板编码 {template_data.template_code} 已被其他模板使用",
+                code=400,
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+    
+    # 更新字段
+    update_dict = template_data.dict(exclude_unset=True)
+    for field, value in update_dict.items():
+        setattr(template, field, value)
+    
+    db.commit()
+    db.refresh(template)
+    
+    template_result = CourseTemplate.model_validate(template).model_dump(mode='json')
+    return success_response(data=template_result, message="课程模板更新成功")
+
+
+@router.delete("/templates/{template_uuid}")
+def delete_course_template(
+    template_uuid: str,
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(get_current_admin)
+):
+    """删除课程模板（仅平台管理员）"""
+    # 检查权限
+    if current_admin.role != 'platform_admin':
+        raise HTTPException(status_code=403, detail="仅平台管理员可以删除课程模板")
+    
+    template = db.query(PBLCourseTemplate).filter(
+        PBLCourseTemplate.uuid == template_uuid
+    ).first()
+    
+    if not template:
+        return error_response(
+            message="课程模板不存在",
+            code=404,
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    
+    # 检查是否有课程在使用此模板
+    courses_using_template = db.query(PBLCourse).filter(
+        PBLCourse.template_id == template.id
+    ).count()
+    
+    if courses_using_template > 0:
+        return error_response(
+            message=f"该模板正在被 {courses_using_template} 个课程使用，无法删除",
+            code=400,
+            status_code=status.HTTP_400_BAD_REQUEST
+        )
+    
+    db.delete(template)
+    db.commit()
+    
+    return success_response(message="课程模板删除成功")
 
 @router.get("/{course_uuid}")
 def get_course(

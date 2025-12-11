@@ -186,11 +186,19 @@ const routes = [
         }
       },
       {
-        path: 'template-library',
-        name: 'TemplateLibrary',
-        component: () => import('../views/TemplateLibrary.vue'),
+        path: 'course-templates',
+        name: 'CourseTemplates',
+        component: () => import('../views/CourseTemplates.vue'),
         meta: {
-          title: '模板库管理 - PBL系统管理后台'
+          title: '课程模板管理 - PBL系统管理后台'
+        }
+      },
+      {
+        path: 'template-permissions',
+        name: 'TemplatePermissions',
+        component: () => import('../views/TemplatePermissions.vue'),
+        meta: {
+          title: '课程模板授权 - PBL系统管理后台'
         }
       },
       {

@@ -357,11 +357,11 @@
             <el-option
               v-for="template in courseTemplates"
               :key="template.id"
-              :label="template.name"
+              :label="template.title"
               :value="template.id"
             >
               <div style="display: flex; justify-content: space-between; align-items: center">
-                <span>{{ template.name }}</span>
+                <span>{{ template.title }}</span>
                 <el-tag :type="getDifficultyTagType(template.difficulty)" size="small">
                   {{ getDifficultyName(template.difficulty) }}
                 </el-tag>

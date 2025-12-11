@@ -206,10 +206,20 @@
           
           <!-- 模板库管理 - 仅平台管理员 -->
           <template v-if="isPlatformAdmin">
-            <el-menu-item index="/admin/template-library">
-              <el-icon><Collection /></el-icon>
-              <template #title>模板库管理</template>
-            </el-menu-item>
+            <el-sub-menu index="template-management">
+              <template #title>
+                <el-icon><Collection /></el-icon>
+                <span>模板库管理</span>
+              </template>
+              <el-menu-item index="/admin/course-templates">
+                <el-icon><Document /></el-icon>
+                <span>课程模板管理</span>
+              </el-menu-item>
+              <el-menu-item index="/admin/template-permissions">
+                <el-icon><Key /></el-icon>
+                <span>课程模板授权</span>
+              </el-menu-item>
+            </el-sub-menu>
           </template>
           
           <!-- 教师菜单 -->
@@ -375,7 +385,8 @@ import {
   VideoPlay,
   OfficeBuilding,
   UserFilled,
-  Setting
+  Setting,
+  Key
 } from '@element-plus/icons-vue'
 import { getCurrentAdmin } from '@/api/admin'
 
@@ -413,7 +424,8 @@ const pageTitle = computed(() => {
     '/admin/courses': '课程管理',
     '/admin/school-courses': '学校课程配置',
     '/admin/school-course-library': '学校课程库',
-    '/admin/template-library': '模板库管理',
+    '/admin/course-templates': '课程模板管理',
+    '/admin/template-permissions': '课程模板授权',
     '/admin/available-templates': '可用模板库',
     '/admin/units': '学习单元',
     '/admin/resources': '资料管理',

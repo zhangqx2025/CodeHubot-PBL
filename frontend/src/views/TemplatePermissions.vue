@@ -1,9 +1,9 @@
 <template>
-  <div class="template-library">
+  <div class="template-permissions">
     <el-card>
       <template #header>
         <div class="card-header">
-          <span>课程模板库管理</span>
+          <span>课程模板授权管理</span>
           <el-button type="primary" @click="handleOpenPermissionDialog()">
             <el-icon><Plus /></el-icon>
             开放模板给学校
@@ -32,7 +32,7 @@
             <el-option 
               v-for="template in allTemplates" 
               :key="template.id" 
-              :label="template.name" 
+              :label="template.title" 
               :value="template.id" 
             />
           </el-select>
@@ -83,7 +83,7 @@
         stripe
         style="width: 100%"
       >
-        <el-table-column prop="template_name" label="课程模板" width="200" />
+        <el-table-column prop="template_title" label="课程模板" width="200" />
         <el-table-column prop="school_name" label="学校" width="200" />
         <el-table-column label="状态" width="100">
           <template #default="{ row }">
@@ -177,7 +177,7 @@
             <el-option 
               v-for="template in allTemplates" 
               :key="template.id" 
-              :label="template.name" 
+              :label="template.title" 
               :value="template.id" 
             />
           </el-select>
@@ -515,7 +515,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.template-library {
+.template-permissions {
   padding: 0;
 }
 
