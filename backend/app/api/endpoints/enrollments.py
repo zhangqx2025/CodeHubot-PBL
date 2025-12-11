@@ -66,28 +66,34 @@ def enroll_course(
                     status_code=status.HTTP_400_BAD_REQUEST
                 )
     
-    # 检查是否已经选课
+    # 检查是否已经有选课记录(不论状态)
     existing_enrollment = db.query(PBLCourseEnrollment).filter(
         PBLCourseEnrollment.course_id == course_id,
-        PBLCourseEnrollment.user_id == current_user.id,
-        PBLCourseEnrollment.enrollment_status == 'enrolled'
+        PBLCourseEnrollment.user_id == current_user.id
     ).first()
     
     if existing_enrollment:
-        return error_response(
-            message="您已选修该课程",
-            code=400,
-            status_code=status.HTTP_400_BAD_REQUEST
+        # 如果已经是enrolled状态,返回错误
+        if existing_enrollment.enrollment_status == 'enrolled':
+            return error_response(
+                message="您已选修该课程",
+                code=400,
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+        # 如果是其他状态(如dropped),更新为enrolled
+        existing_enrollment.enrollment_status = 'enrolled'
+        existing_enrollment.enrolled_at = datetime.now()
+        existing_enrollment.dropped_at = None
+        enrollment = existing_enrollment
+    else:
+        # 创建新的选课记录
+        enrollment = PBLCourseEnrollment(
+            course_id=course_id,
+            user_id=current_user.id,
+            enrollment_status='enrolled',
+            enrolled_at=datetime.now()
         )
-    
-    # 创建选课记录
-    enrollment = PBLCourseEnrollment(
-        course_id=course_id,
-        user_id=current_user.id,
-        enrollment_status='enrolled',
-        enrolled_at=datetime.now()
-    )
-    db.add(enrollment)
+        db.add(enrollment)
     
     # ★ 新增：更新学校课程的当前学生数
     if current_user.school_id:
@@ -317,25 +323,31 @@ def batch_enroll_students(
             if student.school_id != current_admin.school_id:
                 continue
         
-        # 检查是否已经选课
+        # 检查是否已经有选课记录(不论状态)
         existing_enrollment = db.query(PBLCourseEnrollment).filter(
             PBLCourseEnrollment.course_id == course_id,
-            PBLCourseEnrollment.user_id == student_id,
-            PBLCourseEnrollment.enrollment_status == 'enrolled'
+            PBLCourseEnrollment.user_id == student_id
         ).first()
         
         if existing_enrollment:
-            continue
-        
-        # 创建选课记录
-        enrollment = PBLCourseEnrollment(
-            course_id=course_id,
-            user_id=student_id,
-            enrollment_status='enrolled',
-            enrolled_at=datetime.now()
-        )
-        db.add(enrollment)
-        enrolled_count += 1
+            # 如果已经是enrolled状态,跳过
+            if existing_enrollment.enrollment_status == 'enrolled':
+                continue
+            # 如果是其他状态(如dropped),更新为enrolled
+            existing_enrollment.enrollment_status = 'enrolled'
+            existing_enrollment.enrolled_at = datetime.now()
+            existing_enrollment.dropped_at = None
+            enrolled_count += 1
+        else:
+            # 创建新的选课记录
+            enrollment = PBLCourseEnrollment(
+                course_id=course_id,
+                user_id=student_id,
+                enrollment_status='enrolled',
+                enrolled_at=datetime.now()
+            )
+            db.add(enrollment)
+            enrolled_count += 1
         
         # ★ 新增：记录需要更新的学校课程
         if student.school_id:
