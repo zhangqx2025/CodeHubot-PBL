@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, Enum, ForeignKey, TIMESTAMP, JSON, DECIMAL, BigInteger
+from sqlalchemy import Column, Integer, String, Text, Enum, ForeignKey, TIMESTAMP, JSON, DECIMAL, BigInteger, Date
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import uuid
@@ -26,7 +26,11 @@ class PBLCourse(Base):
     difficulty = Column(Enum('beginner', 'intermediate', 'advanced'), default='beginner')
     status = Column(Enum('draft', 'published', 'archived'), default='draft')
     creator_id = Column(Integer)  # Foreign Key to core_users
+    teacher_id = Column(Integer)  # 授课教师ID（Foreign Key to core_users）
+    teacher_name = Column(String(100))  # 授课教师姓名（冗余字段）
     school_id = Column(Integer)   # Foreign Key to core_schools
+    start_date = Column(Date)  # 课程开始时间
+    end_date = Column(Date)  # 课程结束时间
     created_at = Column(TIMESTAMP, server_default=func.now())
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
 

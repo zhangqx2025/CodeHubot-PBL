@@ -56,16 +56,16 @@
       </el-empty>
       
       <div v-for="cls in classes" :key="cls.id" class="class-card">
-        <el-card shadow="hover" :body-style="{ padding: '0' }">
+        <el-card shadow="hover" :body-style="{ padding: '0' }" @click="handleCardClick(cls)">
           <!-- 卡片头部 -->
           <div class="card-header" :class="`type-${cls.class_type}`">
             <div class="header-left">
               <el-tag :type="getClassTypeTagType(cls.class_type)" size="small" effect="dark">
                 {{ getClassTypeName(cls.class_type) }}
               </el-tag>
-              <h3 class="class-name">{{ cls.name }}</h3>
+              <h3 class="course-title">{{ cls.course?.title || cls.name }}</h3>
             </div>
-            <el-dropdown trigger="click" @command="(cmd) => handleClassAction(cmd, cls)">
+            <el-dropdown trigger="click" @command="(cmd) => handleClassAction(cmd, cls)" @click.stop>
               <el-button text circle>
                 <el-icon><MoreFilled /></el-icon>
               </el-button>
@@ -73,27 +73,11 @@
                 <el-dropdown-menu>
                   <el-dropdown-item command="detail">
                     <el-icon><View /></el-icon>
-                    查看详情
+                    查看班级
                   </el-dropdown-item>
                   <el-dropdown-item command="edit">
                     <el-icon><Edit /></el-icon>
-                    编辑信息
-                  </el-dropdown-item>
-                  <el-dropdown-item command="members">
-                    <el-icon><UserFilled /></el-icon>
-                    成员管理
-                  </el-dropdown-item>
-                  <el-dropdown-item command="courses">
-                    <el-icon><Reading /></el-icon>
-                    课程管理
-                  </el-dropdown-item>
-                  <el-dropdown-item command="groups">
-                    <el-icon><Grid /></el-icon>
-                    小组管理
-                  </el-dropdown-item>
-                  <el-dropdown-item command="course">
-                    <el-icon><Reading /></el-icon>
-                    创建课程
+                    编辑班级
                   </el-dropdown-item>
                   <el-dropdown-item command="delete" divided>
                     <el-icon><Delete /></el-icon>
@@ -106,21 +90,37 @@
 
           <!-- 卡片内容 -->
           <div class="card-body">
-            <p class="class-description">{{ cls.description || '暂无描述' }}</p>
+            <p class="course-description">{{ cls.course?.description || cls.description || '暂无课程描述' }}</p>
+            
+            <!-- 老师信息 -->
+            <div v-if="cls.course?.teacher_name" class="teacher-info">
+              <el-icon><User /></el-icon>
+              <span>授课教师：{{ cls.course.teacher_name }}</span>
+            </div>
+            
+            <!-- 起止时间 -->
+            <div v-if="cls.course?.start_date || cls.course?.end_date" class="course-time">
+              <el-icon><Clock /></el-icon>
+              <span>
+                {{ formatDate(cls.course.start_date) || '未设置' }} 
+                至 
+                {{ formatDate(cls.course.end_date) || '未设置' }}
+              </span>
+            </div>
             
             <div class="class-stats">
               <div class="stat-item">
                 <el-icon class="stat-icon"><User /></el-icon>
                 <div class="stat-content">
                   <span class="stat-value">{{ cls.current_members }}/{{ cls.max_students }}</span>
-                  <span class="stat-label">成员</span>
+                  <span class="stat-label">学生</span>
                 </div>
               </div>
               <div class="stat-item">
                 <el-icon class="stat-icon"><Reading /></el-icon>
                 <div class="stat-content">
-                  <span class="stat-value">{{ cls.course_count }}</span>
-                  <span class="stat-label">课程</span>
+                  <span class="stat-value">{{ cls.course?.enrolled_count || 0 }}</span>
+                  <span class="stat-label">选课</span>
                 </div>
               </div>
             </div>
@@ -236,8 +236,8 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Plus, School, Grid, Medal, FolderOpened, Star, Trophy,
-  MoreFilled, View, Edit, UserFilled, Reading, Delete,
-  User, Clock
+  MoreFilled, View, Edit, Delete,
+  User, Reading, Clock
 } from '@element-plus/icons-vue'
 import {
   getClubClasses, createClubClass, deleteClubClass
@@ -335,6 +335,18 @@ const submitClassForm = async () => {
   }
 }
 
+// 处理卡片点击 - 直接进入课程详情页
+const handleCardClick = (cls) => {
+  if (cls.course) {
+    // 如果班级有课程，跳转到课程详情页
+    router.push(`/admin/courses/${cls.course.id}`)
+  } else {
+    // 如果没有课程，提示并跳转到班级详情页
+    ElMessage.warning('该班级暂无课程，请先创建课程')
+    router.push(`/admin/classes/${cls.uuid}`)
+  }
+}
+
 // 处理班级操作
 const handleClassAction = async (command, cls) => {
   currentClassUuid.value = cls.uuid
@@ -343,28 +355,12 @@ const handleClassAction = async (command, cls) => {
   
   switch (command) {
     case 'detail':
-      // 跳转到详情页
+      // 跳转到班级详情页（详情页包含：成员管理、课程管理、小组管理、创建课程等功能）
       router.push(`/admin/classes/${cls.uuid}`)
       break
     case 'edit':
       // 跳转到编辑页
       router.push(`/admin/classes/${cls.uuid}/edit`)
-      break
-    case 'members':
-      // 跳转到成员管理页
-      router.push(`/admin/classes/${cls.uuid}/members`)
-      break
-    case 'courses':
-      // 跳转到课程管理页
-      router.push(`/admin/classes/${cls.uuid}/courses`)
-      break
-    case 'groups':
-      // 跳转到小组管理页
-      router.push(`/admin/classes/${cls.uuid}/groups`)
-      break
-    case 'course':
-      // 跳转到创建课程页
-      router.push(`/admin/classes/${cls.uuid}/create-course`)
       break
     case 'delete':
       await handleDelete(cls)
@@ -543,9 +539,11 @@ onMounted(() => {
     border-radius: 12px;
     border: none;
     transition: all 0.3s;
+    cursor: pointer;
     
     &:hover {
       transform: translateY(-4px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
     }
   }
   
@@ -580,7 +578,7 @@ onMounted(() => {
         margin-bottom: 12px;
       }
       
-      .class-name {
+      .course-title {
         margin: 0;
         font-size: 20px;
         font-weight: 600;
@@ -600,7 +598,7 @@ onMounted(() => {
   .card-body {
     padding: 20px;
     
-    .class-description {
+    .course-description {
       margin: 0 0 16px 0;
       font-size: 14px;
       color: #606266;
@@ -610,6 +608,20 @@ onMounted(() => {
       -webkit-box-orient: vertical;
       -webkit-line-clamp: 2;
       overflow: hidden;
+    }
+    
+    .teacher-info,
+    .course-time {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      font-size: 14px;
+      color: #606266;
+      
+      .el-icon {
+        color: #409eff;
+      }
     }
     
     .class-stats {
