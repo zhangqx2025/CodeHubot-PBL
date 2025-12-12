@@ -15,7 +15,28 @@
 SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- ==========================================================================================================
--- 1. 增强 pbl_class_teachers 表 - 添加教师角色字段
+-- 1. 确保 pbl_class_teachers 表存在
+-- ==========================================================================================================
+
+-- 如果表不存在则创建
+CREATE TABLE IF NOT EXISTS `pbl_class_teachers` (
+  `id` INT(11) NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '关联ID',
+  `class_id` INT(11) NOT NULL COMMENT '班级ID',
+  `teacher_id` INT(11) NOT NULL COMMENT '教师ID',
+  `subject` VARCHAR(50) DEFAULT NULL COMMENT '教师在该班级教授的科目',
+  `is_primary` TINYINT(1) DEFAULT 0 COMMENT '是否为班主任',
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  UNIQUE KEY `uk_class_teacher` (`class_id`, `teacher_id`),
+  KEY `idx_class_id` (`class_id`),
+  KEY `idx_teacher_id` (`teacher_id`),
+  KEY `idx_is_primary` (`is_primary`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='PBL班级教师关联表（多对多）';
+
+SELECT 'pbl_class_teachers 表已确保存在' AS result;
+
+-- ==========================================================================================================
+-- 2. 增强 pbl_class_teachers 表 - 添加教师角色字段
 -- ==========================================================================================================
 
 -- 创建临时存储过程用于添加字段
@@ -64,7 +85,7 @@ CALL add_column_if_not_exists(
 DROP PROCEDURE IF EXISTS add_column_if_not_exists;
 
 -- ==========================================================================================================
--- 2. 为 pbl_class_teachers 添加索引
+-- 3. 为 pbl_class_teachers 添加索引
 -- ==========================================================================================================
 
 -- 创建临时存储过程用于添加索引
@@ -106,7 +127,7 @@ CALL add_index_if_not_exists(
 DROP PROCEDURE IF EXISTS add_index_if_not_exists;
 
 -- ==========================================================================================================
--- 3. 确保 pbl_classes 表有 uuid 字段
+-- 4. 确保 pbl_classes 表有 uuid 字段
 -- ==========================================================================================================
 
 -- 创建临时存储过程
@@ -143,7 +164,7 @@ CALL add_uuid_to_classes();
 DROP PROCEDURE IF EXISTS add_uuid_to_classes;
 
 -- ==========================================================================================================
--- 4. 增强 pbl_tasks 表 - 添加作业相关字段
+-- 5. 增强 pbl_tasks 表 - 添加作业相关字段
 -- ==========================================================================================================
 
 -- 创建临时存储过程
@@ -206,7 +227,7 @@ CALL enhance_tasks_table();
 DROP PROCEDURE IF EXISTS enhance_tasks_table;
 
 -- ==========================================================================================================
--- 5. 为 pbl_tasks 添加索引
+-- 6. 为 pbl_tasks 添加索引
 -- ==========================================================================================================
 
 -- 创建临时存储过程
@@ -242,7 +263,7 @@ CALL add_tasks_indexes();
 DROP PROCEDURE IF EXISTS add_tasks_indexes;
 
 -- ==========================================================================================================
--- 6. 增强 pbl_task_progress 表 - 添加提交时间
+-- 7. 增强 pbl_task_progress 表 - 添加提交时间
 -- ==========================================================================================================
 
 -- 创建临时存储过程
@@ -268,7 +289,7 @@ CALL enhance_task_progress_table();
 DROP PROCEDURE IF EXISTS enhance_task_progress_table;
 
 -- ==========================================================================================================
--- 7. 数据迁移：为现有教师设置默认角色
+-- 8. 数据迁移：为现有教师设置默认角色
 -- ==========================================================================================================
 
 -- 检查是否有教师角色为 NULL
@@ -282,7 +303,7 @@ SET `role` = 'main'
 WHERE `is_primary` = 1 AND `role` = 'assistant';
 
 -- ==========================================================================================================
--- 8. 验证脚本执行结果
+-- 9. 验证脚本执行结果
 -- ==========================================================================================================
 
 -- 显示 pbl_class_teachers 表结构
@@ -304,12 +325,25 @@ ORDER BY ORDINAL_POSITION;
 -- 显示统计信息
 SELECT 
     '=== 统计信息 ===' AS info;
-    
+
+-- 只在表有数据时显示统计
+SET @teacher_count = (SELECT COUNT(*) FROM `pbl_class_teachers`);
+
+SELECT 
+    CASE 
+        WHEN @teacher_count > 0 THEN
+            CONCAT('共有 ', @teacher_count, ' 位教师')
+        ELSE 
+            '暂无教师数据'
+    END AS message;
+
+-- 如果有数据，显示详细统计
 SELECT 
     COUNT(*) AS total_class_teachers,
     SUM(CASE WHEN role = 'main' THEN 1 ELSE 0 END) AS main_teachers,
     SUM(CASE WHEN role = 'assistant' THEN 1 ELSE 0 END) AS assistant_teachers
-FROM `pbl_class_teachers`;
+FROM `pbl_class_teachers`
+WHERE @teacher_count > 0;
 
 SELECT '脚本执行完成！' AS result;
 
