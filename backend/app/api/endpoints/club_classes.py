@@ -8,7 +8,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Body
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_, or_
-from typing import List, Optional
+from typing import List, Optional, Dict
 from datetime import datetime
 from pydantic import BaseModel
 
@@ -18,7 +18,8 @@ from ...core.deps import get_db, get_current_admin
 from ...models.admin import Admin, User
 from ...models.pbl import (
     PBLClass, PBLClassMember, PBLCourse, PBLCourseTemplate,
-    PBLCourseEnrollment, PBLUnit, PBLResource, PBLTask
+    PBLCourseEnrollment, PBLUnit, PBLResource, PBLTask,
+    PBLClassTeacher, PBLTaskProgress, PBLProjectOutput
 )
 from ...core.logging_config import get_logger
 
@@ -52,6 +53,18 @@ class CourseCreateFromTemplate(BaseModel):
     class_id: int
     title: Optional[str] = None
     auto_enroll: bool = True
+
+class TeacherAdd(BaseModel):
+    teacher_ids: List[int]
+    role: str = 'assistant'  # main, assistant
+
+class TeacherRoleUpdate(BaseModel):
+    role: str  # main, assistant
+
+class TaskReview(BaseModel):
+    score: Optional[int] = None
+    feedback: Optional[str] = None
+    status: str = 'review'  # review, completed
 
 # ===== 班级管理 =====
 
@@ -861,4 +874,1319 @@ def enroll_class_members_to_course(
     return success_response(
         data={'enrolled_count': enrolled_count},
         message=f"成功为 {enrolled_count} 名学生选课"
+    )
+
+
+# ===== 教师管理 =====
+
+@router.get("/classes/{class_uuid}/teachers")
+def get_class_teachers(
+    class_uuid: str,
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(get_current_admin)
+):
+    """获取班级教师列表"""
+    pbl_class = db.query(PBLClass).filter(PBLClass.uuid == class_uuid).first()
+    if not pbl_class:
+        return error_response(
+            message="班级不存在",
+            code=404,
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    
+    # 权限检查
+    if current_admin.role != 'platform_admin':
+        if pbl_class.school_id != current_admin.school_id:
+            return error_response(
+                message="无权限查看该班级",
+                code=403,
+                status_code=status.HTTP_403_FORBIDDEN
+            )
+    
+    # 查询教师
+    teachers = db.query(PBLClassTeacher, User).join(
+        User, PBLClassTeacher.teacher_id == User.id
+    ).filter(
+        PBLClassTeacher.class_id == pbl_class.id
+    ).all()
+    
+    result = []
+    for teacher_rel, user in teachers:
+        result.append({
+            'teacher_id': user.id,
+            'name': user.name or user.real_name,
+            'username': user.username,
+            'role': teacher_rel.role if hasattr(teacher_rel, 'role') else 'assistant',
+            'subject': teacher_rel.subject,
+            'is_primary': teacher_rel.is_primary == 1,
+            'added_at': teacher_rel.added_at.isoformat() if hasattr(teacher_rel, 'added_at') and teacher_rel.added_at else teacher_rel.created_at.isoformat()
+        })
+    
+    return success_response(data=result)
+
+
+@router.post("/classes/{class_uuid}/teachers")
+def add_teachers_to_class(
+    class_uuid: str,
+    teacher_data: TeacherAdd,
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(get_current_admin)
+):
+    """添加教师到班级"""
+    pbl_class = db.query(PBLClass).filter(PBLClass.uuid == class_uuid).first()
+    if not pbl_class:
+        return error_response(
+            message="班级不存在",
+            code=404,
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    
+    # 权限检查
+    if current_admin.role not in ['platform_admin', 'school_admin']:
+        return error_response(
+            message="无权限操作",
+            code=403,
+            status_code=status.HTTP_403_FORBIDDEN
+        )
+    
+    if current_admin.role == 'school_admin':
+        if pbl_class.school_id != current_admin.school_id:
+            return error_response(
+                message="无权限操作该班级",
+                code=403,
+                status_code=status.HTTP_403_FORBIDDEN
+            )
+    
+    added_count = 0
+    for teacher_id in teacher_data.teacher_ids:
+        # 检查教师是否存在
+        teacher = db.query(User).filter(
+            User.id == teacher_id,
+            or_(User.role == 'teacher', User.role == 'admin')
+        ).first()
+        
+        if not teacher:
+            continue
+        
+        # 权限检查：学校管理员只能操作本校教师
+        if current_admin.role == 'school_admin':
+            if teacher.school_id != current_admin.school_id:
+                continue
+        
+        # 检查是否已在班级中
+        existing = db.query(PBLClassTeacher).filter(
+            PBLClassTeacher.class_id == pbl_class.id,
+            PBLClassTeacher.teacher_id == teacher_id
+        ).first()
+        
+        if existing:
+            continue
+        
+        # 添加到班级
+        teacher_rel = PBLClassTeacher(
+            class_id=pbl_class.id,
+            teacher_id=teacher_id,
+            role=teacher_data.role
+        )
+        db.add(teacher_rel)
+        added_count += 1
+    
+    db.commit()
+    
+    logger.info(f"添加教师到班级 - 班级UUID: {class_uuid}, 成功: {added_count}")
+    
+    return success_response(
+        data={'added_count': added_count},
+        message=f"成功添加 {added_count} 位教师到班级"
+    )
+
+
+@router.delete("/classes/{class_uuid}/teachers/{teacher_id}")
+def remove_teacher_from_class(
+    class_uuid: str,
+    teacher_id: int,
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(get_current_admin)
+):
+    """从班级移除教师"""
+    pbl_class = db.query(PBLClass).filter(PBLClass.uuid == class_uuid).first()
+    if not pbl_class:
+        return error_response(
+            message="班级不存在",
+            code=404,
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    
+    # 权限检查
+    if current_admin.role not in ['platform_admin', 'school_admin']:
+        return error_response(
+            message="无权限操作",
+            code=403,
+            status_code=status.HTTP_403_FORBIDDEN
+        )
+    
+    if current_admin.role == 'school_admin':
+        if pbl_class.school_id != current_admin.school_id:
+            return error_response(
+                message="无权限操作该班级",
+                code=403,
+                status_code=status.HTTP_403_FORBIDDEN
+            )
+    
+    # 查找教师记录
+    teacher_rel = db.query(PBLClassTeacher).filter(
+        PBLClassTeacher.class_id == pbl_class.id,
+        PBLClassTeacher.teacher_id == teacher_id
+    ).first()
+    
+    if not teacher_rel:
+        return error_response(
+            message="教师不在该班级中",
+            code=404,
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    
+    # 删除
+    db.delete(teacher_rel)
+    db.commit()
+    
+    logger.info(f"从班级移除教师 - 班级UUID: {class_uuid}, 教师ID: {teacher_id}")
+    
+    return success_response(message="教师已从班级移除")
+
+
+@router.put("/classes/{class_uuid}/teachers/{teacher_id}/role")
+def update_teacher_role(
+    class_uuid: str,
+    teacher_id: int,
+    role_data: TeacherRoleUpdate,
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(get_current_admin)
+):
+    """更新教师角色"""
+    pbl_class = db.query(PBLClass).filter(PBLClass.uuid == class_uuid).first()
+    if not pbl_class:
+        return error_response(
+            message="班级不存在",
+            code=404,
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    
+    # 权限检查
+    if current_admin.role not in ['platform_admin', 'school_admin']:
+        return error_response(
+            message="无权限操作",
+            code=403,
+            status_code=status.HTTP_403_FORBIDDEN
+        )
+    
+    if current_admin.role == 'school_admin':
+        if pbl_class.school_id != current_admin.school_id:
+            return error_response(
+                message="无权限操作该班级",
+                code=403,
+                status_code=status.HTTP_403_FORBIDDEN
+            )
+    
+    # 查找教师记录
+    teacher_rel = db.query(PBLClassTeacher).filter(
+        PBLClassTeacher.class_id == pbl_class.id,
+        PBLClassTeacher.teacher_id == teacher_id
+    ).first()
+    
+    if not teacher_rel:
+        return error_response(
+            message="教师不在该班级中",
+            code=404,
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    
+    # 如果设置为主讲教师，需要取消其他主讲教师
+    if role_data.role == 'main':
+        db.query(PBLClassTeacher).filter(
+            PBLClassTeacher.class_id == pbl_class.id,
+            PBLClassTeacher.role == 'main'
+        ).update({'role': 'assistant'})
+    
+    # 更新角色
+    teacher_rel.role = role_data.role
+    db.commit()
+    
+    logger.info(f"更新教师角色 - 班级UUID: {class_uuid}, 教师ID: {teacher_id}, 角色: {role_data.role}")
+    
+    return success_response(message=f"教师角色已更新为 {role_data.role}")
+
+
+# ===== 学习进度 =====
+
+@router.get("/classes/{class_uuid}/progress")
+def get_class_progress(
+    class_uuid: str,
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(get_current_admin)
+):
+    """获取班级学习进度"""
+    pbl_class = db.query(PBLClass).filter(PBLClass.uuid == class_uuid).first()
+    if not pbl_class:
+        return error_response(
+            message="班级不存在",
+            code=404,
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    
+    # 权限检查
+    if current_admin.role != 'platform_admin':
+        if pbl_class.school_id != current_admin.school_id:
+            return error_response(
+                message="无权限查看该班级",
+                code=403,
+                status_code=status.HTTP_403_FORBIDDEN
+            )
+    
+    # 获取班级的课程
+    courses = db.query(PBLCourse).filter(
+        PBLCourse.class_id == pbl_class.id,
+        PBLCourse.status == 'published'
+    ).all()
+    
+    if not courses:
+        return success_response(data=[])
+    
+    # 获取班级成员
+    members = db.query(PBLClassMember, User).join(
+        User, PBLClassMember.student_id == User.id
+    ).filter(
+        PBLClassMember.class_id == pbl_class.id,
+        PBLClassMember.is_active == 1
+    ).all()
+    
+    result = []
+    for member, user in members:
+        # 获取第一个课程的进度（假设一个班级对应一个主课程）
+        course = courses[0]
+        
+        # 获取选课记录
+        enrollment = db.query(PBLCourseEnrollment).filter(
+            PBLCourseEnrollment.course_id == course.id,
+            PBLCourseEnrollment.user_id == member.student_id
+        ).first()
+        
+        # 统计单元数量
+        total_units = db.query(func.count(PBLUnit.id)).filter(
+            PBLUnit.course_id == course.id
+        ).scalar() or 0
+        
+        # 统计已完成单元（通过任务完成情况判断）
+        completed_units = 0
+        if total_units > 0:
+            # 获取所有单元
+            units = db.query(PBLUnit).filter(PBLUnit.course_id == course.id).all()
+            for unit in units:
+                # 获取单元的所有任务
+                tasks = db.query(PBLTask).filter(PBLTask.unit_id == unit.id).all()
+                if not tasks:
+                    continue
+                
+                # 检查是否所有任务都已完成
+                all_completed = True
+                for task in tasks:
+                    task_progress = db.query(PBLTaskProgress).filter(
+                        PBLTaskProgress.task_id == task.id,
+                        PBLTaskProgress.user_id == member.student_id
+                    ).first()
+                    if not task_progress or task_progress.status != 'completed':
+                        all_completed = False
+                        break
+                
+                if all_completed:
+                    completed_units += 1
+        
+        # 计算完成率
+        completion_rate = 0
+        if total_units > 0:
+            completion_rate = int((completed_units / total_units) * 100)
+        
+        # 计算学习状态
+        learning_status = 'not_started'
+        if completion_rate == 100:
+            learning_status = 'completed'
+        elif completion_rate > 0:
+            learning_status = 'in_progress'
+        
+        # 统计提交作业数
+        submissions_count = db.query(func.count(PBLTaskProgress.id)).filter(
+            PBLTaskProgress.user_id == member.student_id,
+            PBLTaskProgress.submission.isnot(None)
+        ).join(
+            PBLTask, PBLTaskProgress.task_id == PBLTask.id
+        ).join(
+            PBLUnit, PBLTask.unit_id == PBLUnit.id
+        ).filter(
+            PBLUnit.course_id == course.id
+        ).scalar() or 0
+        
+        # 获取最后活跃时间（最后一次任务提交或进度更新）
+        last_progress = db.query(PBLTaskProgress).filter(
+            PBLTaskProgress.user_id == member.student_id
+        ).join(
+            PBLTask, PBLTaskProgress.task_id == PBLTask.id
+        ).join(
+            PBLUnit, PBLTask.unit_id == PBLUnit.id
+        ).filter(
+            PBLUnit.course_id == course.id
+        ).order_by(PBLTaskProgress.updated_at.desc()).first()
+        
+        last_active = None
+        if last_progress:
+            last_active = last_progress.updated_at.isoformat()
+        elif enrollment:
+            last_active = enrollment.updated_at.isoformat()
+        
+        # 简化学习时长计算（这里可以根据实际情况从学习记录表获取）
+        learning_hours = submissions_count * 2  # 简单估算：每个作业2小时
+        
+        result.append({
+            'student_id': user.id,
+            'name': user.name or user.real_name,
+            'student_number': user.student_number or '',
+            'completion_rate': completion_rate,
+            'status': learning_status,
+            'completed_units': completed_units,
+            'total_units': total_units,
+            'learning_hours': learning_hours,
+            'submissions_count': submissions_count,
+            'last_active': last_active
+        })
+    
+    return success_response(data=result)
+
+
+@router.get("/classes/{class_uuid}/progress/units")
+def get_class_progress_by_units(
+    class_uuid: str,
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(get_current_admin)
+):
+    """获取班级按单元的学习进度"""
+    pbl_class = db.query(PBLClass).filter(PBLClass.uuid == class_uuid).first()
+    if not pbl_class:
+        return error_response(
+            message="班级不存在",
+            code=404,
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    
+    # 权限检查
+    if current_admin.role != 'platform_admin':
+        if pbl_class.school_id != current_admin.school_id:
+            return error_response(
+                message="无权限查看该班级",
+                code=403,
+                status_code=status.HTTP_403_FORBIDDEN
+            )
+    
+    # 获取班级的课程
+    courses = db.query(PBLCourse).filter(
+        PBLCourse.class_id == pbl_class.id,
+        PBLCourse.status == 'published'
+    ).all()
+    
+    if not courses:
+        return success_response(data={
+            'units': [],
+            'students': []
+        })
+    
+    course = courses[0]  # 假设一个班级对应一个主课程
+    
+    # 获取课程的所有单元
+    units = db.query(PBLUnit).filter(
+        PBLUnit.course_id == course.id
+    ).order_by(PBLUnit.order).all()
+    
+    # 获取班级成员
+    members = db.query(PBLClassMember, User).join(
+        User, PBLClassMember.student_id == User.id
+    ).filter(
+        PBLClassMember.class_id == pbl_class.id,
+        PBLClassMember.is_active == 1
+    ).all()
+    
+    # 构建单元信息
+    unit_list = []
+    for unit in units:
+        # 统计单元的任务数
+        tasks = db.query(PBLTask).filter(PBLTask.unit_id == unit.id).all()
+        task_count = len(tasks)
+        
+        # 统计完成该单元的学生数
+        completed_count = 0
+        for member, user in members:
+            # 检查该学生是否完成了该单元的所有任务
+            all_completed = True
+            if task_count > 0:
+                for task in tasks:
+                    task_progress = db.query(PBLTaskProgress).filter(
+                        PBLTaskProgress.task_id == task.id,
+                        PBLTaskProgress.user_id == member.student_id
+                    ).first()
+                    if not task_progress or task_progress.status != 'completed':
+                        all_completed = False
+                        break
+                
+                if all_completed:
+                    completed_count += 1
+        
+        unit_list.append({
+            'id': unit.id,
+            'uuid': unit.uuid,
+            'title': unit.title,
+            'description': unit.description,
+            'order': unit.order,
+            'task_count': task_count,
+            'completed_count': completed_count,
+            'total_students': len(members),
+            'completion_rate': int((completed_count / len(members)) * 100) if len(members) > 0 else 0
+        })
+    
+    # 构建学生信息（包含每个单元的完成状态）
+    student_list = []
+    for member, user in members:
+        unit_progress = []
+        for unit in units:
+            # 获取单元的所有任务
+            tasks = db.query(PBLTask).filter(PBLTask.unit_id == unit.id).all()
+            task_count = len(tasks)
+            
+            # 统计已完成的任务数
+            completed_tasks = 0
+            for task in tasks:
+                task_progress = db.query(PBLTaskProgress).filter(
+                    PBLTaskProgress.task_id == task.id,
+                    PBLTaskProgress.user_id == member.student_id,
+                    PBLTaskProgress.status == 'completed'
+                ).first()
+                if task_progress:
+                    completed_tasks += 1
+            
+            # 获取该学生在该单元的最后活跃时间
+            last_progress = db.query(PBLTaskProgress).join(
+                PBLTask, PBLTaskProgress.task_id == PBLTask.id
+            ).filter(
+                PBLTask.unit_id == unit.id,
+                PBLTaskProgress.user_id == member.student_id
+            ).order_by(PBLTaskProgress.updated_at.desc()).first()
+            
+            last_active = None
+            if last_progress:
+                last_active = last_progress.updated_at.isoformat()
+            
+            # 计算该单元的完成状态
+            is_completed = (completed_tasks == task_count) and task_count > 0
+            completion_rate = int((completed_tasks / task_count) * 100) if task_count > 0 else 0
+            
+            unit_progress.append({
+                'unit_id': unit.id,
+                'unit_title': unit.title,
+                'total_tasks': task_count,
+                'completed_tasks': completed_tasks,
+                'completion_rate': completion_rate,
+                'is_completed': is_completed,
+                'last_active': last_active
+            })
+        
+        student_list.append({
+            'student_id': user.id,
+            'name': user.name or user.real_name,
+            'student_number': user.student_number or '',
+            'unit_progress': unit_progress
+        })
+    
+    return success_response(data={
+        'units': unit_list,
+        'students': student_list
+    })
+
+
+@router.get("/classes/{class_uuid}/progress/units/{unit_id}")
+def get_unit_progress_detail(
+    class_uuid: str,
+    unit_id: int,
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(get_current_admin)
+):
+    """获取指定单元的学生学习进度详情"""
+    pbl_class = db.query(PBLClass).filter(PBLClass.uuid == class_uuid).first()
+    if not pbl_class:
+        return error_response(
+            message="班级不存在",
+            code=404,
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    
+    # 权限检查
+    if current_admin.role != 'platform_admin':
+        if pbl_class.school_id != current_admin.school_id:
+            return error_response(
+                message="无权限查看该班级",
+                code=403,
+                status_code=status.HTTP_403_FORBIDDEN
+            )
+    
+    # 获取单元信息
+    unit = db.query(PBLUnit).filter(PBLUnit.id == unit_id).first()
+    if not unit:
+        return error_response(
+            message="单元不存在",
+            code=404,
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    
+    # 获取单元的所有任务
+    tasks = db.query(PBLTask).filter(
+        PBLTask.unit_id == unit.id
+    ).order_by(PBLTask.order).all()
+    
+    # 获取班级成员
+    members = db.query(PBLClassMember, User).join(
+        User, PBLClassMember.student_id == User.id
+    ).filter(
+        PBLClassMember.class_id == pbl_class.id,
+        PBLClassMember.is_active == 1
+    ).all()
+    
+    # 构建任务信息
+    task_list = []
+    for task in tasks:
+        task_list.append({
+            'id': task.id,
+            'uuid': task.uuid,
+            'title': task.title,
+            'type': task.type,
+            'order': task.order,
+            'is_required': task.is_required
+        })
+    
+    # 构建学生进度信息
+    student_progress = []
+    for member, user in members:
+        task_progress_list = []
+        completed_count = 0
+        total_score = 0
+        score_count = 0
+        
+        for task in tasks:
+            progress = db.query(PBLTaskProgress).filter(
+                PBLTaskProgress.task_id == task.id,
+                PBLTaskProgress.user_id == member.student_id
+            ).first()
+            
+            if progress:
+                is_completed = progress.status == 'completed'
+                if is_completed:
+                    completed_count += 1
+                
+                if progress.score is not None:
+                    total_score += progress.score
+                    score_count += 1
+                
+                task_progress_list.append({
+                    'task_id': task.id,
+                    'task_title': task.title,
+                    'status': progress.status,
+                    'score': progress.score,
+                    'submission_time': progress.updated_at.isoformat() if progress.updated_at else None,
+                    'is_completed': is_completed
+                })
+            else:
+                task_progress_list.append({
+                    'task_id': task.id,
+                    'task_title': task.title,
+                    'status': 'not_started',
+                    'score': None,
+                    'submission_time': None,
+                    'is_completed': False
+                })
+        
+        # 计算平均分
+        avg_score = round(total_score / score_count, 1) if score_count > 0 else None
+        
+        # 计算完成率
+        completion_rate = int((completed_count / len(tasks)) * 100) if len(tasks) > 0 else 0
+        
+        student_progress.append({
+            'student_id': user.id,
+            'name': user.name or user.real_name,
+            'student_number': user.student_number or '',
+            'completion_rate': completion_rate,
+            'completed_tasks': completed_count,
+            'total_tasks': len(tasks),
+            'avg_score': avg_score,
+            'task_progress': task_progress_list
+        })
+    
+    return success_response(data={
+        'unit': {
+            'id': unit.id,
+            'uuid': unit.uuid,
+            'title': unit.title,
+            'description': unit.description,
+            'order': unit.order
+        },
+        'tasks': task_list,
+        'students': student_progress
+    })
+
+
+@router.get("/classes/{class_uuid}/progress/export")
+def export_class_progress(
+    class_uuid: str,
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(get_current_admin)
+):
+    """导出班级学习进度报表"""
+    from fastapi.responses import Response
+    from ...utils.export import export_progress_to_csv, generate_export_filename
+    
+    pbl_class = db.query(PBLClass).filter(PBLClass.uuid == class_uuid).first()
+    if not pbl_class:
+        return error_response(
+            message="班级不存在",
+            code=404,
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    
+    # 权限检查
+    if current_admin.role != 'platform_admin':
+        if pbl_class.school_id != current_admin.school_id:
+            return error_response(
+                message="无权限操作",
+                code=403,
+                status_code=status.HTTP_403_FORBIDDEN
+            )
+    
+    # 获取进度数据（内部调用）
+    progress_data = _get_class_progress_data(class_uuid, db)
+    
+    # 导出为 CSV
+    csv_content = export_progress_to_csv(progress_data)
+    
+    # 生成文件名
+    filename = generate_export_filename(f'{pbl_class.name}_progress')
+    
+    # 返回 CSV 文件
+    return Response(
+        content=csv_content.encode('utf-8-sig'),  # 使用 BOM 以支持 Excel 正确显示中文
+        media_type='text/csv',
+        headers={
+            'Content-Disposition': f'attachment; filename="{filename}"'
+        }
+    )
+
+
+def _get_class_progress_data(class_uuid: str, db: Session) -> List[Dict]:
+    """内部方法：获取班级进度数据（用于导出）"""
+    pbl_class = db.query(PBLClass).filter(PBLClass.uuid == class_uuid).first()
+    if not pbl_class:
+        return []
+    
+    # 获取班级的课程
+    courses = db.query(PBLCourse).filter(
+        PBLCourse.class_id == pbl_class.id,
+        PBLCourse.status == 'published'
+    ).all()
+    
+    if not courses:
+        return []
+    
+    # 获取班级成员
+    members = db.query(PBLClassMember, User).join(
+        User, PBLClassMember.student_id == User.id
+    ).filter(
+        PBLClassMember.class_id == pbl_class.id,
+        PBLClassMember.is_active == 1
+    ).all()
+    
+    result = []
+    course = courses[0]  # 假设一个班级对应一个主课程
+    
+    # 统计单元数量
+    total_units = db.query(func.count(PBLUnit.id)).filter(
+        PBLUnit.course_id == course.id
+    ).scalar() or 0
+    
+    for member, user in members:
+        # 获取选课记录
+        enrollment = db.query(PBLCourseEnrollment).filter(
+            PBLCourseEnrollment.course_id == course.id,
+            PBLCourseEnrollment.user_id == member.student_id
+        ).first()
+        
+        # 统计已完成单元
+        completed_units = 0
+        if total_units > 0:
+            units = db.query(PBLUnit).filter(PBLUnit.course_id == course.id).all()
+            for unit in units:
+                tasks = db.query(PBLTask).filter(PBLTask.unit_id == unit.id).all()
+                if not tasks:
+                    continue
+                
+                all_completed = True
+                for task in tasks:
+                    task_progress = db.query(PBLTaskProgress).filter(
+                        PBLTaskProgress.task_id == task.id,
+                        PBLTaskProgress.user_id == member.student_id
+                    ).first()
+                    if not task_progress or task_progress.status != 'completed':
+                        all_completed = False
+                        break
+                
+                if all_completed:
+                    completed_units += 1
+        
+        # 计算完成率
+        completion_rate = 0
+        if total_units > 0:
+            completion_rate = int((completed_units / total_units) * 100)
+        
+        # 计算学习状态
+        learning_status = 'not_started'
+        if completion_rate == 100:
+            learning_status = 'completed'
+        elif completion_rate > 0:
+            learning_status = 'in_progress'
+        
+        # 统计提交作业数
+        submissions_count = db.query(func.count(PBLTaskProgress.id)).filter(
+            PBLTaskProgress.user_id == member.student_id,
+            PBLTaskProgress.submission.isnot(None)
+        ).join(
+            PBLTask, PBLTaskProgress.task_id == PBLTask.id
+        ).join(
+            PBLUnit, PBLTask.unit_id == PBLUnit.id
+        ).filter(
+            PBLUnit.course_id == course.id
+        ).scalar() or 0
+        
+        # 获取最后活跃时间
+        last_progress = db.query(PBLTaskProgress).filter(
+            PBLTaskProgress.user_id == member.student_id
+        ).join(
+            PBLTask, PBLTaskProgress.task_id == PBLTask.id
+        ).join(
+            PBLUnit, PBLTask.unit_id == PBLUnit.id
+        ).filter(
+            PBLUnit.course_id == course.id
+        ).order_by(PBLTaskProgress.updated_at.desc()).first()
+        
+        last_active = None
+        if last_progress:
+            last_active = last_progress.updated_at.isoformat()
+        elif enrollment:
+            last_active = enrollment.updated_at.isoformat()
+        
+        learning_hours = submissions_count * 2  # 简单估算
+        
+        result.append({
+            'student_id': user.id,
+            'name': user.name or user.real_name,
+            'student_number': user.student_number or '',
+            'completion_rate': completion_rate,
+            'status': learning_status,
+            'completed_units': completed_units,
+            'total_units': total_units,
+            'learning_hours': learning_hours,
+            'submissions_count': submissions_count,
+            'last_active': last_active
+        })
+    
+    return result
+
+
+# ===== 作业管理 =====
+
+@router.get("/classes/{class_uuid}/homework")
+def get_class_homework(
+    class_uuid: str,
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(get_current_admin)
+):
+    """获取班级作业列表（学生提交情况）"""
+    pbl_class = db.query(PBLClass).filter(PBLClass.uuid == class_uuid).first()
+    if not pbl_class:
+        return error_response(
+            message="班级不存在",
+            code=404,
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    
+    # 权限检查
+    if current_admin.role != 'platform_admin':
+        if pbl_class.school_id != current_admin.school_id:
+            return error_response(
+                message="无权限查看该班级",
+                code=403,
+                status_code=status.HTTP_403_FORBIDDEN
+            )
+    
+    # 获取班级的课程
+    courses = db.query(PBLCourse).filter(
+        PBLCourse.class_id == pbl_class.id,
+        PBLCourse.status == 'published'
+    ).all()
+    
+    if not courses:
+        return success_response(data=[])
+    
+    # 获取班级成员数量
+    total_students = db.query(func.count(PBLClassMember.id)).filter(
+        PBLClassMember.class_id == pbl_class.id,
+        PBLClassMember.is_active == 1
+    ).scalar() or 0
+    
+    result = []
+    for course in courses:
+        # 获取课程的所有任务
+        tasks = db.query(PBLTask, PBLUnit).join(
+            PBLUnit, PBLTask.unit_id == PBLUnit.id
+        ).filter(
+            PBLUnit.course_id == course.id
+        ).order_by(PBLUnit.order, PBLTask.order).all()
+        
+        for task, unit in tasks:
+            # 统计提交情况
+            submitted_count = db.query(func.count(PBLTaskProgress.id)).filter(
+                PBLTaskProgress.task_id == task.id,
+                PBLTaskProgress.submission.isnot(None)
+            ).scalar() or 0
+            
+            # 统计待批改数量
+            to_review_count = db.query(func.count(PBLTaskProgress.id)).filter(
+                PBLTaskProgress.task_id == task.id,
+                PBLTaskProgress.status == 'review',
+                PBLTaskProgress.graded_at.is_(None)
+            ).scalar() or 0
+            
+            # 判断作业状态
+            homework_status = 'ongoing'
+            if hasattr(task, 'deadline') and task.deadline:
+                from datetime import datetime
+                if task.deadline < datetime.now():
+                    homework_status = 'ended'
+            
+            # 判断是否为必做
+            is_required = task.type == 'required' if hasattr(task, 'type') else True
+            
+            result.append({
+                'id': task.id,
+                'uuid': task.uuid,
+                'title': task.title,
+                'description': task.description,
+                'unit_name': unit.title,
+                'unit_id': unit.id,
+                'status': homework_status,
+                'is_required': is_required,
+                'submitted_count': submitted_count,
+                'total_count': total_students,
+                'to_review_count': to_review_count,
+                'start_time': task.start_time.isoformat() if hasattr(task, 'start_time') and task.start_time else None,
+                'deadline': task.deadline.isoformat() if hasattr(task, 'deadline') and task.deadline else None,
+                'created_at': task.created_at.isoformat() if task.created_at else None
+            })
+    
+    return success_response(data=result)
+
+
+@router.get("/classes/{class_uuid}/homework/export")
+def export_class_homework(
+    class_uuid: str,
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(get_current_admin)
+):
+    """导出班级作业列表"""
+    from fastapi.responses import Response
+    from ...utils.export import export_homework_to_csv, generate_export_filename
+    
+    pbl_class = db.query(PBLClass).filter(PBLClass.uuid == class_uuid).first()
+    if not pbl_class:
+        return error_response(
+            message="班级不存在",
+            code=404,
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    
+    # 权限检查
+    if current_admin.role != 'platform_admin':
+        if pbl_class.school_id != current_admin.school_id:
+            return error_response(
+                message="无权限操作",
+                code=403,
+                status_code=status.HTTP_403_FORBIDDEN
+            )
+    
+    # 获取作业数据（内部调用）
+    homework_data = _get_class_homework_data(class_uuid, db)
+    
+    # 导出为 CSV
+    csv_content = export_homework_to_csv(homework_data)
+    
+    # 生成文件名
+    filename = generate_export_filename(f'{pbl_class.name}_homework')
+    
+    # 返回 CSV 文件
+    return Response(
+        content=csv_content.encode('utf-8-sig'),
+        media_type='text/csv',
+        headers={
+            'Content-Disposition': f'attachment; filename="{filename}"'
+        }
+    )
+
+
+def _get_class_homework_data(class_uuid: str, db: Session) -> List[Dict]:
+    """内部方法：获取班级作业数据（用于导出）"""
+    pbl_class = db.query(PBLClass).filter(PBLClass.uuid == class_uuid).first()
+    if not pbl_class:
+        return []
+    
+    # 获取班级的课程
+    courses = db.query(PBLCourse).filter(
+        PBLCourse.class_id == pbl_class.id,
+        PBLCourse.status == 'published'
+    ).all()
+    
+    if not courses:
+        return []
+    
+    # 获取班级成员数量
+    total_students = db.query(func.count(PBLClassMember.id)).filter(
+        PBLClassMember.class_id == pbl_class.id,
+        PBLClassMember.is_active == 1
+    ).scalar() or 0
+    
+    result = []
+    for course in courses:
+        # 获取课程的所有任务
+        tasks = db.query(PBLTask, PBLUnit).join(
+            PBLUnit, PBLTask.unit_id == PBLUnit.id
+        ).filter(
+            PBLUnit.course_id == course.id
+        ).order_by(PBLUnit.order, PBLTask.order).all()
+        
+        for task, unit in tasks:
+            # 统计提交情况
+            submitted_count = db.query(func.count(PBLTaskProgress.id)).filter(
+                PBLTaskProgress.task_id == task.id,
+                PBLTaskProgress.submission.isnot(None)
+            ).scalar() or 0
+            
+            # 统计待批改数量
+            to_review_count = db.query(func.count(PBLTaskProgress.id)).filter(
+                PBLTaskProgress.task_id == task.id,
+                PBLTaskProgress.status == 'review',
+                PBLTaskProgress.graded_at.is_(None)
+            ).scalar() or 0
+            
+            # 判断作业状态
+            homework_status = 'ongoing'
+            if hasattr(task, 'deadline') and task.deadline:
+                if task.deadline < datetime.now():
+                    homework_status = 'ended'
+            
+            # 判断是否为必做
+            is_required = task.type == 'required' if hasattr(task, 'type') else True
+            
+            result.append({
+                'id': task.id,
+                'uuid': task.uuid,
+                'title': task.title,
+                'description': task.description,
+                'unit_name': unit.title,
+                'unit_id': unit.id,
+                'status': homework_status,
+                'is_required': is_required,
+                'submitted_count': submitted_count,
+                'total_count': total_students,
+                'to_review_count': to_review_count,
+                'start_time': task.start_time.isoformat() if hasattr(task, 'start_time') and task.start_time else None,
+                'deadline': task.deadline.isoformat() if hasattr(task, 'deadline') and task.deadline else None,
+                'created_at': task.created_at.isoformat() if task.created_at else None
+            })
+    
+    return result
+
+
+@router.get("/classes/{class_uuid}/homework/{task_id}/submissions")
+def get_homework_submissions(
+    class_uuid: str,
+    task_id: int,
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(get_current_admin)
+):
+    """获取作业提交详情"""
+    pbl_class = db.query(PBLClass).filter(PBLClass.uuid == class_uuid).first()
+    if not pbl_class:
+        return error_response(
+            message="班级不存在",
+            code=404,
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    
+    # 权限检查
+    if current_admin.role != 'platform_admin':
+        if pbl_class.school_id != current_admin.school_id:
+            return error_response(
+                message="无权限查看该班级",
+                code=403,
+                status_code=status.HTTP_403_FORBIDDEN
+            )
+    
+    # 获取任务
+    task = db.query(PBLTask).filter(PBLTask.id == task_id).first()
+    if not task:
+        return error_response(
+            message="任务不存在",
+            code=404,
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    
+    # 获取班级成员
+    members = db.query(PBLClassMember, User).join(
+        User, PBLClassMember.student_id == User.id
+    ).filter(
+        PBLClassMember.class_id == pbl_class.id,
+        PBLClassMember.is_active == 1
+    ).all()
+    
+    result = []
+    for member, user in members:
+        # 获取提交记录
+        progress = db.query(PBLTaskProgress).filter(
+            PBLTaskProgress.task_id == task_id,
+            PBLTaskProgress.user_id == member.student_id
+        ).first()
+        
+        if progress:
+            # 获取评分人信息
+            grader_name = None
+            if progress.graded_by:
+                grader = db.query(User).filter(User.id == progress.graded_by).first()
+                if grader:
+                    grader_name = grader.name or grader.real_name
+            
+            result.append({
+                'submission_id': progress.id,
+                'student_id': user.id,
+                'student_name': user.name or user.real_name,
+                'student_number': user.student_number or '',
+                'status': progress.status,
+                'submission': progress.submission,
+                'score': progress.score,
+                'feedback': progress.feedback,
+                'graded_by': progress.graded_by,
+                'grader_name': grader_name,
+                'graded_at': progress.graded_at.isoformat() if progress.graded_at else None,
+                'submitted_at': progress.updated_at.isoformat() if progress.updated_at else None
+            })
+        else:
+            # 未提交
+            result.append({
+                'submission_id': None,
+                'student_id': user.id,
+                'student_name': user.name or user.real_name,
+                'student_number': user.student_number or '',
+                'status': 'pending',
+                'submission': None,
+                'score': None,
+                'feedback': None,
+                'graded_by': None,
+                'grader_name': None,
+                'graded_at': None,
+                'submitted_at': None
+            })
+    
+    return success_response(data=result)
+
+
+@router.get("/classes/{class_uuid}/homework/{task_id}/submissions/export")
+def export_homework_submissions(
+    class_uuid: str,
+    task_id: int,
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(get_current_admin)
+):
+    """导出作业提交详情"""
+    from fastapi.responses import Response
+    from ...utils.export import export_submissions_to_csv, generate_export_filename
+    
+    pbl_class = db.query(PBLClass).filter(PBLClass.uuid == class_uuid).first()
+    if not pbl_class:
+        return error_response(
+            message="班级不存在",
+            code=404,
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    
+    # 权限检查
+    if current_admin.role != 'platform_admin':
+        if pbl_class.school_id != current_admin.school_id:
+            return error_response(
+                message="无权限操作",
+                code=403,
+                status_code=status.HTTP_403_FORBIDDEN
+            )
+    
+    # 获取任务
+    task = db.query(PBLTask).filter(PBLTask.id == task_id).first()
+    if not task:
+        return error_response(
+            message="任务不存在",
+            code=404,
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    
+    # 获取提交数据
+    submissions_data = _get_homework_submissions_data(class_uuid, task_id, db)
+    
+    # 导出为 CSV
+    csv_content = export_submissions_to_csv(submissions_data)
+    
+    # 生成文件名
+    filename = generate_export_filename(f'{task.title}_submissions')
+    
+    # 返回 CSV 文件
+    return Response(
+        content=csv_content.encode('utf-8-sig'),
+        media_type='text/csv',
+        headers={
+            'Content-Disposition': f'attachment; filename="{filename}"'
+        }
+    )
+
+
+def _get_homework_submissions_data(class_uuid: str, task_id: int, db: Session) -> List[Dict]:
+    """内部方法：获取作业提交数据（用于导出）"""
+    pbl_class = db.query(PBLClass).filter(PBLClass.uuid == class_uuid).first()
+    if not pbl_class:
+        return []
+    
+    # 获取班级成员
+    members = db.query(PBLClassMember, User).join(
+        User, PBLClassMember.student_id == User.id
+    ).filter(
+        PBLClassMember.class_id == pbl_class.id,
+        PBLClassMember.is_active == 1
+    ).all()
+    
+    result = []
+    for member, user in members:
+        # 获取提交记录
+        progress = db.query(PBLTaskProgress).filter(
+            PBLTaskProgress.task_id == task_id,
+            PBLTaskProgress.user_id == member.student_id
+        ).first()
+        
+        if progress:
+            # 获取评分人信息
+            grader_name = None
+            if progress.graded_by:
+                grader = db.query(User).filter(User.id == progress.graded_by).first()
+                if grader:
+                    grader_name = grader.name or grader.real_name
+            
+            result.append({
+                'submission_id': progress.id,
+                'student_id': user.id,
+                'student_name': user.name or user.real_name,
+                'student_number': user.student_number or '',
+                'status': progress.status,
+                'submission': progress.submission,
+                'score': progress.score,
+                'feedback': progress.feedback,
+                'graded_by': progress.graded_by,
+                'grader_name': grader_name,
+                'graded_at': progress.graded_at.isoformat() if progress.graded_at else None,
+                'submitted_at': progress.updated_at.isoformat() if progress.updated_at else None
+            })
+        else:
+            # 未提交
+            result.append({
+                'submission_id': None,
+                'student_id': user.id,
+                'student_name': user.name or user.real_name,
+                'student_number': user.student_number or '',
+                'status': 'pending',
+                'submission': None,
+                'score': None,
+                'feedback': None,
+                'graded_by': None,
+                'grader_name': None,
+                'graded_at': None,
+                'submitted_at': None
+            })
+    
+    return result
+
+
+@router.put("/classes/{class_uuid}/homework/submissions/{submission_id}/review")
+def review_homework_submission(
+    class_uuid: str,
+    submission_id: int,
+    review_data: TaskReview,
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(get_current_admin)
+):
+    """批阅作业"""
+    pbl_class = db.query(PBLClass).filter(PBLClass.uuid == class_uuid).first()
+    if not pbl_class:
+        return error_response(
+            message="班级不存在",
+            code=404,
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    
+    # 权限检查
+    if current_admin.role != 'platform_admin':
+        if pbl_class.school_id != current_admin.school_id:
+            return error_response(
+                message="无权限操作",
+                code=403,
+                status_code=status.HTTP_403_FORBIDDEN
+            )
+    
+    # 获取提交记录
+    progress = db.query(PBLTaskProgress).filter(
+        PBLTaskProgress.id == submission_id
+    ).first()
+    
+    if not progress:
+        return error_response(
+            message="提交记录不存在",
+            code=404,
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    
+    # 更新评分和反馈
+    if review_data.score is not None:
+        progress.score = review_data.score
+    if review_data.feedback is not None:
+        progress.feedback = review_data.feedback
+    
+    progress.status = review_data.status
+    progress.graded_by = current_admin.id
+    progress.graded_at = datetime.now()
+    
+    db.commit()
+    db.refresh(progress)
+    
+    logger.info(f"批阅作业 - 提交ID: {submission_id}, 评分: {review_data.score}, 评阅人: {current_admin.username}")
+    
+    return success_response(
+        data={
+            'submission_id': progress.id,
+            'score': progress.score,
+            'feedback': progress.feedback,
+            'status': progress.status
+        },
+        message="作业批阅成功"
     )
