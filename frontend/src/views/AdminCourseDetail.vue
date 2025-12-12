@@ -20,49 +20,20 @@
             </div>
           </template>
           
-          <div class="course-info-grid">
-            <div class="info-row">
-              <div class="info-item">
-                <span class="info-label">课程ID:</span>
-                <span class="info-value">{{ courseDetail.id }}</span>
-              </div>
-              <div class="info-item">
-                <span class="info-label">课程标题:</span>
-                <span class="info-value">{{ courseDetail.title }}</span>
-              </div>
+          <div class="course-info-simple">
+            <div class="info-item">
+              <span class="info-label">课程标题:</span>
+              <span class="info-value">{{ courseDetail.title }}</span>
             </div>
             
-            <div class="info-row">
-              <div class="info-item">
-                <span class="info-label">难度:</span>
-                <el-tag :type="getDifficultyType(courseDetail.difficulty)" size="small">
-                  {{ getDifficultyText(courseDetail.difficulty) }}
-                </el-tag>
-              </div>
-              <div class="info-item">
-                <span class="info-label">状态:</span>
-                <el-tag :type="getStatusType(courseDetail.status)" size="small">
-                  {{ getStatusText(courseDetail.status) }}
-                </el-tag>
-              </div>
+            <div class="info-item">
+              <span class="info-label">时长:</span>
+              <span class="info-value">{{ courseDetail.duration || '未设置' }}</span>
             </div>
             
-            <div class="info-row">
-              <div class="info-item">
-                <span class="info-label">时长:</span>
-                <span class="info-value">{{ courseDetail.duration || '未设置' }}</span>
-              </div>
-              <div class="info-item">
-                <span class="info-label">创建时间:</span>
-                <span class="info-value">{{ courseDetail.created_at }}</span>
-              </div>
-            </div>
-            
-            <div class="info-row full-width">
-              <div class="info-item">
-                <span class="info-label">描述:</span>
-                <p class="info-value description">{{ courseDetail.description || '暂无描述' }}</p>
-              </div>
+            <div class="info-item full-width">
+              <span class="info-label">描述:</span>
+              <p class="info-value description">{{ courseDetail.description || '暂无描述' }}</p>
             </div>
           </div>
         </el-card>
@@ -280,18 +251,11 @@
         <el-form-item label="课程标题">
           <el-input v-model="courseForm.title" />
         </el-form-item>
-        <el-form-item label="描述">
-          <el-input v-model="courseForm.description" type="textarea" :rows="4" />
-        </el-form-item>
         <el-form-item label="时长">
           <el-input v-model="courseForm.duration" placeholder="如：8周" />
         </el-form-item>
-        <el-form-item label="难度">
-          <el-select v-model="courseForm.difficulty">
-            <el-option label="初级" value="beginner" />
-            <el-option label="中级" value="intermediate" />
-            <el-option label="高级" value="advanced" />
-          </el-select>
+        <el-form-item label="描述">
+          <el-input v-model="courseForm.description" type="textarea" :rows="4" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -446,8 +410,7 @@ const taskDialogVisible = ref(false)
 const courseForm = ref({
   title: '',
   description: '',
-  duration: '',
-  difficulty: 'beginner'
+  duration: ''
 })
 
 const unitForm = ref({
@@ -614,8 +577,7 @@ const editCourse = () => {
   courseForm.value = {
     title: courseDetail.value.title,
     description: courseDetail.value.description,
-    duration: courseDetail.value.duration,
-    difficulty: courseDetail.value.difficulty
+    duration: courseDetail.value.duration
   }
   courseDialogVisible.value = true
 }
@@ -942,27 +904,21 @@ onMounted(() => {
   font-weight: bold;
 }
 
-/* 课程信息网格布局 */
-.course-info-grid {
+/* 课程信息简化布局 */
+.course-info-simple {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-}
-
-.info-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 24px;
-}
-
-.info-row.full-width {
-  grid-template-columns: 1fr;
+  gap: 20px;
 }
 
 .info-item {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.info-item.full-width {
+  width: 100%;
 }
 
 .info-label {
@@ -972,14 +928,17 @@ onMounted(() => {
 }
 
 .info-value {
-  font-size: 14px;
+  font-size: 15px;
   color: #303133;
+  font-weight: 500;
 }
 
 .info-value.description {
-  line-height: 1.6;
+  line-height: 1.8;
   white-space: pre-wrap;
   margin: 0;
+  color: #606266;
+  font-weight: 400;
 }
 
 /* 单元标题 */
@@ -1084,10 +1043,6 @@ onMounted(() => {
 
 /* 响应式 */
 @media (max-width: 768px) {
-  .info-row {
-    grid-template-columns: 1fr;
-  }
-  
   .unit-title-wrapper {
     flex-direction: column;
     align-items: flex-start;
