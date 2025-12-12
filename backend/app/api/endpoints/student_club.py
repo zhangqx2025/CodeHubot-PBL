@@ -73,7 +73,7 @@ def get_my_courses(
         PBLCourse, PBLCourseEnrollment.course_id == PBLCourse.id
     ).filter(
         PBLCourseEnrollment.user_id == current_user.id,
-        PBLCourseEnrollment.status == 'active',
+        PBLCourseEnrollment.enrollment_status == 'enrolled',
         PBLCourse.status == 'published'
     ).all()
     
@@ -87,7 +87,7 @@ def get_my_courses(
             'cover_image': course.cover_image,
             'class_name': course.class_name,
             'difficulty': course.difficulty,
-            'status': enrollment.status,
+            'status': enrollment.enrollment_status,
             'progress': enrollment.progress,
             'enrolled_at': enrollment.enrolled_at.isoformat() if enrollment.enrolled_at else None
         })
@@ -223,7 +223,7 @@ def join_class(
                 course_id=course.id,
                 user_id=current_user.id,
                 class_id=pbl_class.id,
-                status='active',
+                enrollment_status='enrolled',
                 enrolled_at=datetime.now()
             )
             db.add(enrollment)
@@ -293,7 +293,7 @@ def get_class_detail(
             'cover_image': course.cover_image,
             'difficulty': course.difficulty,
             'progress': enrollment.progress if enrollment else 0,
-            'status': enrollment.status if enrollment else None
+            'status': enrollment.enrollment_status if enrollment else None
         })
     
     return success_response(data={

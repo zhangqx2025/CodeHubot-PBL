@@ -54,6 +54,85 @@ class PBLCourseTemplate(Base):
     created_at = Column(TIMESTAMP, server_default=func.now())
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
 
+    units = relationship("PBLUnitTemplate", back_populates="course_template", cascade="all, delete-orphan")
+
+
+class PBLUnitTemplate(Base):
+    """单元模板表"""
+    __tablename__ = "pbl_unit_templates"
+
+    id = Column(BigInteger, primary_key=True, index=True)
+    uuid = Column(String(36), unique=True, default=generate_uuid, nullable=False)
+    template_code = Column(String(50), nullable=False)
+    course_template_id = Column(BigInteger, ForeignKey("pbl_course_templates.id"), nullable=False)
+    title = Column(String(200), nullable=False)
+    description = Column(Text)
+    order = Column(Integer, default=0)
+    learning_objectives = Column(JSON)
+    key_concepts = Column(JSON)
+    estimated_duration = Column(String(50))
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+
+    course_template = relationship("PBLCourseTemplate", back_populates="units")
+    resources = relationship("PBLResourceTemplate", back_populates="unit_template", cascade="all, delete-orphan")
+    tasks = relationship("PBLTaskTemplate", back_populates="unit_template", cascade="all, delete-orphan")
+
+
+class PBLResourceTemplate(Base):
+    """资源模板表"""
+    __tablename__ = "pbl_resource_templates"
+
+    id = Column(BigInteger, primary_key=True, index=True)
+    uuid = Column(String(36), unique=True, default=generate_uuid, nullable=False)
+    template_code = Column(String(50), nullable=False)
+    unit_template_id = Column(BigInteger, ForeignKey("pbl_unit_templates.id"), nullable=False)
+    type = Column(Enum('video', 'document', 'link', 'interactive', 'quiz'), nullable=False)
+    title = Column(String(200), nullable=False)
+    description = Column(Text)
+    order = Column(Integer, default=0)
+    url = Column(String(500))
+    content = Column(Text)
+    video_id = Column(String(100))
+    video_cover_url = Column(String(500))
+    duration = Column(Integer)
+    default_max_views = Column(Integer, default=None)
+    is_preview_allowed = Column(Integer, default=1)
+    meta_data = Column(JSON)
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+
+    unit_template = relationship("PBLUnitTemplate", back_populates="resources")
+
+
+class PBLTaskTemplate(Base):
+    """任务模板表"""
+    __tablename__ = "pbl_task_templates"
+
+    id = Column(BigInteger, primary_key=True, index=True)
+    uuid = Column(String(36), unique=True, default=generate_uuid, nullable=False)
+    template_code = Column(String(50), nullable=False)
+    unit_template_id = Column(BigInteger, ForeignKey("pbl_unit_templates.id"), nullable=False)
+    title = Column(String(200), nullable=False)
+    description = Column(Text)
+    type = Column(Enum('analysis', 'coding', 'design', 'deployment', 'research', 'presentation'), default='analysis')
+    difficulty = Column(Enum('easy', 'medium', 'hard'), default='easy')
+    order = Column(Integer, default=0)
+    requirements = Column(JSON)
+    deliverables = Column(JSON)
+    evaluation_criteria = Column(JSON)
+    estimated_time = Column(String(50))
+    estimated_hours = Column(Integer)
+    prerequisites = Column(JSON)
+    required_resources = Column(JSON)
+    hints = Column(JSON)
+    reference_materials = Column(JSON)
+    meta_data = Column(JSON)
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+
+    unit_template = relationship("PBLUnitTemplate", back_populates="tasks")
+
 
 class PBLUnit(Base):
     __tablename__ = "pbl_units"
@@ -184,7 +263,7 @@ class PBLCourseEnrollment(Base):
     course_id = Column(Integer, ForeignKey("pbl_courses.id"), nullable=False)
     user_id = Column(Integer, nullable=False) # Foreign Key to core_users
     class_id = Column(Integer)  # 通过哪个班级获得此课程
-    status = Column(Enum('active', 'dropped', 'completed'), default='active')
+    enrollment_status = Column(Enum('enrolled', 'dropped', 'completed'), default='enrolled')
     enrolled_at = Column(TIMESTAMP)
     dropped_at = Column(TIMESTAMP)
     completed_at = Column(TIMESTAMP)
