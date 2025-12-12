@@ -468,7 +468,7 @@ def add_members_to_class(
                     course_id=course.id,
                     user_id=student_id,
                     class_id=pbl_class.id,
-                    status='active',
+                    enrollment_status='enrolled',
                     enrolled_at=datetime.now()
                 )
                 db.add(enrollment)
@@ -737,7 +737,7 @@ def create_course_from_template(
                     course_id=new_course.id,
                     user_id=member.student_id,
                     class_id=pbl_class.id,
-                    status='active',
+                    enrollment_status='enrolled',
                     enrolled_at=datetime.now()
                 )
                 db.add(enrollment)
@@ -827,7 +827,7 @@ def enroll_class_members_to_course(
                 course_id=course.id,
                 user_id=member.student_id,
                 class_id=course.class_id,
-                status='active',
+                enrollment_status='enrolled',
                 enrolled_at=datetime.now()
             )
             db.add(enrollment)
