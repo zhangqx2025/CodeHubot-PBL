@@ -189,6 +189,10 @@ class PBLTask(Base):
     unit_id = Column(Integer, ForeignKey("pbl_units.id"), nullable=False)
     title = Column(String(200), nullable=False)
     description = Column(Text)
+    start_time = Column(TIMESTAMP, default=None, comment='任务开始时间')
+    deadline = Column(TIMESTAMP, default=None, comment='任务截止时间')
+    is_required = Column(Integer, default=1, comment='是否必做：1-必做，0-选做')
+    publish_status = Column(Enum('draft', 'published'), default='draft', comment='发布状态：draft-草稿，published-已发布')
     type = Column(Enum('analysis', 'coding', 'design', 'deployment'), default='analysis')
     difficulty = Column(Enum('easy', 'medium', 'hard'), default='easy')
     estimated_time = Column(String(50))
@@ -229,6 +233,7 @@ class PBLTaskProgress(Base):
     status = Column(Enum('pending', 'in-progress', 'blocked', 'review', 'completed'), default='pending')
     progress = Column(Integer, default=0)
     submission = Column(JSON)
+    submitted_at = Column(TIMESTAMP, default=None, comment='提交时间')
     score = Column(Integer)
     feedback = Column(Text)
     graded_by = Column(Integer) # Foreign Key to core_users
@@ -345,8 +350,10 @@ class PBLClassTeacher(Base):
     id = Column(Integer, primary_key=True, index=True)
     class_id = Column(Integer, ForeignKey("pbl_classes.id"), nullable=False)
     teacher_id = Column(Integer, nullable=False)  # Foreign Key to core_users
+    role = Column(Enum('main', 'assistant'), default='assistant')  # 教师角色：main-主讲教师，assistant-助教
     subject = Column(String(50))  # 教师在该班级教授的科目
     is_primary = Column(Integer, default=0)  # 是否为班主任
+    added_at = Column(TIMESTAMP, server_default=func.now())  # 添加时间
     created_at = Column(TIMESTAMP, server_default=func.now())
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
 
