@@ -326,24 +326,12 @@ ORDER BY ORDINAL_POSITION;
 SELECT 
     '=== 统计信息 ===' AS info;
 
--- 只在表有数据时显示统计
-SET @teacher_count = (SELECT COUNT(*) FROM `pbl_class_teachers`);
-
-SELECT 
-    CASE 
-        WHEN @teacher_count > 0 THEN
-            CONCAT('共有 ', @teacher_count, ' 位教师')
-        ELSE 
-            '暂无教师数据'
-    END AS message;
-
--- 如果有数据，显示详细统计
+-- 显示教师统计（如果表为空会显示 0）
 SELECT 
     COUNT(*) AS total_class_teachers,
-    SUM(CASE WHEN role = 'main' THEN 1 ELSE 0 END) AS main_teachers,
-    SUM(CASE WHEN role = 'assistant' THEN 1 ELSE 0 END) AS assistant_teachers
-FROM `pbl_class_teachers`
-WHERE @teacher_count > 0;
+    COALESCE(SUM(CASE WHEN role = 'main' THEN 1 ELSE 0 END), 0) AS main_teachers,
+    COALESCE(SUM(CASE WHEN role = 'assistant' THEN 1 ELSE 0 END), 0) AS assistant_teachers
+FROM `pbl_class_teachers`;
 
 SELECT '脚本执行完成！' AS result;
 
