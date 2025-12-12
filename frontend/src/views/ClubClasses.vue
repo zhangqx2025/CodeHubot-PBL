@@ -66,27 +66,29 @@
               <h3 class="class-name">{{ cls.name }}</h3>
               <p v-if="cls.course?.title" class="course-title">{{ cls.course.title }}</p>
             </div>
-            <el-dropdown trigger="click" @command="(cmd) => handleClassAction(cmd, cls)" @click.stop>
-              <el-button text circle>
-                <el-icon><MoreFilled /></el-icon>
-              </el-button>
-              <template #dropdown>
-                <el-dropdown-menu>
-                  <el-dropdown-item command="detail">
-                    <el-icon><View /></el-icon>
-                    查看班级
-                  </el-dropdown-item>
-                  <el-dropdown-item command="edit">
-                    <el-icon><Edit /></el-icon>
-                    编辑班级
-                  </el-dropdown-item>
-                  <el-dropdown-item command="delete" divided>
-                    <el-icon><Delete /></el-icon>
-                    删除班级
-                  </el-dropdown-item>
-                </el-dropdown-menu>
-              </template>
-            </el-dropdown>
+            <div @click.stop>
+              <el-dropdown trigger="click" @command="(cmd) => handleClassAction(cmd, cls)">
+                <el-button text circle>
+                  <el-icon><MoreFilled /></el-icon>
+                </el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item command="detail">
+                      <el-icon><View /></el-icon>
+                      查看班级
+                    </el-dropdown-item>
+                    <el-dropdown-item command="edit">
+                      <el-icon><Edit /></el-icon>
+                      编辑班级
+                    </el-dropdown-item>
+                    <el-dropdown-item command="delete" divided>
+                      <el-icon><Delete /></el-icon>
+                      删除班级
+                    </el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+            </div>
           </div>
 
           <!-- 卡片内容 -->
