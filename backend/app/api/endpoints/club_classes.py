@@ -80,11 +80,18 @@ def get_classes(
     
     result = []
     for cls in classes:
-        # 统计课程数
-        course_count = db.query(PBLCourse).filter(
+        # 获取班级的课程（一个班级对应一个课程）
+        course = db.query(PBLCourse).filter(
             PBLCourse.class_id == cls.id,
             PBLCourse.status == 'published'
-        ).count()
+        ).first()
+        
+        # 统计选课人数
+        enrolled_count = 0
+        if course:
+            enrolled_count = db.query(PBLCourseEnrollment).filter(
+                PBLCourseEnrollment.course_id == course.id
+            ).count()
         
         result.append({
             'id': cls.id,
@@ -97,8 +104,22 @@ def get_classes(
             'current_members': cls.current_members,
             'is_open': cls.is_open == 1,
             'is_active': cls.is_active == 1,
-            'course_count': course_count,
-            'created_at': cls.created_at.isoformat() if cls.created_at else None
+            'created_at': cls.created_at.isoformat() if cls.created_at else None,
+            # 课程信息
+            'course': {
+                'id': course.id,
+                'uuid': course.uuid,
+                'title': course.title,
+                'description': course.description,
+                'cover_image': course.cover_image,
+                'difficulty': course.difficulty,
+                'duration': course.duration,
+                'teacher_id': course.teacher_id,
+                'teacher_name': course.teacher_name,
+                'start_date': course.start_date.isoformat() if course.start_date else None,
+                'end_date': course.end_date.isoformat() if course.end_date else None,
+                'enrolled_count': enrolled_count
+            } if course else None
         })
     
     return success_response(data=result)
