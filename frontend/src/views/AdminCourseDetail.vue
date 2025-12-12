@@ -23,12 +23,10 @@
           <div class="course-info-simple">
             <div class="info-item">
               <span class="info-label">课程标题:</span>
-              <span class="info-value">{{ courseDetail.title }}</span>
-            </div>
-            
-            <div class="info-item">
-              <span class="info-label">时长:</span>
-              <span class="info-value">{{ courseDetail.duration || '未设置' }}</span>
+              <div class="info-value title-with-duration">
+                <span class="course-title">{{ courseDetail.title }}</span>
+                <span class="course-duration">（{{ courseDetail.duration || '未设置时长' }}）</span>
+              </div>
             </div>
             
             <div class="info-item full-width">
@@ -908,7 +906,7 @@ onMounted(() => {
 .course-info-simple {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
 }
 
 .info-item {
@@ -939,6 +937,25 @@ onMounted(() => {
   margin: 0;
   color: #606266;
   font-weight: 400;
+}
+
+.title-with-duration {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.course-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.course-duration {
+  font-size: 14px;
+  font-weight: 400;
+  color: #909399;
 }
 
 /* 单元标题 */
