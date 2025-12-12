@@ -311,9 +311,9 @@ const submitClassForm = async () => {
 
 // 处理卡片点击 - 直接进入课程详情页
 const handleCardClick = (cls) => {
-  if (cls.course) {
-    // 如果班级有课程，跳转到课程详情页
-    router.push(`/admin/courses/${cls.course.id}`)
+  if (cls.course && cls.course.uuid) {
+    // 如果班级有课程，跳转到课程详情页（使用uuid）
+    router.push(`/admin/courses/${cls.course.uuid}`)
   } else {
     // 如果没有课程，提示并跳转到班级详情页
     ElMessage.warning('该班级暂无课程，请先创建课程')
