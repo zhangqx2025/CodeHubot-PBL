@@ -128,40 +128,24 @@
                         </template>
                       </el-table-column>
                       <el-table-column prop="description" label="描述" min-width="150" show-overflow-tooltip />
-                      <el-table-column label="操作" width="220" align="center" fixed="right">
-                        <template #default="{ row, $index }">
-                          <el-button-group>
-                            <el-button 
-                              size="small" 
-                              :icon="Top"
-                              :disabled="$index === 0"
-                              @click="moveResource(unit, row, 'up')"
-                              title="上移"
-                            />
-                            <el-button 
-                              size="small" 
-                              :icon="Bottom"
-                              :disabled="$index === unit.resources.length - 1"
-                              @click="moveResource(unit, row, 'down')"
-                              title="下移"
-                            />
-                            <el-button 
-                              size="small" 
-                              type="primary"
-                              :icon="Edit"
-                              @click="editResource(unit, row)"
-                            >
-                              编辑
-                            </el-button>
-                            <el-button 
-                              size="small" 
-                              type="danger"
-                              :icon="Delete"
-                              @click="handleDeleteResource(unit, row)"
-                            >
-                              删除
-                            </el-button>
-                          </el-button-group>
+                      <el-table-column label="操作" width="160" align="center" fixed="right">
+                        <template #default="{ row }">
+                          <el-button 
+                            size="small" 
+                            type="primary"
+                            :icon="Edit"
+                            @click="editResource(unit, row)"
+                          >
+                            编辑
+                          </el-button>
+                          <el-button 
+                            size="small" 
+                            type="danger"
+                            :icon="Delete"
+                            @click="handleDeleteResource(unit, row)"
+                          >
+                            删除
+                          </el-button>
                         </template>
                       </el-table-column>
                     </el-table>
@@ -189,7 +173,7 @@
                       size="small"
                       class="tasks-table"
                     >
-                      <el-table-column prop="id" label="ID" width="80" align="center" />
+                      <el-table-column prop="order" label="序号" width="80" align="center" />
                       <el-table-column prop="title" label="任务标题" min-width="180" />
                       <el-table-column prop="type" label="任务类型" width="100" align="center">
                         <template #default="{ row }">
@@ -359,6 +343,9 @@
         <el-form-item label="预计时长">
           <el-input v-model="taskForm.estimated_time" placeholder="如：2小时" />
         </el-form-item>
+        <el-form-item label="顺序">
+          <el-input-number v-model="taskForm.order" :min="0" />
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="taskDialogVisible = false">取消</el-button>
@@ -372,7 +359,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Edit, Delete, Plus, Top, Bottom } from '@element-plus/icons-vue'
+import { Edit, Delete, Plus } from '@element-plus/icons-vue'
 import { 
   getCourseFullDetail, 
   updateCourse,
@@ -382,7 +369,6 @@ import {
   createCourseResource,
   updateCourseResource,
   deleteCourseResource,
-  updateResourceOrder,
   createCourseTask,
   updateCourseTask,
   deleteCourseTask
@@ -667,6 +653,15 @@ const handleDeleteUnit = (unit) => {
 
 // 资源管理
 const showAddResourceDialog = (unit) => {
+  // 计算当前单元内所有内容的最大order值，资源和任务共享顺序
+  const maxResourceOrder = unit.resources?.length > 0 
+    ? Math.max(...unit.resources.map(r => r.order || 0))
+    : 0
+  const maxTaskOrder = unit.tasks?.length > 0
+    ? Math.max(...unit.tasks.map(t => t.order || 0))
+    : 0
+  const nextOrder = Math.max(maxResourceOrder, maxTaskOrder) + 1
+  
   resourceForm.value = {
     uuid: null,
     unit_uuid: unit.uuid,
@@ -675,7 +670,7 @@ const showAddResourceDialog = (unit) => {
     description: '',
     url: '',
     duration: null,
-    order: (unit.resources?.length || 0) + 1
+    order: nextOrder
   }
   resourceDialogVisible.value = true
 }
@@ -755,27 +750,17 @@ const handleDeleteResource = (unit, resource) => {
   }).catch(() => {})
 }
 
-const moveResource = async (unit, resource, direction) => {
-  try {
-    const currentIndex = unit.resources.findIndex(r => r.uuid === resource.uuid)
-    let newOrder = resource.order
-    
-    if (direction === 'up' && currentIndex > 0) {
-      newOrder = unit.resources[currentIndex - 1].order
-    } else if (direction === 'down' && currentIndex < unit.resources.length - 1) {
-      newOrder = unit.resources[currentIndex + 1].order
-    }
-    
-    await updateResourceOrder(courseId.value, unit.uuid, resource.uuid, newOrder)
-    ElMessage.success('资源顺序更新成功')
-    loadCourseDetail()
-  } catch (error) {
-    ElMessage.error('更新失败：' + error.message)
-  }
-}
-
 // 任务管理
 const showAddTaskDialog = (unit) => {
+  // 计算当前单元内所有内容的最大order值，资源和任务共享顺序
+  const maxResourceOrder = unit.resources?.length > 0 
+    ? Math.max(...unit.resources.map(r => r.order || 0))
+    : 0
+  const maxTaskOrder = unit.tasks?.length > 0
+    ? Math.max(...unit.tasks.map(t => t.order || 0))
+    : 0
+  const nextOrder = Math.max(maxResourceOrder, maxTaskOrder) + 1
+  
   taskForm.value = {
     uuid: null,
     unit_uuid: unit.uuid,
@@ -784,7 +769,8 @@ const showAddTaskDialog = (unit) => {
     description: '',
     type: 'analysis',
     difficulty: 'easy',
-    estimated_time: ''
+    estimated_time: '',
+    order: nextOrder
   }
   taskDialogVisible.value = true
 }
@@ -798,7 +784,8 @@ const editTask = (unit, task) => {
     description: task.description,
     type: task.type,
     difficulty: task.difficulty,
-    estimated_time: task.estimated_time
+    estimated_time: task.estimated_time,
+    order: task.order
   }
   taskDialogVisible.value = true
 }
@@ -816,7 +803,8 @@ const saveTask = async () => {
           description: taskForm.value.description,
           type: taskForm.value.type,
           difficulty: taskForm.value.difficulty,
-          estimated_time: taskForm.value.estimated_time
+          estimated_time: taskForm.value.estimated_time,
+          order: taskForm.value.order
         }
       )
       ElMessage.success('任务更新成功')
@@ -831,7 +819,8 @@ const saveTask = async () => {
           description: taskForm.value.description,
           type: taskForm.value.type,
           difficulty: taskForm.value.difficulty,
-          estimated_time: taskForm.value.estimated_time
+          estimated_time: taskForm.value.estimated_time,
+          order: taskForm.value.order
         }
       )
       ElMessage.success('任务创建成功')
