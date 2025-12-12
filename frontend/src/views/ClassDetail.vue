@@ -214,7 +214,13 @@ const viewMembers = () => {
 }
 
 const viewCourses = () => {
-  router.push(`/admin/classes/${route.params.uuid}/courses`)
+  // 一个班级只有一个课程，直接跳转到课程详情页
+  if (classInfo.value?.courses && classInfo.value.courses.length > 0) {
+    const courseUuid = classInfo.value.courses[0].uuid
+    router.push(`/admin/courses/${courseUuid}`)
+  } else {
+    ElMessage.warning('该班级暂无课程')
+  }
 }
 
 const viewGroups = () => {
