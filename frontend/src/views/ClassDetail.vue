@@ -37,17 +37,7 @@
       <!-- 统计卡片 -->
       <div class="stats-grid">
         <el-card shadow="hover" class="stat-card">
-          <el-statistic title="成员人数" :value="classInfo.current_members">
-            <template #suffix>
-              / {{ classInfo.max_students }}
-            </template>
-          </el-statistic>
-          <el-progress 
-            :percentage="getClassFullnessPercentage(classInfo)" 
-            :color="getProgressColor(getClassFullnessPercentage(classInfo))"
-            :stroke-width="8"
-            style="margin-top: 16px"
-          />
+          <el-statistic title="成员人数" :value="classInfo.current_members" />
         </el-card>
 
         <el-card shadow="hover" class="stat-card">
@@ -75,19 +65,37 @@
             <span>快捷操作</span>
           </div>
         </template>
-        <div class="actions-grid">
-          <el-button size="large" @click="viewMembers">
-            <el-icon><UserFilled /></el-icon>
-            成员管理
-          </el-button>
-          <el-button size="large" @click="viewCourses">
-            <el-icon><Reading /></el-icon>
-            课程管理
-          </el-button>
-          <el-button size="large" @click="viewGroups">
-            <el-icon><Grid /></el-icon>
-            小组管理
-          </el-button>
+        <div class="actions-container">
+          <!-- 第一行 -->
+          <div class="actions-grid">
+            <el-button size="large" @click="viewMembers">
+              <el-icon><UserFilled /></el-icon>
+              成员管理
+            </el-button>
+            <el-button size="large" @click="viewGroups">
+              <el-icon><Grid /></el-icon>
+              分组管理
+            </el-button>
+            <el-button size="large" @click="viewTeachers">
+              <el-icon><User /></el-icon>
+              教师管理
+            </el-button>
+          </div>
+          <!-- 第二行 -->
+          <div class="actions-grid">
+            <el-button size="large" @click="viewCourses">
+              <el-icon><Reading /></el-icon>
+              课程管理
+            </el-button>
+            <el-button size="large" @click="viewProgress">
+              <el-icon><TrendCharts /></el-icon>
+              学习进度
+            </el-button>
+            <el-button size="large" @click="viewHomework">
+              <el-icon><Document /></el-icon>
+              作业管理
+            </el-button>
+          </div>
         </div>
       </el-card>
 
@@ -105,7 +113,6 @@
               {{ getClassTypeName(classInfo.class_type) }}
             </el-tag>
           </el-descriptions-item>
-          <el-descriptions-item label="最大人数">{{ classInfo.max_students }}</el-descriptions-item>
           <el-descriptions-item label="当前人数">{{ classInfo.current_members }}</el-descriptions-item>
           <el-descriptions-item label="创建时间">{{ formatDateTime(classInfo.created_at) }}</el-descriptions-item>
           <el-descriptions-item label="更新时间">{{ formatDateTime(classInfo.updated_at) }}</el-descriptions-item>
@@ -126,7 +133,7 @@ import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import {
-  ArrowLeft, ArrowRight, Edit, UserFilled, Reading, Grid, Clock
+  ArrowLeft, ArrowRight, Edit, UserFilled, Reading, Grid, Clock, User, TrendCharts, Document
 } from '@element-plus/icons-vue'
 import { getClubClassDetail, getGroups } from '@/api/club'
 import dayjs from 'dayjs'
@@ -179,17 +186,6 @@ const getClassTypeTagType = (type) => {
   return map[type] || 'info'
 }
 
-const getClassFullnessPercentage = (cls) => {
-  if (cls.max_students === 0) return 0
-  return Math.round((cls.current_members / cls.max_students) * 100)
-}
-
-const getProgressColor = (percentage) => {
-  if (percentage < 50) return '#67c23a'
-  if (percentage < 80) return '#e6a23c'
-  return '#f56c6c'
-}
-
 const formatDate = (dateStr) => {
   if (!dateStr) return '-'
   return dayjs(dateStr).format('YYYY-MM-DD')
@@ -225,6 +221,18 @@ const viewCourses = () => {
 
 const viewGroups = () => {
   router.push(`/admin/classes/${route.params.uuid}/groups`)
+}
+
+const viewTeachers = () => {
+  router.push(`/admin/classes/${route.params.uuid}/teachers`)
+}
+
+const viewProgress = () => {
+  router.push(`/admin/classes/${route.params.uuid}/progress`)
+}
+
+const viewHomework = () => {
+  router.push(`/admin/classes/${route.params.uuid}/homework`)
 }
 
 onMounted(() => {
@@ -364,9 +372,15 @@ onMounted(() => {
     font-weight: 600;
   }
   
+  .actions-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  
   .actions-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    grid-template-columns: repeat(3, 1fr);
     gap: 16px;
     
     .el-button {

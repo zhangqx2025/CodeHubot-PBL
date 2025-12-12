@@ -329,6 +329,30 @@ const routes = [
         }
       },
       {
+        path: 'classes/:uuid/teachers',
+        name: 'ClassTeachers',
+        component: () => import('../views/ClassTeachers.vue'),
+        meta: {
+          title: '教师管理 - PBL系统管理后台'
+        }
+      },
+      {
+        path: 'classes/:uuid/progress',
+        name: 'ClassProgress',
+        component: () => import('../views/ClassProgress.vue'),
+        meta: {
+          title: '学习进度 - PBL系统管理后台'
+        }
+      },
+      {
+        path: 'classes/:uuid/homework',
+        name: 'ClassHomework',
+        component: () => import('../views/ClassHomework.vue'),
+        meta: {
+          title: '作业管理 - PBL系统管理后台'
+        }
+      },
+      {
         path: 'classes/:uuid/create-course',
         name: 'ClassCreateCourse',
         component: () => import('../views/ClassCreateCourse.vue'),
