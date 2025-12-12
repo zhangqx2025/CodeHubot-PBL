@@ -194,6 +194,14 @@ const routes = [
         }
       },
       {
+        path: 'course-templates/:uuid',
+        name: 'CourseTemplateDetail',
+        component: () => import('../views/CourseTemplateDetail.vue'),
+        meta: {
+          title: '课程模板详情 - PBL系统管理后台'
+        }
+      },
+      {
         path: 'template-permissions',
         name: 'TemplatePermissions',
         component: () => import('../views/TemplatePermissions.vue'),
@@ -278,6 +286,54 @@ const routes = [
         component: () => import('../views/ClubClasses.vue'),
         meta: {
           title: '项目式课程管理 - PBL系统管理后台'
+        }
+      },
+      {
+        path: 'classes/:uuid',
+        name: 'ClassDetail',
+        component: () => import('../views/ClassDetail.vue'),
+        meta: {
+          title: '班级详情 - PBL系统管理后台'
+        }
+      },
+      {
+        path: 'classes/:uuid/edit',
+        name: 'ClassEdit',
+        component: () => import('../views/ClassEdit.vue'),
+        meta: {
+          title: '编辑班级 - PBL系统管理后台'
+        }
+      },
+      {
+        path: 'classes/:uuid/members',
+        name: 'ClassMembers',
+        component: () => import('../views/ClassMembers.vue'),
+        meta: {
+          title: '成员管理 - PBL系统管理后台'
+        }
+      },
+      {
+        path: 'classes/:uuid/courses',
+        name: 'ClassCourses',
+        component: () => import('../views/ClassCourses.vue'),
+        meta: {
+          title: '课程管理 - PBL系统管理后台'
+        }
+      },
+      {
+        path: 'classes/:uuid/groups',
+        name: 'ClassGroups',
+        component: () => import('../views/ClassGroups.vue'),
+        meta: {
+          title: '小组管理 - PBL系统管理后台'
+        }
+      },
+      {
+        path: 'classes/:uuid/create-course',
+        name: 'ClassCreateCourse',
+        component: () => import('../views/ClassCreateCourse.vue'),
+        meta: {
+          title: '创建课程 - PBL系统管理后台'
         }
       },
       {
