@@ -457,3 +457,133 @@ export const getVideoWatchHistory = async (resourceUuid, limit = 50) => {
     throw new Error(handleApiError(error))
   }
 }
+
+// ========== 课程单元管理 API（新版） ==========
+
+/**
+ * 为课程创建单元
+ */
+export const createCourseUnit = async (courseUuid, unitData) => {
+  try {
+    const response = await request.post(`/admin/courses/${courseUuid}/units`, unitData)
+    return response.data.data || response.data
+  } catch (error) {
+    throw new Error(handleApiError(error))
+  }
+}
+
+/**
+ * 更新课程单元
+ */
+export const updateCourseUnit = async (courseUuid, unitUuid, unitData) => {
+  try {
+    const response = await request.put(`/admin/courses/${courseUuid}/units/${unitUuid}`, unitData)
+    return response.data.data || response.data
+  } catch (error) {
+    throw new Error(handleApiError(error))
+  }
+}
+
+/**
+ * 删除课程单元
+ */
+export const deleteCourseUnit = async (courseUuid, unitUuid) => {
+  try {
+    const response = await request.delete(`/admin/courses/${courseUuid}/units/${unitUuid}`)
+    return response.data
+  } catch (error) {
+    throw new Error(handleApiError(error))
+  }
+}
+
+// ========== 课程资源管理 API（新版） ==========
+
+/**
+ * 为单元创建资源
+ */
+export const createCourseResource = async (courseUuid, unitUuid, resourceData) => {
+  try {
+    const response = await request.post(`/admin/courses/${courseUuid}/units/${unitUuid}/resources`, resourceData)
+    return response.data.data || response.data
+  } catch (error) {
+    throw new Error(handleApiError(error))
+  }
+}
+
+/**
+ * 更新课程资源
+ */
+export const updateCourseResource = async (courseUuid, unitUuid, resourceUuid, resourceData) => {
+  try {
+    const response = await request.put(`/admin/courses/${courseUuid}/units/${unitUuid}/resources/${resourceUuid}`, resourceData)
+    return response.data.data || response.data
+  } catch (error) {
+    throw new Error(handleApiError(error))
+  }
+}
+
+/**
+ * 删除课程资源
+ */
+export const deleteCourseResource = async (courseUuid, unitUuid, resourceUuid) => {
+  try {
+    const response = await request.delete(`/admin/courses/${courseUuid}/units/${unitUuid}/resources/${resourceUuid}`)
+    return response.data
+  } catch (error) {
+    throw new Error(handleApiError(error))
+  }
+}
+
+/**
+ * 更新资源顺序
+ */
+export const updateResourceOrder = async (courseUuid, unitUuid, resourceUuid, newOrder) => {
+  try {
+    const response = await request.patch(
+      `/admin/courses/${courseUuid}/units/${unitUuid}/resources/${resourceUuid}/order`,
+      null,
+      { params: { new_order: newOrder } }
+    )
+    return response.data.data || response.data
+  } catch (error) {
+    throw new Error(handleApiError(error))
+  }
+}
+
+// ========== 课程任务管理 API（新版） ==========
+
+/**
+ * 为单元创建任务
+ */
+export const createCourseTask = async (courseUuid, unitUuid, taskData) => {
+  try {
+    const response = await request.post(`/admin/courses/${courseUuid}/units/${unitUuid}/tasks`, taskData)
+    return response.data.data || response.data
+  } catch (error) {
+    throw new Error(handleApiError(error))
+  }
+}
+
+/**
+ * 更新课程任务
+ */
+export const updateCourseTask = async (courseUuid, unitUuid, taskUuid, taskData) => {
+  try {
+    const response = await request.put(`/admin/courses/${courseUuid}/units/${unitUuid}/tasks/${taskUuid}`, taskData)
+    return response.data.data || response.data
+  } catch (error) {
+    throw new Error(handleApiError(error))
+  }
+}
+
+/**
+ * 删除课程任务
+ */
+export const deleteCourseTask = async (courseUuid, unitUuid, taskUuid) => {
+  try {
+    const response = await request.delete(`/admin/courses/${courseUuid}/units/${unitUuid}/tasks/${taskUuid}`)
+    return response.data
+  } catch (error) {
+    throw new Error(handleApiError(error))
+  }
+}

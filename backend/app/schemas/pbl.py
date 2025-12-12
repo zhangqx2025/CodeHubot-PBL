@@ -351,3 +351,165 @@ class CourseTemplate(CourseTemplateBase):
     
     class Config:
         from_attributes = True
+
+
+# --- Unit Template Schemas ---
+class UnitTemplateBase(BaseModel):
+    """单元模板基础模型"""
+    template_code: str
+    title: str
+    description: Optional[str] = None
+    order: Optional[int] = 0
+    learning_objectives: Optional[Any] = None
+    key_concepts: Optional[Any] = None
+    estimated_duration: Optional[str] = None
+
+
+class UnitTemplateCreate(UnitTemplateBase):
+    """创建单元模板"""
+    course_template_uuid: str
+
+
+class UnitTemplateUpdate(BaseModel):
+    """更新单元模板"""
+    template_code: Optional[str] = None
+    title: Optional[str] = None
+    description: Optional[str] = None
+    order: Optional[int] = None
+    learning_objectives: Optional[Any] = None
+    key_concepts: Optional[Any] = None
+    estimated_duration: Optional[str] = None
+
+
+class UnitTemplate(UnitTemplateBase):
+    """单元模板返回模型"""
+    id: int
+    uuid: str
+    course_template_id: int
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+
+# --- Resource Template Schemas ---
+class ResourceTemplateBase(BaseModel):
+    """资源模板基础模型"""
+    template_code: str
+    type: str  # 'video', 'document', 'link', 'interactive', 'quiz'
+    title: str
+    description: Optional[str] = None
+    order: Optional[int] = 0
+    url: Optional[str] = None
+    content: Optional[str] = None
+    video_id: Optional[str] = None
+    video_cover_url: Optional[str] = None
+    duration: Optional[int] = None
+    default_max_views: Optional[int] = None
+    is_preview_allowed: Optional[int] = 1
+    meta_data: Optional[Any] = None
+
+
+class ResourceTemplateCreate(ResourceTemplateBase):
+    """创建资源模板"""
+    unit_template_uuid: str
+
+
+class ResourceTemplateUpdate(BaseModel):
+    """更新资源模板"""
+    template_code: Optional[str] = None
+    type: Optional[str] = None
+    title: Optional[str] = None
+    description: Optional[str] = None
+    order: Optional[int] = None
+    url: Optional[str] = None
+    content: Optional[str] = None
+    video_id: Optional[str] = None
+    video_cover_url: Optional[str] = None
+    duration: Optional[int] = None
+    default_max_views: Optional[int] = None
+    is_preview_allowed: Optional[int] = None
+    meta_data: Optional[Any] = None
+
+
+class ResourceTemplate(ResourceTemplateBase):
+    """资源模板返回模型"""
+    id: int
+    uuid: str
+    unit_template_id: int
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+
+# --- Task Template Schemas ---
+class TaskTemplateBase(BaseModel):
+    """任务模板基础模型"""
+    template_code: str
+    title: str
+    description: Optional[str] = None
+    type: Optional[str] = 'analysis'  # 'analysis', 'coding', 'design', 'deployment', 'research', 'presentation'
+    difficulty: Optional[str] = 'easy'  # 'easy', 'medium', 'hard'
+    order: Optional[int] = 0
+    requirements: Optional[Any] = None
+    deliverables: Optional[Any] = None
+    evaluation_criteria: Optional[Any] = None
+    estimated_time: Optional[str] = None
+    estimated_hours: Optional[int] = None
+    prerequisites: Optional[Any] = None
+    required_resources: Optional[Any] = None
+    hints: Optional[Any] = None
+    reference_materials: Optional[Any] = None
+    meta_data: Optional[Any] = None
+
+
+class TaskTemplateCreate(TaskTemplateBase):
+    """创建任务模板"""
+    unit_template_uuid: str
+
+
+class TaskTemplateUpdate(BaseModel):
+    """更新任务模板"""
+    template_code: Optional[str] = None
+    title: Optional[str] = None
+    description: Optional[str] = None
+    type: Optional[str] = None
+    difficulty: Optional[str] = None
+    order: Optional[int] = None
+    requirements: Optional[Any] = None
+    deliverables: Optional[Any] = None
+    evaluation_criteria: Optional[Any] = None
+    estimated_time: Optional[str] = None
+    estimated_hours: Optional[int] = None
+    prerequisites: Optional[Any] = None
+    required_resources: Optional[Any] = None
+    hints: Optional[Any] = None
+    reference_materials: Optional[Any] = None
+    meta_data: Optional[Any] = None
+
+
+class TaskTemplate(TaskTemplateBase):
+    """任务模板返回模型"""
+    id: int
+    uuid: str
+    unit_template_id: int
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+
+# --- Course Template with Details ---
+class CourseTemplateWithDetails(CourseTemplate):
+    """课程模板详情（包含单元、资源、任务）"""
+    units: Optional[List['UnitTemplateWithDetails']] = None
+
+
+class UnitTemplateWithDetails(UnitTemplate):
+    """单元模板详情（包含资源和任务）"""
+    resources: Optional[List[ResourceTemplate]] = None
+    tasks: Optional[List[TaskTemplate]] = None
