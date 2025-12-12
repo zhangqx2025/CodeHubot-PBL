@@ -51,13 +51,6 @@
         </el-card>
 
         <el-card shadow="hover" class="stat-card">
-          <el-statistic title="课程数量" :value="classInfo.course_count" />
-          <el-button type="primary" link style="margin-top: 16px" @click="viewCourses">
-            查看课程 <el-icon><ArrowRight /></el-icon>
-          </el-button>
-        </el-card>
-
-        <el-card shadow="hover" class="stat-card">
           <el-statistic title="小组数量" :value="groupCount" />
           <el-button type="primary" link style="margin-top: 16px" @click="viewGroups">
             查看小组 <el-icon><ArrowRight /></el-icon>
@@ -66,18 +59,11 @@
 
         <el-card shadow="hover" class="stat-card">
           <div class="stat-status">
-            <span class="stat-label">班级状态</span>
-            <el-tag 
-              :type="classInfo.is_open ? 'success' : 'info'" 
-              size="large"
-              effect="plain"
-            >
-              {{ classInfo.is_open ? '开放加入' : '关闭加入' }}
-            </el-tag>
-          </div>
-          <div class="stat-time">
-            <el-icon><Clock /></el-icon>
-            创建于 {{ formatDate(classInfo.created_at) }}
+            <span class="stat-label">创建时间</span>
+            <div class="stat-time">
+              <el-icon><Clock /></el-icon>
+              {{ formatDate(classInfo.created_at) }}
+            </div>
           </div>
         </el-card>
       </div>
@@ -102,10 +88,6 @@
             <el-icon><Grid /></el-icon>
             小组管理
           </el-button>
-          <el-button size="large" @click="createCourse">
-            <el-icon><Plus /></el-icon>
-            创建课程
-          </el-button>
         </div>
       </el-card>
 
@@ -125,12 +107,6 @@
           </el-descriptions-item>
           <el-descriptions-item label="最大人数">{{ classInfo.max_students }}</el-descriptions-item>
           <el-descriptions-item label="当前人数">{{ classInfo.current_members }}</el-descriptions-item>
-          <el-descriptions-item label="课程数量">{{ classInfo.course_count }}</el-descriptions-item>
-          <el-descriptions-item label="班级状态">
-            <el-tag :type="classInfo.is_open ? 'success' : 'info'">
-              {{ classInfo.is_open ? '开放加入' : '关闭加入' }}
-            </el-tag>
-          </el-descriptions-item>
           <el-descriptions-item label="创建时间">{{ formatDateTime(classInfo.created_at) }}</el-descriptions-item>
           <el-descriptions-item label="更新时间">{{ formatDateTime(classInfo.updated_at) }}</el-descriptions-item>
           <el-descriptions-item label="班级描述" :span="2">
@@ -150,7 +126,7 @@ import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import {
-  ArrowLeft, ArrowRight, Edit, UserFilled, Reading, Grid, Plus, Clock
+  ArrowLeft, ArrowRight, Edit, UserFilled, Reading, Grid, Clock
 } from '@element-plus/icons-vue'
 import { getClubClassDetail, getGroups } from '@/api/club'
 import dayjs from 'dayjs'
@@ -243,10 +219,6 @@ const viewCourses = () => {
 
 const viewGroups = () => {
   router.push(`/admin/classes/${route.params.uuid}/groups`)
-}
-
-const createCourse = () => {
-  router.push(`/admin/classes/${route.params.uuid}/create-course`)
 }
 
 onMounted(() => {
