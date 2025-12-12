@@ -63,7 +63,8 @@
               <el-tag :type="getClassTypeTagType(cls.class_type)" size="small" effect="dark">
                 {{ getClassTypeName(cls.class_type) }}
               </el-tag>
-              <h3 class="course-title">{{ cls.course?.title || cls.name }}</h3>
+              <h3 class="class-name">{{ cls.name }}</h3>
+              <p v-if="cls.course?.title" class="course-title">{{ cls.course.title }}</p>
             </div>
             <el-dropdown trigger="click" @command="(cmd) => handleClassAction(cmd, cls)" @click.stop>
               <el-button text circle>
@@ -93,13 +94,13 @@
             <p class="course-description">{{ cls.course?.description || cls.description || '暂无课程描述' }}</p>
             
             <!-- 老师信息 -->
-            <div v-if="cls.course?.teacher_name" class="teacher-info">
+            <div v-if="cls.course?.teacher_name" class="info-item">
               <el-icon><User /></el-icon>
               <span>授课教师：{{ cls.course.teacher_name }}</span>
             </div>
             
             <!-- 起止时间 -->
-            <div v-if="cls.course?.start_date || cls.course?.end_date" class="course-time">
+            <div v-if="cls.course?.start_date || cls.course?.end_date" class="info-item">
               <el-icon><Clock /></el-icon>
               <span>
                 {{ formatDate(cls.course.start_date) || '未设置' }} 
@@ -108,44 +109,17 @@
               </span>
             </div>
             
-            <div class="class-stats">
-              <div class="stat-item">
-                <el-icon class="stat-icon"><User /></el-icon>
-                <div class="stat-content">
-                  <span class="stat-value">{{ cls.current_members }}/{{ cls.max_students }}</span>
-                  <span class="stat-label">学生</span>
-                </div>
-              </div>
-              <div class="stat-item">
-                <el-icon class="stat-icon"><Reading /></el-icon>
-                <div class="stat-content">
-                  <span class="stat-value">{{ cls.course?.enrolled_count || 0 }}</span>
-                  <span class="stat-label">选课</span>
-                </div>
-              </div>
+            <!-- 选课人数 -->
+            <div class="info-item">
+              <el-icon><Reading /></el-icon>
+              <span>选课人数：{{ cls.course?.enrolled_count || 0 }} 人</span>
             </div>
-
-            <!-- 进度条 -->
-            <el-progress 
-              :percentage="getClassFullnessPercentage(cls)" 
-              :color="getProgressColor(getClassFullnessPercentage(cls))"
-              :show-text="false"
-              :stroke-width="8"
-              style="margin-top: 12px"
-            />
             
             <div class="card-footer">
               <span class="create-time">
                 <el-icon><Clock /></el-icon>
                 {{ formatDate(cls.created_at) }}
               </span>
-              <el-tag 
-                :type="cls.is_open ? 'success' : 'info'" 
-                size="small"
-                effect="plain"
-              >
-                {{ cls.is_open ? '开放加入' : '关闭加入' }}
-              </el-tag>
             </div>
           </div>
         </el-card>
@@ -415,26 +389,9 @@ const getClassTypeTagType = (type) => {
   return map[type] || 'info'
 }
 
-
-const getClassFullnessPercentage = (cls) => {
-  if (cls.max_students === 0) return 0
-  return Math.round((cls.current_members / cls.max_students) * 100)
-}
-
-const getProgressColor = (percentage) => {
-  if (percentage < 50) return '#67c23a'
-  if (percentage < 80) return '#e6a23c'
-  return '#f56c6c'
-}
-
 const formatDate = (dateStr) => {
   if (!dateStr) return '-'
   return dayjs(dateStr).format('YYYY-MM-DD')
-}
-
-const formatDateTime = (dateStr) => {
-  if (!dateStr) return '-'
-  return dayjs(dateStr).format('YYYY-MM-DD HH:mm')
 }
 
 
@@ -578,11 +535,17 @@ onMounted(() => {
         margin-bottom: 12px;
       }
       
-      .course-title {
-        margin: 0;
+      .class-name {
+        margin: 0 0 8px 0;
         font-size: 20px;
         font-weight: 600;
         color: white;
+      }
+      
+      .course-title {
+        margin: 0;
+        font-size: 14px;
+        color: rgba(255, 255, 255, 0.85);
       }
     }
     
@@ -610,8 +573,7 @@ onMounted(() => {
       overflow: hidden;
     }
     
-    .teacher-info,
-    .course-time {
+    .info-item {
       display: flex;
       align-items: center;
       gap: 8px;
@@ -621,48 +583,11 @@ onMounted(() => {
       
       .el-icon {
         color: #409eff;
-      }
-    }
-    
-    .class-stats {
-      display: flex;
-      gap: 24px;
-      margin-bottom: 16px;
-      
-      .stat-item {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        
-        .stat-icon {
-          font-size: 24px;
-          color: #409eff;
-        }
-        
-        .stat-content {
-          display: flex;
-          flex-direction: column;
-          
-          .stat-value {
-            font-size: 18px;
-            font-weight: 600;
-            color: #303133;
-            line-height: 1;
-          }
-          
-          .stat-label {
-            font-size: 12px;
-            color: #909399;
-            margin-top: 4px;
-          }
-        }
+        font-size: 16px;
       }
     }
     
     .card-footer {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
       margin-top: 16px;
       padding-top: 16px;
       border-top: 1px solid #f0f0f0;
