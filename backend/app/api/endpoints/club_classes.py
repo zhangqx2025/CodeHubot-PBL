@@ -1330,7 +1330,8 @@ def get_class_progress_by_units(
                         PBLTaskProgress.task_id == task.id,
                         PBLTaskProgress.user_id == member.student_id
                     ).first()
-                    if not task_progress or task_progress.status != 'completed':
+                    # 只要提交了就算完成（submission不为None）
+                    if not task_progress or task_progress.submission is None:
                         all_completed = False
                         break
                 
@@ -1361,10 +1362,11 @@ def get_class_progress_by_units(
             # 统计已完成的任务数
             completed_tasks = 0
             for task in tasks:
+                # 只要提交了就算完成（submission不为None）
                 task_progress = db.query(PBLTaskProgress).filter(
                     PBLTaskProgress.task_id == task.id,
                     PBLTaskProgress.user_id == member.student_id,
-                    PBLTaskProgress.status == 'completed'
+                    PBLTaskProgress.submission.isnot(None)
                 ).first()
                 if task_progress:
                     completed_tasks += 1
@@ -1482,7 +1484,8 @@ def get_unit_progress_detail(
             ).first()
             
             if progress:
-                is_completed = progress.status == 'completed'
+                # 只要提交了就算完成（submission不为None）
+                is_completed = progress.submission is not None
                 if is_completed:
                     completed_count += 1
                 

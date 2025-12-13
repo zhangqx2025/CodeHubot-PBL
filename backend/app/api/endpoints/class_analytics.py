@@ -103,7 +103,7 @@ def get_class_analytics_overview(
         ).filter(
             PBLUnit.course_id.in_(course_ids),
             PBLTaskProgress.user_id == member.student_id,
-            PBLTaskProgress.status == 'completed'
+            PBLTaskProgress.submission.isnot(None)  # 只要提交了就算完成
         ).scalar() or 0
         
         if total_tasks > 0:
@@ -218,7 +218,7 @@ def get_progress_distribution(
         ).filter(
             PBLUnit.course_id.in_(course_ids),
             PBLTaskProgress.user_id == member.student_id,
-            PBLTaskProgress.status == 'completed'
+            PBLTaskProgress.submission.isnot(None)  # 只要提交了就算完成
         ).scalar() or 0
         
         completion_rate = (completed_tasks / total_tasks) * 100
@@ -314,7 +314,7 @@ def get_completion_trend(
             PBLUnit, PBLTask.unit_id == PBLUnit.id
         ).filter(
             PBLUnit.course_id.in_(course_ids),
-            PBLTaskProgress.status == 'completed',
+            PBLTaskProgress.submission.isnot(None),  # 只要提交了就算完成
             func.date(PBLTaskProgress.updated_at) == current_date.date()
         ).scalar() or 0
         
@@ -466,7 +466,7 @@ def get_task_type_stats(
         PBLTaskProgress,
         and_(
             PBLTaskProgress.task_id == PBLTask.id,
-            PBLTaskProgress.status == 'completed'
+            PBLTaskProgress.submission.isnot(None)  # 只要提交了就算完成
         )
     ).join(
         PBLUnit, PBLTask.unit_id == PBLUnit.id
@@ -556,7 +556,7 @@ def get_student_activity_ranking(
         ).filter(
             PBLUnit.course_id.in_(course_ids),
             PBLTaskProgress.user_id == member.student_id,
-            PBLTaskProgress.status == 'completed'
+            PBLTaskProgress.submission.isnot(None)  # 只要提交了就算完成
         ).scalar() or 0
         
         # 计算平均分

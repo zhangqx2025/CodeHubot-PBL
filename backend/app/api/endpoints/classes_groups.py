@@ -1052,7 +1052,7 @@ def get_class_learning_progress(
             completed_tasks = db.query(PBLTaskProgress).join(PBLTask).join(PBLUnit).filter(
                 PBLUnit.course_id == course.id,
                 PBLTaskProgress.user_id == student.id,
-                PBLTaskProgress.status == 'completed'
+                PBLTaskProgress.submission.isnot(None)  # 只要提交了就算完成
             ).count()
             
             # 计算平均分

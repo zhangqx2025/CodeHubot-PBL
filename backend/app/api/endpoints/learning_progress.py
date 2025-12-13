@@ -54,7 +54,7 @@ def get_my_learning_progress(
         ).filter(
             PBLUnit.course_id == course.id,
             PBLTaskProgress.user_id == current_user.id,
-            PBLTaskProgress.status == 'completed'
+            PBLTaskProgress.submission.isnot(None)  # 只要提交了就算完成
         ).count()
         
         # 计算进度
@@ -109,7 +109,7 @@ def get_course_progress(
         completed_tasks = db.query(PBLTaskProgress).filter(
             PBLTaskProgress.user_id == current_user.id,
             PBLTaskProgress.task_id.in_([t.id for t in tasks]),
-            PBLTaskProgress.status == 'completed'
+            PBLTaskProgress.submission.isnot(None)  # 只要提交了就算完成
         ).count()
         
         # 获取单元下的资源数
@@ -512,7 +512,7 @@ def get_course_students_progress(
         completed_tasks = db.query(PBLTaskProgress).filter(
             PBLTaskProgress.user_id == student.id,
             PBLTaskProgress.task_id.in_(task_ids),
-            PBLTaskProgress.status == 'completed'
+            PBLTaskProgress.submission.isnot(None)  # 只要提交了就算完成
         ).count() if task_ids else 0
         
         # 计算平均分
@@ -532,7 +532,7 @@ def get_course_students_progress(
                 unit_completed = db.query(PBLTaskProgress).filter(
                     PBLTaskProgress.user_id == student.id,
                     PBLTaskProgress.task_id.in_(unit_tasks),
-                    PBLTaskProgress.status == 'completed'
+                    PBLTaskProgress.submission.isnot(None)  # 只要提交了就算完成
                 ).count()
                 if unit_completed == len(unit_tasks):
                     completed_units += 1
