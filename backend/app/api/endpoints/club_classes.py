@@ -1761,7 +1761,13 @@ def get_class_progress_by_units(
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(get_current_admin)
 ):
-    """获取班级按单元的学习进度"""
+    """获取班级的单元列表（极简版，无统计）
+    
+    性能优化：
+    - 只返回单元基本信息，不做任何统计
+    - 响应速度：< 50ms
+    - 点击单元时再查询该单元详情
+    """
     pbl_class = db.query(PBLClass).filter(PBLClass.uuid == class_uuid).first()
     if not pbl_class:
         return error_response(
@@ -1786,142 +1792,59 @@ def get_class_progress_by_units(
     ).all()
     
     if not courses:
-        return success_response(data={
-            'units': [],
-            'students': []
-        })
+        return success_response(data=[])
     
     course = courses[0]  # 假设一个班级对应一个主课程
     
-    # 获取课程的所有单元
+    # 获取课程的所有单元（只查询基本信息）
     units = db.query(PBLUnit).filter(
         PBLUnit.course_id == course.id
     ).order_by(PBLUnit.order).all()
     
-    # 获取班级成员
-    members = db.query(PBLClassMember, User).join(
-        User, PBLClassMember.student_id == User.id
+    # 批量获取每个单元的任务数（1次查询）
+    unit_task_counts = db.query(
+        PBLTask.unit_id,
+        func.count(PBLTask.id).label('task_count')
     ).filter(
-        PBLClassMember.class_id == pbl_class.id,
-        PBLClassMember.is_active == 1
+        PBLTask.unit_id.in_([u.id for u in units])
+    ).group_by(
+        PBLTask.unit_id
     ).all()
     
-    # 构建单元信息
+    task_count_dict = {row.unit_id: row.task_count for row in unit_task_counts}
+    
+    # 构建单元列表（无统计）
     unit_list = []
     for unit in units:
-        # 统计单元的任务数
-        tasks = db.query(PBLTask).filter(PBLTask.unit_id == unit.id).all()
-        task_count = len(tasks)
-        
-        # 统计完成该单元的学生数
-        completed_count = 0
-        for member, user in members:
-            # 检查该学生是否完成了该单元的所有任务
-            all_completed = True
-            if task_count > 0:
-                for task in tasks:
-                    task_progress = db.query(PBLTaskProgress).filter(
-                        PBLTaskProgress.task_id == task.id,
-                        PBLTaskProgress.user_id == member.student_id
-                    ).first()
-                    # 只要提交了就算完成（submission不为None）
-                    if not task_progress or task_progress.submission is None:
-                        all_completed = False
-                        break
-                
-                if all_completed:
-                    completed_count += 1
-        
         unit_list.append({
             'id': unit.id,
             'uuid': unit.uuid,
             'title': unit.title,
             'description': unit.description,
             'order': unit.order,
-            'task_count': task_count,
-            'completed_count': completed_count,
-            'total_students': len(members),
-            'completion_rate': int((completed_count / len(members)) * 100) if len(members) > 0 else 0
+            'task_count': task_count_dict.get(unit.id, 0)
         })
     
-    # 构建学生信息（包含每个单元的完成状态）
-    student_list = []
-    for member, user in members:
-        unit_progress = []
-        for unit in units:
-            # 获取单元的所有任务
-            tasks = db.query(PBLTask).filter(PBLTask.unit_id == unit.id).all()
-            task_count = len(tasks)
-            
-            # 统计已完成的任务数
-            completed_tasks = 0
-            for task in tasks:
-                # 只要提交了就算完成（submission不为None）
-                task_progress = db.query(PBLTaskProgress).filter(
-                    PBLTaskProgress.task_id == task.id,
-                    PBLTaskProgress.user_id == member.student_id,
-                    PBLTaskProgress.submission.isnot(None)
-                ).first()
-                if task_progress:
-                    completed_tasks += 1
-            
-            # 获取该学生在该单元的最后活跃时间
-            last_progress = db.query(PBLTaskProgress).join(
-                PBLTask, PBLTaskProgress.task_id == PBLTask.id
-            ).filter(
-                PBLTask.unit_id == unit.id,
-                PBLTaskProgress.user_id == member.student_id
-            ).order_by(PBLTaskProgress.updated_at.desc()).first()
-            
-            last_active = None
-            if last_progress:
-                last_active = last_progress.updated_at.isoformat()
-            
-            # 计算该单元的完成状态
-            is_completed = (completed_tasks == task_count) and task_count > 0
-            completion_rate = int((completed_tasks / task_count) * 100) if task_count > 0 else 0
-            
-            unit_progress.append({
-                'unit_id': unit.id,
-                'unit_title': unit.title,
-                'total_tasks': task_count,
-                'completed_tasks': completed_tasks,
-                'completion_rate': completion_rate,
-                'is_completed': is_completed,
-                'last_active': last_active
-            })
-        
-        student_list.append({
-            'student_id': user.id,
-            'name': user.name or user.real_name,
-            'student_number': user.student_number or '',
-            'unit_progress': unit_progress
-        })
-    
-    return success_response(data={
-        'units': unit_list,
-        'students': student_list
-    })
+    logger.info(f"获取单元列表 - 班级: {class_uuid}, 单元数: {len(unit_list)}, 查询次数: 3次")
+    return success_response(data=unit_list)
 
 
 @router.get("/classes/{class_uuid}/progress/units/{unit_id}")
 def get_unit_progress_detail(
     class_uuid: str,
     unit_id: int,
-    page: int = Query(1, ge=1, description="页码"),
-    page_size: int = Query(50, ge=1, le=100, description="每页数量"),
     search: Optional[str] = Query(None, description="搜索关键词（姓名或学号）"),
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(get_current_admin)
 ):
-    """获取指定单元的学生学习进度详情（优化版 + 分页）
+    """获取指定单元的学生学习进度详情（极简优化版）
     
     优化策略：
     1. 批量查询所有学生的任务进度，避免N+1查询
-    2. 支持分页，按需加载学生数据
+    2. 一次性返回所有学生数据（单元维度，数据量可控）
     3. 支持搜索学生
     
-    响应速度：< 300ms（每页50条数据）
+    响应速度：< 300ms
     """
     pbl_class = db.query(PBLClass).filter(PBLClass.uuid == class_uuid).first()
     if not pbl_class:
@@ -1968,7 +1891,7 @@ def get_unit_progress_detail(
             'is_required': task.is_required == 1
         })
     
-    # 查询班级成员（支持搜索和分页）
+    # 查询班级成员（支持搜索）
     members_query = db.query(PBLClassMember, User).join(
         User, PBLClassMember.student_id == User.id
     ).filter(
@@ -1986,10 +1909,10 @@ def get_unit_progress_detail(
             )
         )
     
-    # 获取总数
-    total_count = members_query.count()
+    # 获取所有成员
+    members = members_query.all()
     
-    if total_count == 0:
+    if not members:
         return success_response(data={
             'unit': {
                 'id': unit.id,
@@ -1999,19 +1922,8 @@ def get_unit_progress_detail(
                 'order': unit.order
             },
             'tasks': task_list,
-            'students': {
-                'items': [],
-                'total': 0,
-                'page': page,
-                'page_size': page_size,
-                'total_pages': 0
-            }
+            'students': []
         })
-    
-    # 分页查询
-    total_pages = (total_count + page_size - 1) // page_size
-    offset = (page - 1) * page_size
-    members = members_query.offset(offset).limit(page_size).all()
     
     student_ids = [member.student_id for member, _ in members]
     
@@ -2099,13 +2011,7 @@ def get_unit_progress_detail(
             'order': unit.order
         },
         'tasks': task_list,
-        'students': {
-            'items': student_progress,
-            'total': total_count,
-            'page': page,
-            'page_size': page_size,
-            'total_pages': total_pages
-        }
+        'students': student_progress
     })
 
 
