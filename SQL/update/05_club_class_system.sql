@@ -306,14 +306,6 @@ LEFT JOIN pbl_group_members gm ON gm.group_id = g.id
 WHERE g.course_id IS NULL 
   AND gm.id IS NULL;
 
--- 方案2：如果小组有成员但没有课程，尝试根据 class_id 自动关联课程
--- 注意：此步骤依赖于课程表已经有 class_id 字段
-UPDATE pbl_groups g
-INNER JOIN pbl_courses c ON c.class_id = g.class_id
-SET g.course_id = c.id
-WHERE g.course_id IS NULL 
-  AND g.class_id IS NOT NULL
-LIMIT 1000;  -- 限制更新数量，防止意外大量更新
 
 -- 检查是否还有未处理的 NULL 值
 SET @remaining_nulls = (SELECT COUNT(*) FROM pbl_groups WHERE course_id IS NULL);

@@ -116,11 +116,7 @@
             
             <template #footer>
               <div class="course-actions">
-                <el-button type="primary" size="small" @click="handleAssignStudents(course)">
-                  <el-icon><Plus /></el-icon>
-                  分配学生
-                </el-button>
-                <el-button size="small" @click="handleViewDetails(course)">
+                <el-button type="primary" size="small" @click="handleViewDetails(course)">
                   <el-icon><View /></el-icon>
                   查看详情
                 </el-button>
@@ -136,59 +132,6 @@
         description="暂无可用课程"
       />
     </el-card>
-
-    <!-- 分配学生对话框 -->
-    <el-dialog
-      v-model="assignDialogVisible"
-      title="为学生分配课程"
-      width="800px"
-      :close-on-click-modal="false"
-    >
-      <div v-if="currentCourse">
-        <el-alert
-          :title="`课程：${currentCourse.title}`"
-          type="info"
-          :closable="false"
-          style="margin-bottom: 20px"
-        />
-        
-        <!-- 学生选择表格 -->
-        <el-table
-          ref="studentTableRef"
-          :data="students"
-          v-loading="loadingStudents"
-          @selection-change="handleSelectionChange"
-          max-height="400"
-        >
-          <el-table-column type="selection" width="55" />
-          <el-table-column prop="name" label="姓名" width="120" />
-          <el-table-column prop="student_number" label="学号" width="150" />
-          <el-table-column prop="class_name" label="班级" width="150" />
-          <el-table-column label="状态" width="100">
-            <template #default="{ row }">
-              <el-tag v-if="row.enrolled" type="success" size="small">已选课</el-tag>
-              <el-tag v-else type="info" size="small">未选课</el-tag>
-            </template>
-          </el-table-column>
-        </el-table>
-        
-        <div style="margin-top: 10px; color: #909399; font-size: 14px">
-          已选择 {{ selectedStudents.length }} 名学生
-        </div>
-      </div>
-      
-      <template #footer>
-        <el-button @click="assignDialogVisible = false">取消</el-button>
-        <el-button 
-          type="primary" 
-          @click="handleAssignSubmit" 
-          :loading="submitting"
-          :disabled="selectedStudents.length === 0"
-        >
-          确定分配
-        </el-button>
-      </template>
-    </el-dialog>
 
     <!-- 课程详情对话框 -->
     <el-dialog
@@ -236,19 +179,13 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Search, Refresh, Plus, View, Clock, User, Picture } from '@element-plus/icons-vue'
+import { Search, Refresh, View, Clock, User, Picture } from '@element-plus/icons-vue'
 import axios from 'axios'
 
 const loading = ref(false)
-const loadingStudents = ref(false)
-const submitting = ref(false)
-const assignDialogVisible = ref(false)
 const detailDialogVisible = ref(false)
-const studentTableRef = ref(null)
 
 const courses = ref([])
-const students = ref([])
-const selectedStudents = ref([])
 const currentCourse = ref(null)
 
 const filters = reactive({
@@ -295,93 +232,6 @@ const loadCourses = async () => {
     ElMessage.error(error.response?.data?.message || '加载课程失败')
   } finally {
     loading.value = false
-  }
-}
-
-// 加载学生列表
-const loadStudents = async (courseId) => {
-  try {
-    loadingStudents.value = true
-    // 获取学校所有学生
-    const response = await axios.get('/api/v1/admin/users/list', {
-      params: {
-        role: 'student',
-        limit: 1000
-      },
-      headers: getAuthHeaders()
-    })
-    
-    if (response.data && response.data.success) {
-      students.value = response.data.data.items || []
-      
-      // 标记已选课的学生
-      const enrolledResponse = await axios.get(`/api/v1/admin/enrollments/course/${courseId}/students`, {
-        headers: getAuthHeaders()
-      })
-      
-      if (enrolledResponse.data && enrolledResponse.data.success) {
-        const enrolledIds = enrolledResponse.data.data.map(e => e.student_id)
-        students.value = students.value.map(student => ({
-          ...student,
-          enrolled: enrolledIds.includes(student.id)
-        }))
-      }
-    }
-  } catch (error) {
-    console.error('加载学生列表失败:', error)
-    ElMessage.error(error.response?.data?.message || '加载学生列表失败')
-  } finally {
-    loadingStudents.value = false
-  }
-}
-
-// 打开分配学生对话框
-const handleAssignStudents = async (course) => {
-  currentCourse.value = course
-  assignDialogVisible.value = true
-  await loadStudents(course.id)
-}
-
-// 处理学生选择
-const handleSelectionChange = (selection) => {
-  selectedStudents.value = selection
-}
-
-// 提交学生分配
-const handleAssignSubmit = async () => {
-  if (selectedStudents.value.length === 0) {
-    ElMessage.warning('请至少选择一名学生')
-    return
-  }
-  
-  try {
-    submitting.value = true
-    
-    const studentIds = selectedStudents.value
-      .filter(s => !s.enrolled) // 过滤掉已选课的学生
-      .map(s => s.id)
-    
-    if (studentIds.length === 0) {
-      ElMessage.warning('选择的学生都已经选课')
-      return
-    }
-    
-    const response = await axios.post(
-      `/api/v1/admin/enrollments/course/${currentCourse.value.id}/batch-enroll`,
-      { student_ids: studentIds },
-      { headers: getAuthHeaders() }
-    )
-    
-    if (response.data && response.data.success) {
-      ElMessage.success(`成功为 ${studentIds.length} 名学生分配课程`)
-      assignDialogVisible.value = false
-      loadCourses() // 刷新课程列表
-    }
-  } catch (error) {
-    console.error('分配失败:', error)
-    ElMessage.error(error.response?.data?.message || '分配失败')
-  } finally {
-    submitting.value = false
   }
 }
 
@@ -449,22 +299,47 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  font-size: 18px;
+  font-weight: 600;
+  color: #303133;
 }
 
 .filter-form {
-  margin-bottom: 20px;
+  margin-bottom: 24px;
+  padding: 20px;
+  background: linear-gradient(135deg, #f5f7fa 0%, #ffffff 100%);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .course-card {
   height: 100%;
   display: flex;
   flex-direction: column;
+  border-radius: 16px;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid #e4e7ed;
+  background: #ffffff;
+}
+
+.course-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 12px 24px rgba(103, 194, 58, 0.15);
+  border-color: #67c23a;
+}
+
+.course-card :deep(.el-card__header) {
+  background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+  padding: 16px 20px;
+  border-bottom: none;
 }
 
 .course-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 10px;
 }
 
 .course-title {
@@ -474,19 +349,43 @@ onMounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  margin-right: 10px;
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.course-card :deep(.el-card__body) {
+  padding: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.course-cover {
+  position: relative;
+  overflow: hidden;
+}
+
+.course-cover :deep(.el-image) {
+  transition: transform 0.3s ease;
+}
+
+.course-card:hover .course-cover :deep(.el-image) {
+  transform: scale(1.05);
 }
 
 .course-info {
   flex: 1;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
 }
 
 .course-description {
   color: #606266;
   font-size: 14px;
-  line-height: 1.5;
-  margin: 10px 0;
-  height: 60px;
+  line-height: 1.6;
+  margin: 0 0 16px 0;
+  height: 66px;
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
@@ -497,21 +396,43 @@ onMounted(() => {
 .course-meta {
   display: flex;
   justify-content: space-between;
-  margin: 10px 0;
+  gap: 16px;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 100%);
+  border-radius: 10px;
+  margin-bottom: 12px;
 }
 
 .meta-item {
   display: flex;
   align-items: center;
-  gap: 5px;
-  color: #909399;
-  font-size: 14px;
+  gap: 6px;
+  color: #606266;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.meta-item .el-icon {
+  font-size: 16px;
+  color: #67c23a;
 }
 
 .course-date {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid #EBEEF5;
+  margin-top: auto;
+  padding: 12px;
+  background: linear-gradient(135deg, #fff9e6 0%, #fffbf0 100%);
+  border-radius: 8px;
+  border-left: 3px solid #ffc107;
+}
+
+.course-date .el-text {
+  line-height: 1.6;
+}
+
+.course-card :deep(.el-card__footer) {
+  padding: 16px 20px;
+  background: linear-gradient(to top, #f8f9fa 0%, #ffffff 100%);
+  border-top: 1px solid #f0f2f5;
 }
 
 .course-actions {
@@ -520,14 +441,84 @@ onMounted(() => {
   justify-content: center;
 }
 
+.course-actions .el-button {
+  flex: 1;
+  border-radius: 8px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.course-actions .el-button--primary {
+  background: linear-gradient(135deg, #409eff 0%, #3a8ee6 100%);
+  border: none;
+}
+
+.course-actions .el-button--primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(64, 158, 255, 0.4);
+}
+
 .image-slot {
   display: flex;
   justify-content: center;
   align-items: center;
   width: 100%;
   height: 100%;
-  background-color: #f5f7fa;
-  color: #909399;
-  font-size: 30px;
+  background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 100%);
+  color: #aed581;
+  font-size: 48px;
+}
+
+/* 难度标签美化 */
+.course-header :deep(.el-tag) {
+  background: rgba(255, 255, 255, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  color: #ffffff;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 20px;
+  backdrop-filter: blur(10px);
+}
+
+/* 动画效果 */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.course-card {
+  animation: fadeInUp 0.5s ease-out;
+}
+
+/* 为每个卡片添加交错动画 */
+.course-card:nth-child(1) { animation-delay: 0.05s; }
+.course-card:nth-child(2) { animation-delay: 0.1s; }
+.course-card:nth-child(3) { animation-delay: 0.15s; }
+.course-card:nth-child(4) { animation-delay: 0.2s; }
+.course-card:nth-child(5) { animation-delay: 0.25s; }
+.course-card:nth-child(6) { animation-delay: 0.3s; }
+.course-card:nth-child(7) { animation-delay: 0.35s; }
+.course-card:nth-child(8) { animation-delay: 0.4s; }
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .course-actions {
+    flex-direction: column;
+  }
+  
+  .course-actions .el-button {
+    width: 100%;
+  }
+  
+  .course-meta {
+    flex-direction: column;
+    gap: 8px;
+  }
 }
 </style>

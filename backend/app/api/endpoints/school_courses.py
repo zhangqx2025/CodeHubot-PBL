@@ -426,6 +426,12 @@ def get_available_courses_for_school(
     for sc in school_courses:
         course = db.query(PBLCourse).filter(PBLCourse.id == sc.course_id).first()
         if course and course.status == 'published':
+            # 实时统计该课程的选课人数（只统计enrolled状态）
+            current_students = db.query(PBLCourseEnrollment).filter(
+                PBLCourseEnrollment.course_id == course.id,
+                PBLCourseEnrollment.enrollment_status == 'enrolled'
+            ).count()
+            
             course_data = Course.model_validate(course).model_dump(mode='json')
             course_data['school_course_info'] = {
                 'uuid': sc.uuid,
@@ -433,7 +439,7 @@ def get_available_courses_for_school(
                 'start_date': sc.start_date.isoformat() if sc.start_date else None,
                 'end_date': sc.end_date.isoformat() if sc.end_date else None,
                 'max_students': sc.max_students,
-                'current_students': sc.current_students
+                'current_students': current_students  # 使用实时统计的数据
             }
             result.append(course_data)
     

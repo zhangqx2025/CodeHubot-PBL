@@ -72,31 +72,6 @@
             show-word-limit
           />
         </el-form-item>
-        
-        <el-form-item label="最大人数" prop="max_students">
-          <el-input-number 
-            v-model="classForm.max_students" 
-            :min="1" 
-            :max="200" 
-            size="large"
-            style="width: 100%"
-          />
-          <div class="form-tip">
-            当前已有 {{ currentMembers }} 名成员，最大人数不能小于当前成员数
-          </div>
-        </el-form-item>
-        
-        <el-form-item label="开放状态">
-          <el-switch 
-            v-model="classForm.is_open" 
-            active-text="开放加入" 
-            inactive-text="关闭加入"
-            size="large"
-          />
-          <div class="form-tip">
-            开启后，学生可以申请加入该班级
-          </div>
-        </el-form-item>
 
         <el-form-item>
           <el-button type="primary" @click="submitForm" :loading="submitting" size="large">
@@ -126,15 +101,12 @@ const router = useRouter()
 
 const loading = ref(true)
 const submitting = ref(false)
-const currentMembers = ref(0)
 const classFormRef = ref(null)
 
 const classForm = reactive({
   name: '',
   class_type: 'club',
-  description: '',
-  max_students: 30,
-  is_open: true
+  description: ''
 })
 
 const classRules = {
@@ -144,19 +116,6 @@ const classRules = {
   ],
   class_type: [
     { required: true, message: '请选择班级类型', trigger: 'change' }
-  ],
-  max_students: [
-    { required: true, message: '请输入最大人数', trigger: 'blur' },
-    { 
-      validator: (rule, value, callback) => {
-        if (value < currentMembers.value) {
-          callback(new Error(`最大人数不能小于当前成员数 ${currentMembers.value}`))
-        } else {
-          callback()
-        }
-      }, 
-      trigger: 'blur' 
-    }
   ]
 }
 
@@ -171,12 +130,8 @@ const loadClassDetail = async () => {
     Object.assign(classForm, {
       name: data.name,
       class_type: data.class_type,
-      description: data.description,
-      max_students: data.max_students,
-      is_open: data.is_open
+      description: data.description
     })
-    
-    currentMembers.value = data.current_members || 0
   } catch (error) {
     ElMessage.error(error.message || '加载班级详情失败')
   } finally {

@@ -521,22 +521,47 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  font-size: 18px;
+  font-weight: 600;
+  color: #303133;
 }
 
 .filter-form {
-  margin-bottom: 20px;
+  margin-bottom: 24px;
+  padding: 20px;
+  background: linear-gradient(135deg, #f5f7fa 0%, #ffffff 100%);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .template-card {
   height: 100%;
   display: flex;
   flex-direction: column;
+  border-radius: 16px;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid #e4e7ed;
+  background: #ffffff;
+}
+
+.template-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 12px 24px rgba(64, 158, 255, 0.15);
+  border-color: #409eff;
+}
+
+.template-card :deep(.el-card__header) {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 16px 20px;
+  border-bottom: none;
 }
 
 .template-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 10px;
 }
 
 .template-title {
@@ -546,19 +571,43 @@ onMounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  margin-right: 10px;
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.template-card :deep(.el-card__body) {
+  padding: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.template-cover {
+  position: relative;
+  overflow: hidden;
+}
+
+.template-cover :deep(.el-image) {
+  transition: transform 0.3s ease;
+}
+
+.template-card:hover .template-cover :deep(.el-image) {
+  transform: scale(1.05);
 }
 
 .template-info {
   flex: 1;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
 }
 
 .template-description {
   color: #606266;
   font-size: 14px;
-  line-height: 1.5;
-  margin: 10px 0;
-  height: 60px;
+  line-height: 1.6;
+  margin: 0 0 16px 0;
+  height: 66px;
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
@@ -569,36 +618,64 @@ onMounted(() => {
 .template-meta {
   display: flex;
   justify-content: space-between;
-  margin: 10px 0;
+  gap: 16px;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-radius: 10px;
+  margin-bottom: 12px;
 }
 
 .meta-item {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
+  color: #606266;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.meta-item .el-icon {
+  font-size: 16px;
   color: #909399;
-  font-size: 14px;
 }
 
 .template-permission {
-  margin-top: 10px;
+  margin-top: auto;
+}
+
+.template-permission :deep(.el-divider) {
+  margin: 12px 0;
 }
 
 .permission-info {
   font-size: 13px;
   color: #606266;
+  background: #f5f7fa;
+  padding: 12px;
+  border-radius: 8px;
 }
 
 .permission-item {
-  margin: 5px 0;
+  margin: 6px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .permission-item .label {
   color: #909399;
+  font-size: 12px;
 }
 
 .permission-item .value {
-  font-weight: 500;
+  font-weight: 600;
+  color: #303133;
+}
+
+.template-card :deep(.el-card__footer) {
+  padding: 16px 20px;
+  background: linear-gradient(to top, #f8f9fa 0%, #ffffff 100%);
+  border-top: 1px solid #f0f2f5;
 }
 
 .template-actions {
@@ -607,20 +684,90 @@ onMounted(() => {
   justify-content: center;
 }
 
+.template-actions .el-button {
+  flex: 1;
+  border-radius: 8px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.template-actions .el-button--primary {
+  background: linear-gradient(135deg, #409eff 0%, #3a8ee6 100%);
+  border: none;
+}
+
+.template-actions .el-button--primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(64, 158, 255, 0.4);
+}
+
+.template-actions .el-button:not(.el-button--primary) {
+  background: #ffffff;
+  border: 1px solid #dcdfe6;
+  color: #606266;
+}
+
+.template-actions .el-button:not(.el-button--primary):hover {
+  border-color: #409eff;
+  color: #409eff;
+  background: #ecf5ff;
+}
+
 .image-slot {
   display: flex;
   justify-content: center;
   align-items: center;
   width: 100%;
   height: 100%;
-  background-color: #f5f7fa;
-  color: #909399;
-  font-size: 30px;
+  background: linear-gradient(135deg, #e3f2fd 0%, #f5f7fa 100%);
+  color: #b0bec5;
+  font-size: 48px;
 }
 
 .pagination-container {
-  margin-top: 20px;
+  margin-top: 32px;
   display: flex;
   justify-content: center;
+  padding: 20px;
+  background: linear-gradient(135deg, #ffffff 0%, #f5f7fa 100%);
+  border-radius: 12px;
+}
+
+/* 难度标签美化 */
+.template-header :deep(.el-tag) {
+  background: rgba(255, 255, 255, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  color: #ffffff;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 20px;
+  backdrop-filter: blur(10px);
+}
+
+/* 动画效果 */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.template-card {
+  animation: fadeInUp 0.5s ease-out;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .template-actions {
+    flex-direction: column;
+  }
+  
+  .template-actions .el-button {
+    width: 100%;
+  }
 }
 </style>
