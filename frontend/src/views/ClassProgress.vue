@@ -138,36 +138,43 @@
           stripe
           style="width: 100%"
           :max-height="500"
+          :default-sort="{ prop: 'student_number', order: 'ascending' }"
         >
-          <el-table-column prop="name" label="姓名" width="120" fixed="left" />
-          <el-table-column prop="student_number" label="学号" width="150" />
-          <el-table-column label="完成率" width="180">
+          <el-table-column 
+            type="index" 
+            label="序号" 
+            width="80" 
+            align="center"
+            fixed="left"
+          />
+          <el-table-column 
+            prop="student_number" 
+            label="学号" 
+            width="150" 
+            sortable
+            fixed="left"
+          />
+          <el-table-column 
+            prop="name" 
+            label="姓名" 
+            width="120" 
+            sortable
+            fixed="left"
+          />
+          <el-table-column 
+            label="进度" 
+            width="120" 
+            align="center"
+            sortable
+            :sort-method="sortByProgress"
+          >
             <template #default="{ row }">
-              <div class="progress-cell">
-                <el-progress 
-                  :percentage="row.completion_rate" 
-                  :color="getProgressColor(row.completion_rate)"
-                />
-                <span class="progress-text">{{ row.completion_rate }}%</span>
-              </div>
-            </template>
-          </el-table-column>
-          <el-table-column label="进度" width="120" align="center">
-            <template #default="{ row }">
-              <el-tag :type="row.completion_rate === 100 ? 'success' : 'warning'">
+              <el-tag :type="getProgressTagType(row.completion_rate)">
                 {{ row.completed_tasks }}/{{ row.total_tasks }}
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="avg_score" label="平均分" width="100" align="center">
-            <template #default="{ row }">
-              <span v-if="row.avg_score !== null" class="score-text">
-                {{ row.avg_score }}
-              </span>
-              <span v-else class="no-score">-</span>
-            </template>
-          </el-table-column>
-          <el-table-column label="任务完成情况" min-width="400">
+          <el-table-column label="任务完成详情" min-width="400">
             <template #default="{ row }">
               <div class="task-progress-tags">
                 <template v-if="getSubmittedTasks(row.task_progress).length > 0">
@@ -294,6 +301,18 @@ const getProgressColor = (rate) => {
   if (rate >= 60) return '#e6a23c'
   if (rate >= 40) return '#f56c6c'
   return '#909399'
+}
+
+const getProgressTagType = (rate) => {
+  if (rate === 100) return 'success'
+  if (rate >= 50) return 'warning'
+  if (rate > 0) return 'info'
+  return 'info'
+}
+
+// 自定义进度排序方法
+const sortByProgress = (a, b) => {
+  return a.completion_rate - b.completion_rate
 }
 
 const getTaskStatusType = (status) => {
@@ -471,33 +490,6 @@ onMounted(async () => {
       color: #909399;
     }
   }
-}
-
-.progress-cell {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  
-  .el-progress {
-    flex: 1;
-  }
-  
-  .progress-text {
-    font-size: 14px;
-    font-weight: 600;
-    color: #303133;
-    min-width: 45px;
-    text-align: right;
-  }
-}
-
-.score-text {
-  font-weight: 600;
-  color: #67c23a;
-}
-
-.no-score {
-  color: #c0c4cc;
 }
 
 .task-progress-tags {
