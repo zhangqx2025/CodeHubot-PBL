@@ -82,8 +82,7 @@ def get_classes(
     if current_admin.role == 'teacher':
         # 教师只能查看自己教授的班级
         teacher_class_ids = db.query(PBLClassTeacher.class_id).filter(
-            PBLClassTeacher.teacher_id == current_admin.id,
-            PBLClassTeacher.is_active == 1
+            PBLClassTeacher.teacher_id == current_admin.id
         ).all()
         teacher_class_ids = [item[0] for item in teacher_class_ids]
         
@@ -371,6 +370,83 @@ def delete_class(
 
 
 # ===== 班级成员管理 =====
+
+@router.get("/classes/{class_uuid}/available-students")
+def get_available_students(
+    class_uuid: str,
+    search: Optional[str] = Query(None, description="搜索关键词（姓名或学号）"),
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(get_current_admin)
+):
+    """获取可添加到班级的学生列表（学校学生中未在该班级的学生）"""
+    pbl_class = db.query(PBLClass).filter(PBLClass.uuid == class_uuid).first()
+    if not pbl_class:
+        return error_response(
+            message="班级不存在",
+            code=404,
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    
+    # 权限检查
+    if current_admin.role not in ['platform_admin', 'school_admin']:
+        return error_response(
+            message="无权限操作",
+            code=403,
+            status_code=status.HTTP_403_FORBIDDEN
+        )
+    
+    if current_admin.role == 'school_admin':
+        if pbl_class.school_id != current_admin.school_id:
+            return error_response(
+                message="无权限查看该班级",
+                code=403,
+                status_code=status.HTTP_403_FORBIDDEN
+            )
+    
+    # 获取已在班级中的学生ID列表
+    existing_member_ids = db.query(PBLClassMember.student_id).filter(
+        PBLClassMember.class_id == pbl_class.id,
+        PBLClassMember.is_active == 1
+    ).all()
+    existing_member_ids = [row[0] for row in existing_member_ids]
+    
+    # 查询学校的所有学生（排除已在班级中的）
+    query = db.query(User).filter(
+        User.school_id == pbl_class.school_id,
+        User.role == 'student',
+        User.is_active == True,
+        User.deleted_at == None
+    )
+    
+    # 排除已在班级中的学生
+    if existing_member_ids:
+        query = query.filter(User.id.notin_(existing_member_ids))
+    
+    # 支持搜索
+    if search:
+        query = query.filter(
+            or_(
+                User.name.like(f'%{search}%'),
+                User.real_name.like(f'%{search}%'),
+                User.student_number.like(f'%{search}%')
+            )
+        )
+    
+    # 按学号排序
+    students = query.order_by(User.student_number).limit(100).all()
+    
+    result = []
+    for student in students:
+        result.append({
+            'id': student.id,
+            'name': student.name or student.real_name,
+            'student_number': student.student_number,
+            'gender': student.gender,
+            'class_name': student.class_name if hasattr(student, 'class_name') else None
+        })
+    
+    return success_response(data=result)
+
 
 @router.get("/classes/{class_uuid}/members")
 def get_class_members(

@@ -61,6 +61,17 @@ export function deleteClubClass(classUuid) {
 // ===== 班级成员管理 =====
 
 /**
+ * 获取可添加到班级的学生列表
+ */
+export function getAvailableStudentsForClass(classUuid, params) {
+  return request({
+    url: `/admin/club/classes/${classUuid}/available-students`,
+    method: 'get',
+    params
+  })
+}
+
+/**
  * 获取班级成员列表
  */
 export function getClubClassMembers(classUuid) {
