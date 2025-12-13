@@ -4,6 +4,7 @@
 """
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from typing import List, Optional
 from datetime import datetime
 
@@ -426,11 +427,19 @@ def get_available_courses_for_school(
     for sc in school_courses:
         course = db.query(PBLCourse).filter(PBLCourse.id == sc.course_id).first()
         if course and course.status == 'published':
-            # 实时统计该课程的选课人数（只统计enrolled状态）
-            current_students = db.query(PBLCourseEnrollment).filter(
-                PBLCourseEnrollment.course_id == course.id,
-                PBLCourseEnrollment.enrollment_status == 'enrolled'
-            ).count()
+            # 统计该课程所属班级的成员数总和
+            # 先找到该课程对应的所有班级，然后累加各班级的 current_members
+            from app.models.pbl import PBLClass
+            
+            classes = db.query(PBLClass).join(
+                PBLCourse, PBLCourse.class_id == PBLClass.id
+            ).filter(
+                PBLCourse.id == course.id,
+                PBLClass.is_active == 1
+            ).all()
+            
+            # 累加各班级的成员数
+            current_students = sum(cls.current_members or 0 for cls in classes)
             
             course_data = Course.model_validate(course).model_dump(mode='json')
             course_data['school_course_info'] = {
@@ -439,7 +448,7 @@ def get_available_courses_for_school(
                 'start_date': sc.start_date.isoformat() if sc.start_date else None,
                 'end_date': sc.end_date.isoformat() if sc.end_date else None,
                 'max_students': sc.max_students,
-                'current_students': current_students  # 使用实时统计的数据
+                'current_students': current_students  # 使用班级成员数累加
             }
             result.append(course_data)
     
