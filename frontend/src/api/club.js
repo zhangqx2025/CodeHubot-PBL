@@ -246,6 +246,17 @@ export function getGroupMembers(groupUuid) {
 }
 
 /**
+ * 获取小组可添加的学生列表（班级中未分组的学生）
+ */
+export function getAvailableStudentsForGroup(groupUuid, keyword = '') {
+  return request({
+    url: `/admin/classes-groups/groups/${groupUuid}/available-students`,
+    method: 'get',
+    params: keyword ? { keyword } : {}
+  })
+}
+
+/**
  * 添加成员到小组
  */
 export function addMembersToGroup(groupUuid, data) {

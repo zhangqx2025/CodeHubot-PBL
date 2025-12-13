@@ -369,6 +369,80 @@ def get_group_members(
     
     return success_response(data=result)
 
+@router.get("/groups/{group_id}/available-students")
+def get_available_students_for_group(
+    group_id: str,
+    keyword: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(get_current_admin)
+):
+    """获取小组可添加的学生列表（班级中未分组的学生）"""
+    # 权限检查
+    if current_admin.role not in ['platform_admin', 'school_admin', 'teacher']:
+        return error_response(
+            message="无权限操作",
+            code=403,
+            status_code=status.HTTP_403_FORBIDDEN
+        )
+    
+    # 检查小组是否存在
+    group = db.query(PBLGroup).filter(PBLGroup.uuid == group_id).first()
+    if not group:
+        return error_response(
+            message="小组不存在",
+            code=404,
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    
+    # 必须有班级ID
+    if not group.class_id:
+        return success_response(data=[])
+    
+    # 查询该班级的所有学生
+    query = db.query(User).filter(
+        User.class_id == group.class_id,
+        User.role == 'student',
+        User.deleted_at == None
+    )
+    
+    # 权限检查：学校管理员只能看本校学生
+    if current_admin.role == 'school_admin':
+        query = query.filter(User.school_id == current_admin.school_id)
+    
+    # 关键词搜索
+    if keyword:
+        keyword_pattern = f"%{keyword}%"
+        query = query.filter(
+            or_(
+                User.name.like(keyword_pattern),
+                User.real_name.like(keyword_pattern),
+                User.student_number.like(keyword_pattern)
+            )
+        )
+    
+    class_students = query.all()
+    
+    # 获取已经在小组中的学生ID列表
+    grouped_student_ids = db.query(PBLGroupMember.user_id).filter(
+        PBLGroupMember.group_id == group.id,
+        PBLGroupMember.is_active == True
+    ).all()
+    grouped_student_ids = [sid[0] for sid in grouped_student_ids]
+    
+    # 过滤出未分组的学生
+    result = []
+    for student in class_students:
+        if student.id not in grouped_student_ids:
+            result.append({
+                'id': student.id,
+                'username': student.username,
+                'name': student.name or student.real_name,
+                'student_number': student.student_number,
+                'gender': student.gender
+            })
+    
+    return success_response(data=result)
+
 @router.post("/groups/{group_id}/add-members")
 def add_members_to_group(
     group_id: str,

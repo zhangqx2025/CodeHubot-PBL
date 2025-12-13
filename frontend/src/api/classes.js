@@ -98,6 +98,22 @@ export const getGroupMembers = async (groupId) => {
 }
 
 /**
+ * 获取小组可添加的学生列表
+ */
+export const getAvailableStudentsForGroup = async (groupId, keyword = '') => {
+  try {
+    const params = keyword ? { keyword } : {}
+    const response = await request.get(
+      `/admin/classes-groups/groups/${groupId}/available-students`,
+      { params }
+    )
+    return response.data.data || response.data
+  } catch (error) {
+    throw new Error(handleApiError(error))
+  }
+}
+
+/**
  * 批量添加成员到小组
  */
 export const addMembersToGroup = async (groupId, studentIds) => {

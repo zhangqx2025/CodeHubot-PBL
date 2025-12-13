@@ -39,11 +39,6 @@
         style="width: 100%"
       >
         <el-table-column prop="name" label="小组名称" min-width="200" />
-        <el-table-column prop="course_id" label="关联课程ID" width="150" align="center">
-          <template #default="{ row }">
-            {{ row.course_id || '-' }}
-          </template>
-        </el-table-column>
         <el-table-column label="组长" width="150">
           <template #default="{ row }">
             {{ row.leader?.name || '-' }}
@@ -110,18 +105,6 @@
             maxlength="50"
             show-word-limit
           />
-        </el-form-item>
-        
-        <el-form-item label="关联课程">
-          <el-input-number 
-            v-model="groupForm.course_id" 
-            :min="0"
-            placeholder="可选"
-            style="width: 100%"
-          />
-          <div class="form-tip">
-            可选项，输入课程ID关联到具体课程
-          </div>
         </el-form-item>
         
         <el-form-item label="最大人数" prop="max_members">
@@ -198,17 +181,45 @@
       title="添加成员" 
       width="500px"
       :close-on-click-modal="false"
+      @open="handleAddGroupMemberDialogOpen"
     >
       <el-form label-width="100px">
-        <el-form-item label="学生ID" required>
+        <el-form-item label="搜索学生">
           <el-input
-            v-model="groupMemberIdsText"
-            type="textarea"
-            :rows="8"
-            placeholder="请输入学生ID，每行一个"
-          />
+            v-model="studentSearchKeyword"
+            placeholder="输入姓名或学号搜索"
+            clearable
+            @input="searchAvailableStudents"
+          >
+            <template #prefix>
+              <el-icon><Search /></el-icon>
+            </template>
+          </el-input>
+        </el-form-item>
+        <el-form-item label="选择学生" required>
+          <el-select
+            v-model="selectedStudentIds"
+            multiple
+            filterable
+            placeholder="请选择要添加的学生"
+            style="width: 100%"
+            :loading="loadingAvailableStudents"
+            :multiple-limit="20"
+          >
+            <el-option
+              v-for="student in availableStudents"
+              :key="student.id"
+              :label="`${student.name} (${student.student_number})`"
+              :value="student.id"
+            >
+              <div style="display: flex; justify-content: space-between; align-items: center">
+                <span>{{ student.name }}</span>
+                <span style="color: #8492a6; font-size: 13px">{{ student.student_number }}</span>
+              </div>
+            </el-option>
+          </el-select>
           <div class="form-tip">
-            提示：每行输入一个学生ID
+            提示：只显示该班级中还未分配到该小组的学生
           </div>
         </el-form-item>
       </el-form>
@@ -232,7 +243,8 @@ import {
 } from '@element-plus/icons-vue'
 import {
   getClubClassDetail, getGroups, createGroup, deleteGroup,
-  getGroupMembers, addMembersToGroup, removeMemberFromGroup
+  getGroupMembers, addMembersToGroup, removeMemberFromGroup,
+  getAvailableStudentsForGroup
 } from '@/api/club'
 import dayjs from 'dayjs'
 
@@ -250,7 +262,6 @@ const submittingGroup = ref(false)
 const groupForm = reactive({
   name: '',
   class_id: null,
-  course_id: null,
   max_members: 6
 })
 const groupFormRef = ref(null)
@@ -272,8 +283,13 @@ const groupMemberSearchKeyword = ref('')
 const currentGroupUuid = ref(null)
 const currentGroupName = ref('')
 const addGroupMemberDialogVisible = ref(false)
-const groupMemberIdsText = ref('')
 const addingGroupMembers = ref(false)
+
+// 添加小组成员 - 可用学生列表
+const availableStudents = ref([])
+const loadingAvailableStudents = ref(false)
+const selectedStudentIds = ref([])
+const studentSearchKeyword = ref('')
 
 // 计算属性
 const filteredGroupMembers = computed(() => {
@@ -307,7 +323,6 @@ const showCreateGroupDialog = () => {
   Object.assign(groupForm, {
     name: '',
     class_id: classId.value,
-    course_id: null,
     max_members: 6
   })
   groupDialogVisible.value = true
@@ -384,28 +399,53 @@ const addMembersToGroupAction = (group) => {
   showAddGroupMemberDialog()
 }
 
+// 加载可添加的学生列表
+const loadAvailableStudents = async (keyword = '') => {
+  if (!currentGroupUuid.value) return
+  
+  loadingAvailableStudents.value = true
+  try {
+    const res = await getAvailableStudentsForGroup(currentGroupUuid.value, keyword)
+    availableStudents.value = res.data?.data || res.data || []
+  } catch (error) {
+    ElMessage.error(error.message || '加载学生列表失败')
+  } finally {
+    loadingAvailableStudents.value = false
+  }
+}
+
+// 搜索可添加的学生
+let searchTimer = null
+const searchAvailableStudents = () => {
+  if (searchTimer) clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => {
+    loadAvailableStudents(studentSearchKeyword.value)
+  }, 300)
+}
+
+// 对话框打开时加载学生列表
+const handleAddGroupMemberDialogOpen = () => {
+  selectedStudentIds.value = []
+  studentSearchKeyword.value = ''
+  loadAvailableStudents()
+}
+
 // 显示添加小组成员对话框
 const showAddGroupMemberDialog = () => {
-  groupMemberIdsText.value = ''
   addGroupMemberDialogVisible.value = true
 }
 
 // 提交添加小组成员
 const submitAddGroupMembers = async () => {
-  const ids = groupMemberIdsText.value
-    .split('\n')
-    .map(id => parseInt(id.trim()))
-    .filter(id => !isNaN(id))
-  
-  if (ids.length === 0) {
-    ElMessage.warning('请输入有效的学生ID')
+  if (selectedStudentIds.value.length === 0) {
+    ElMessage.warning('请选择要添加的学生')
     return
   }
   
   addingGroupMembers.value = true
   try {
     const res = await addMembersToGroup(currentGroupUuid.value, {
-      student_ids: ids
+      student_ids: selectedStudentIds.value
     })
     ElMessage.success(`成功添加 ${res.data.data.added_count} 名成员`)
     addGroupMemberDialogVisible.value = false
