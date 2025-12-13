@@ -224,21 +224,9 @@
           
           <!-- 教师菜单 -->
           <template v-else-if="isTeacher">
-            <el-menu-item index="/admin">
-              <el-icon><HomeFilled /></el-icon>
-              <template #title>我的班级课程</template>
-            </el-menu-item>
-            
-            <!-- 学生分组 -->
             <el-menu-item index="/admin/classes">
               <el-icon><School /></el-icon>
-              <template #title>学生分组</template>
-            </el-menu-item>
-            
-            <!-- 学习进度 -->
-            <el-menu-item index="/admin/progress">
-              <el-icon><TrendCharts /></el-icon>
-              <template #title>学习进度</template>
+              <template #title>我的班级课程</template>
             </el-menu-item>
           </template>
         </el-menu>
@@ -418,6 +406,11 @@ const userRoleText = computed(() => {
 })
 
 const pageTitle = computed(() => {
+  // 根据角色和路径返回不同的标题
+  if (route.path === '/admin/classes' && isTeacher.value) {
+    return '我的班级课程'
+  }
+  
   const titles = {
     '/admin': '概览',
     '/admin/schools': '学校管理',
@@ -479,6 +472,9 @@ onMounted(async () => {
   try {
     const admin = await getCurrentAdmin()
     adminInfo.value = admin
+    
+    // 保存管理员信息到 localStorage，供路由守卫使用
+    localStorage.setItem('admin_info', JSON.stringify(admin))
     
     // 恢复折叠状态
     const savedCollapse = localStorage.getItem('admin_sidebar_collapse')

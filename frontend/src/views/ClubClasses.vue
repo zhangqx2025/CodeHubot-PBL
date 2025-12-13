@@ -5,11 +5,11 @@
       <div class="header-left">
         <h1 class="page-title">
           <el-icon class="title-icon"><School /></el-icon>
-          项目式课程管理
+          {{ isTeacher ? '我的班级课程' : '项目式课程管理' }}
         </h1>
-        <p class="page-subtitle">创建班级、组织学生、从模板导入或自定义课程</p>
+        <p class="page-subtitle">{{ isTeacher ? '查看和管理我教授的班级课程' : '创建班级、组织学生、从模板导入或自定义课程' }}</p>
       </div>
-      <el-button type="primary" size="large" @click="showCreateDialog" class="create-btn">
+      <el-button v-if="!isTeacher" type="primary" size="large" @click="showCreateDialog" class="create-btn">
         <el-icon><Plus /></el-icon>
         创建班级
       </el-button>
@@ -51,8 +51,8 @@
 
     <!-- 班级列表 -->
     <div v-loading="loading" class="classes-grid">
-      <el-empty v-if="!loading && classes.length === 0" description="暂无班级数据">
-        <el-button type="primary" @click="showCreateDialog">创建第一个班级</el-button>
+      <el-empty v-if="!loading && classes.length === 0" :description="isTeacher ? '暂无班级课程' : '暂无班级数据'">
+        <el-button v-if="!isTeacher" type="primary" @click="showCreateDialog">创建第一个班级</el-button>
       </el-empty>
       
       <div v-for="cls in classes" :key="cls.id" class="class-card">
@@ -77,14 +77,16 @@
                       <el-icon><View /></el-icon>
                       查看班级
                     </el-dropdown-item>
-                    <el-dropdown-item command="edit">
-                      <el-icon><Edit /></el-icon>
-                      编辑班级
-                    </el-dropdown-item>
-                    <el-dropdown-item command="delete" divided>
-                      <el-icon><Delete /></el-icon>
-                      删除班级
-                    </el-dropdown-item>
+                    <template v-if="!isTeacher">
+                      <el-dropdown-item command="edit">
+                        <el-icon><Edit /></el-icon>
+                        编辑班级
+                      </el-dropdown-item>
+                      <el-dropdown-item command="delete" divided>
+                        <el-icon><Delete /></el-icon>
+                        删除班级
+                      </el-dropdown-item>
+                    </template>
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
@@ -209,9 +211,13 @@ import {
 import {
   getClubClasses, createClubClass, deleteClubClass
 } from '@/api/club'
+import { getCurrentAdmin } from '@/api/admin'
 import dayjs from 'dayjs'
 
 const router = useRouter()
+
+// 当前管理员信息
+const adminInfo = ref(null)
 
 // ===== 状态管理 =====
 const loading = ref(false)
@@ -375,8 +381,19 @@ const formatDate = (dateStr) => {
 }
 
 
+// 判断是否是教师
+const isTeacher = computed(() => {
+  return adminInfo.value?.role === 'teacher'
+})
+
 // ===== 生命周期 =====
-onMounted(() => {
+onMounted(async () => {
+  try {
+    // 获取当前管理员信息
+    adminInfo.value = await getCurrentAdmin()
+  } catch (error) {
+    console.error('获取管理员信息失败:', error)
+  }
   loadClasses()
 })
 </script>

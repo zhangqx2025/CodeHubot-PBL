@@ -484,8 +484,37 @@ router.beforeEach(async (to, from, next) => {
       
       // 如果已登录且访问管理员登录页，跳转到管理后台
       if ((to.name === 'AdminLogin' || to.name === 'PlatformAdminLogin') && isAdminTokenValid) {
+        // 获取管理员信息，根据角色重定向
+        const adminInfo = localStorage.getItem('admin_info')
+        if (adminInfo) {
+          try {
+            const admin = JSON.parse(adminInfo)
+            if (admin.role === 'teacher') {
+              next('/admin/classes')
+              return
+            }
+          } catch (e) {
+            console.error('解析管理员信息失败:', e)
+          }
+        }
         next('/admin')
         return
+      }
+      
+      // 如果是教师访问 /admin 首页，重定向到 /admin/classes
+      if (to.path === '/admin' || to.name === 'AdminHome') {
+        const adminInfo = localStorage.getItem('admin_info')
+        if (adminInfo) {
+          try {
+            const admin = JSON.parse(adminInfo)
+            if (admin.role === 'teacher') {
+              next('/admin/classes')
+              return
+            }
+          } catch (e) {
+            console.error('解析管理员信息失败:', e)
+          }
+        }
       }
       
       next()
