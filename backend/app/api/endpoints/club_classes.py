@@ -1698,7 +1698,7 @@ def get_student_progress(
                 task_progress_list.append({
                     'task_id': task.id,
                     'task_title': task.title,
-                    'task_type': task.task_type,
+                    'task_type': task.type,
                     'is_required': task.is_required == 1,
                     'status': progress.status if progress else 'not_started',
                     'score': progress.score if progress else None,
@@ -1963,7 +1963,7 @@ def get_unit_progress_detail(
             'id': task.id,
             'uuid': task.uuid,
             'title': task.title,
-            'type': task.task_type,
+            'type': task.type,
             'order': task.order,
             'is_required': task.is_required == 1
         })
