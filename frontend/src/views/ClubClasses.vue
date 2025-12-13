@@ -185,15 +185,6 @@
             show-word-limit
           />
         </el-form-item>
-        
-        <el-form-item label="最大人数" prop="max_students">
-          <el-input-number 
-            v-model="classForm.max_students" 
-            :min="1" 
-            :max="200" 
-            style="width: 100%"
-          />
-        </el-form-item>
       </el-form>
       
       <template #footer>
@@ -236,9 +227,7 @@ const submitting = ref(false)
 const classForm = reactive({
   name: '',
   class_type: 'club',
-  description: '',
-  max_students: 30,
-  is_open: true
+  description: ''
 })
 
 // 表单校验
@@ -250,9 +239,6 @@ const classRules = {
   ],
   class_type: [
     { required: true, message: '请选择班级类型', trigger: 'change' }
-  ],
-  max_students: [
-    { required: true, message: '请输入最大人数', trigger: 'blur' }
   ]
 }
 
@@ -280,9 +266,7 @@ const showCreateDialog = () => {
   Object.assign(classForm, {
     name: '',
     class_type: 'club',
-    description: '',
-    max_students: 30,
-    is_open: true
+    description: ''
   })
   dialogVisible.value = true
   nextTick(() => {

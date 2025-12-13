@@ -107,8 +107,12 @@
             {{ formatDateTime(row.created_at) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column label="操作" width="300" fixed="right">
           <template #default="{ row }">
+            <el-button type="success" size="small" @click="handleManageContent(row)">
+              <el-icon><FolderOpened /></el-icon>
+              管理内容
+            </el-button>
             <el-button type="primary" size="small" @click="handleEdit(row)">
               编辑
             </el-button>
@@ -245,9 +249,12 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Search, Refresh, Plus } from '@element-plus/icons-vue'
+import { Search, Refresh, Plus, FolderOpened } from '@element-plus/icons-vue'
 import axios from 'axios'
+
+const router = useRouter()
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -343,6 +350,11 @@ const resetFilters = () => {
   filters.is_public = null
   pagination.page = 1
   loadTemplates()
+}
+
+// 管理内容 - 跳转到详情页
+const handleManageContent = (template) => {
+  router.push(`/admin/course-templates/${template.uuid}`)
 }
 
 // 打开创建对话框

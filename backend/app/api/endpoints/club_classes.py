@@ -99,11 +99,12 @@ def get_classes(
             PBLCourse.status == 'published'
         ).first()
         
-        # 统计选课人数
+        # 统计选课人数（只统计enrolled状态）
         enrolled_count = 0
         if course:
             enrolled_count = db.query(PBLCourseEnrollment).filter(
-                PBLCourseEnrollment.course_id == course.id
+                PBLCourseEnrollment.course_id == course.id,
+                PBLCourseEnrollment.enrollment_status == 'enrolled'
             ).count()
         
         result.append({

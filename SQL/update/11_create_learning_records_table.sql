@@ -125,266 +125,14 @@ SELECT CONCAT('✓ 迁移了 ', ROW_COUNT(), ' 条学习记录') AS '';
 
 
 -- ==========================================================================================================
--- 第三步：创建视图 - 方便查询学习数据
--- ==========================================================================================================
-
--- 3.1 学生课程学习综合视图
-DROP VIEW IF EXISTS view_student_course_learning;
-
-CREATE VIEW view_student_course_learning AS
-SELECT 
-    -- 学生信息
-    u.id AS student_id,
-    u.username AS student_username,
-    u.display_name AS student_name,
-    
-    -- 课程信息
-    c.id AS course_id,
-    c.uuid AS course_uuid,
-    c.title AS course_title,
-    c.description AS course_description,
-    c.difficulty AS course_difficulty,
-    c.cover_image AS course_cover,
-    c.status AS course_status,
-    
-    -- 班级信息（如果是班级课程）
-    c.class_id,
-    cls.name AS class_name,
-    cls.grade AS class_grade,
-    
-    -- 选课状态
-    e.enrollment_status,
-    e.enrolled_at,
-    e.dropped_at,
-    
-    -- 学习记录
-    lr.uuid AS learning_record_uuid,
-    lr.progress AS learning_progress,
-    lr.learning_status,
-    lr.start_learning_at,
-    lr.last_learning_at,
-    lr.completed_at,
-    
-    -- 成绩
-    lr.final_score,
-    lr.total_score,
-    lr.quiz_score,
-    lr.assignment_score,
-    lr.project_score,
-    
-    -- 学习时长
-    lr.total_learning_time,
-    lr.video_watch_time,
-    lr.practice_time,
-    
-    -- 学习行为
-    lr.login_days,
-    lr.video_view_count,
-    lr.quiz_attempt_count,
-    lr.assignment_submit_count,
-    
-    -- 评价
-    lr.teacher_comment,
-    lr.self_evaluation
-    
-FROM pbl_course_enrollments e
-INNER JOIN core_users u ON e.user_id = u.id
-INNER JOIN pbl_courses c ON e.course_id = c.id
-LEFT JOIN pbl_classes cls ON c.class_id = cls.id
-LEFT JOIN pbl_learning_records lr ON lr.course_id = e.course_id AND lr.user_id = e.user_id
-WHERE e.enrollment_status != 'dropped';
-
-SELECT '✓ 创建学生课程学习综合视图' AS '';
-
-
--- 3.2 班级课程学习统计视图
-DROP VIEW IF EXISTS view_class_course_learning_stats;
-
-CREATE VIEW view_class_course_learning_stats AS
-SELECT 
-    -- 班级课程信息
-    c.id AS course_id,
-    c.uuid AS course_uuid,
-    c.title AS course_title,
-    c.class_id,
-    cls.name AS class_name,
-    cls.grade AS class_grade,
-    
-    -- 选课统计
-    COUNT(DISTINCT e.user_id) AS enrolled_count,
-    COUNT(DISTINCT CASE WHEN e.enrollment_status = 'enrolled' THEN e.user_id END) AS active_enrolled_count,
-    COUNT(DISTINCT CASE WHEN e.enrollment_status = 'completed' THEN e.user_id END) AS enrollment_completed_count,
-    
-    -- 学习统计
-    COUNT(DISTINCT lr.user_id) AS learning_record_count,
-    COUNT(DISTINCT CASE WHEN lr.learning_status = 'not_started' THEN lr.user_id END) AS not_started_count,
-    COUNT(DISTINCT CASE WHEN lr.learning_status = 'in_progress' THEN lr.user_id END) AS in_progress_count,
-    COUNT(DISTINCT CASE WHEN lr.learning_status = 'completed' THEN lr.user_id END) AS completed_count,
-    COUNT(DISTINCT CASE WHEN lr.learning_status = 'paused' THEN lr.user_id END) AS paused_count,
-    
-    -- 进度统计
-    ROUND(AVG(COALESCE(lr.progress, 0)), 2) AS avg_progress,
-    MAX(lr.progress) AS max_progress,
-    MIN(lr.progress) AS min_progress,
-    
-    -- 成绩统计
-    ROUND(AVG(lr.final_score), 2) AS avg_final_score,
-    MAX(lr.final_score) AS max_final_score,
-    MIN(lr.final_score) AS min_final_score,
-    COUNT(DISTINCT CASE WHEN lr.final_score >= 60 THEN lr.user_id END) AS pass_count,
-    
-    -- 学习时长统计
-    SUM(lr.total_learning_time) AS total_learning_time_sum,
-    ROUND(AVG(lr.total_learning_time), 2) AS avg_learning_time
-    
-FROM pbl_courses c
-INNER JOIN pbl_classes cls ON c.class_id = cls.id
-LEFT JOIN pbl_course_enrollments e ON e.course_id = c.id
-LEFT JOIN pbl_learning_records lr ON lr.course_id = c.id AND lr.user_id = e.user_id
-WHERE c.class_id IS NOT NULL
-GROUP BY c.id, c.uuid, c.title, c.class_id, cls.name, cls.grade;
-
-SELECT '✓ 创建班级课程学习统计视图' AS '';
-
-
--- ==========================================================================================================
--- 第四步：创建触发器 - 自动维护学习记录
--- ==========================================================================================================
-
--- 4.1 学生选课时自动创建学习记录
-DROP TRIGGER IF EXISTS trg_after_enrollment_insert;
-
-DELIMITER $$
-
-CREATE TRIGGER trg_after_enrollment_insert
-AFTER INSERT ON pbl_course_enrollments
-FOR EACH ROW
-BEGIN
-    -- 为选课学生创建学习记录（如果不存在）
-    INSERT IGNORE INTO pbl_learning_records (
-        uuid,
-        course_id,
-        user_id,
-        class_id,
-        progress,
-        learning_status,
-        start_learning_at,
-        created_at
-    ) VALUES (
-        UUID(),
-        NEW.course_id,
-        NEW.user_id,
-        NEW.class_id,
-        0,
-        'not_started',
-        NEW.enrolled_at,
-        NOW()
-    );
-END$$
-
-DELIMITER ;
-
-SELECT '✓ 创建选课触发器：自动创建学习记录' AS '';
-
-
--- 4.2 班级成员加入时，为班级所有已发布课程创建学习记录
-DROP TRIGGER IF EXISTS trg_after_class_member_insert;
-
-DELIMITER $$
-
-CREATE TRIGGER trg_after_class_member_insert
-AFTER INSERT ON pbl_class_members
-FOR EACH ROW
-BEGIN
-    -- 为新成员创建该班级所有已发布课程的学习记录
-    INSERT IGNORE INTO pbl_learning_records (
-        uuid,
-        course_id,
-        user_id,
-        class_id,
-        progress,
-        learning_status,
-        start_learning_at,
-        created_at
-    )
-    SELECT 
-        UUID(),
-        c.id,
-        NEW.student_id,
-        NEW.class_id,
-        0,
-        'not_started',
-        NOW(),
-        NOW()
-    FROM pbl_courses c
-    INNER JOIN pbl_course_enrollments e ON e.course_id = c.id AND e.user_id = NEW.student_id
-    WHERE c.class_id = NEW.class_id
-      AND c.status = 'published'
-      AND NOT EXISTS (
-          SELECT 1 FROM pbl_learning_records lr 
-          WHERE lr.course_id = c.id AND lr.user_id = NEW.student_id
-      );
-END$$
-
-DELIMITER ;
-
-SELECT '✓ 创建班级成员触发器：自动创建学习记录' AS '';
-
-
--- 4.3 课程发布到班级时，为所有已选课的班级成员创建学习记录
-DROP TRIGGER IF EXISTS trg_after_course_publish;
-
-DELIMITER $$
-
-CREATE TRIGGER trg_after_course_publish
-AFTER UPDATE ON pbl_courses
-FOR EACH ROW
-BEGIN
-    -- 当课程状态变为 published 且课程属于某个班级时
-    IF NEW.status = 'published' AND OLD.status != 'published' AND NEW.class_id IS NOT NULL THEN
-        -- 为该班级的所有已选课成员创建学习记录
-        INSERT IGNORE INTO pbl_learning_records (
-            uuid,
-            course_id,
-            user_id,
-            class_id,
-            progress,
-            learning_status,
-            start_learning_at,
-            created_at
-        )
-        SELECT 
-            UUID(),
-            NEW.id,
-            e.user_id,
-            NEW.class_id,
-            0,
-            'not_started',
-            NOW(),
-            NOW()
-        FROM pbl_course_enrollments e
-        WHERE e.course_id = NEW.id
-          AND NOT EXISTS (
-              SELECT 1 FROM pbl_learning_records lr 
-              WHERE lr.course_id = NEW.id AND lr.user_id = e.user_id
-          );
-    END IF;
-END$$
-
-DELIMITER ;
-
-SELECT '✓ 创建课程发布触发器：自动创建学习记录' AS '';
-
-
--- ==========================================================================================================
--- 第五步：数据验证和统计
+-- 第三步：数据验证和统计
 -- ==========================================================================================================
 
 SELECT '========================================' AS '';
 SELECT '数据验证' AS '';
 SELECT '========================================' AS '';
 
--- 5.1 检查数据一致性
+-- 3.1 检查数据一致性
 SELECT 
     '选课记录总数' AS check_item,
     COUNT(*) AS count
@@ -422,7 +170,7 @@ WHERE NOT EXISTS (
 );
 
 
--- 5.2 学习状态分布
+-- 3.2 学习状态分布
 SELECT '========================================' AS '';
 SELECT '学习状态分布' AS '';
 SELECT '========================================' AS '';
@@ -436,7 +184,7 @@ GROUP BY learning_status
 ORDER BY count DESC;
 
 
--- 5.3 进度分布
+-- 3.3 进度分布
 SELECT '========================================' AS '';
 SELECT '学习进度分布' AS '';
 SELECT '========================================' AS '';
@@ -492,19 +240,17 @@ SELECT '
 5. 行为分析（login_days, video_view_count, quiz_attempt_count）
 6. 教学评价（teacher_comment, self_evaluation）
 
-自动触发器：
-✓ 学生选课 → 自动创建学习记录
-✓ 班级成员加入 → 自动创建该班级课程的学习记录
-✓ 课程发布到班级 → 自动为已选课成员创建学习记录
-
-查询视图：
-✓ view_student_course_learning: 学生课程学习综合视图
-✓ view_class_course_learning_stats: 班级课程学习统计
+业务逻辑说明（需在应用层代码实现）：
+✓ 学生选课时 → 应用层创建学习记录
+✓ 班级成员加入时 → 应用层为该成员创建班级课程的学习记录
+✓ 课程发布到班级时 → 应用层为已选课成员创建学习记录
+✓ 学习数据查询 → 应用层通过JOIN查询组合选课和学习数据
+✓ 统计分析 → 应用层实现各类统计功能
 
 建议：
 1. 选课表（pbl_course_enrollments）继续管理选课关系
 2. 学习记录表（pbl_learning_records）管理学习数据
-3. 通过视图统一查询选课和学习数据
+3. 通过应用层代码统一查询选课和学习数据
 4. 后续可逐步清理选课表中的冗余学习字段
 ========================================
 ' AS '创建完成';

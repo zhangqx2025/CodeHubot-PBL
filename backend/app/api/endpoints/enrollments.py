@@ -72,6 +72,7 @@ def enroll_course(
         PBLCourseEnrollment.user_id == current_user.id
     ).first()
     
+    is_new_enrollment = False
     if existing_enrollment:
         # 如果已经是enrolled状态,返回错误
         if existing_enrollment.enrollment_status == 'enrolled':
@@ -85,6 +86,7 @@ def enroll_course(
         existing_enrollment.enrolled_at = datetime.now()
         existing_enrollment.dropped_at = None
         enrollment = existing_enrollment
+        is_new_enrollment = True  # 重新选课，需要更新计数
     else:
         # 创建新的选课记录
         enrollment = PBLCourseEnrollment(
@@ -94,9 +96,10 @@ def enroll_course(
             enrolled_at=datetime.now()
         )
         db.add(enrollment)
+        is_new_enrollment = True
     
-    # ★ 新增：更新学校课程的当前学生数
-    if current_user.school_id:
+    # ★ 新增：更新学校课程的当前学生数（只在新选课或重新选课时更新）
+    if is_new_enrollment and current_user.school_id:
         school_course = db.query(PBLSchoolCourse).filter(
             PBLSchoolCourse.school_id == current_user.school_id,
             PBLSchoolCourse.course_id == course_id
