@@ -265,24 +265,6 @@ class PBLSchoolCourse(Base):
     updated_at = Column(DateTime, default=get_beijing_time_naive, onupdate=get_beijing_time_naive, nullable=False)
 
 
-class PBLCourseEnrollment(Base):
-    """学生选课表：学校管理员为学生分配课程"""
-    __tablename__ = "pbl_course_enrollments"
-
-    id = Column(Integer, primary_key=True, index=True)
-    course_id = Column(Integer, ForeignKey("pbl_courses.id"), nullable=False)
-    user_id = Column(Integer, nullable=False) # Foreign Key to core_users
-    class_id = Column(Integer)  # 通过哪个班级获得此课程
-    enrollment_status = Column(Enum('enrolled', 'dropped', 'completed'), default='enrolled')
-    enrolled_at = Column(DateTime)
-    dropped_at = Column(DateTime)
-    completed_at = Column(DateTime)
-    progress = Column(Integer, default=0)
-    final_score = Column(Integer)
-    created_at = Column(DateTime, default=get_beijing_time_naive, nullable=False)
-    updated_at = Column(DateTime, default=get_beijing_time_naive, onupdate=get_beijing_time_naive, nullable=False)
-
-
 class PBLProjectOutput(Base):
     __tablename__ = "pbl_project_outputs"
 

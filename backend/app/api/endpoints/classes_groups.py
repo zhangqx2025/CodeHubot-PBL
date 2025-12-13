@@ -10,9 +10,9 @@ from ...core.response import success_response, error_response
 from ...core.deps import get_db, get_current_admin
 from ...models.admin import Admin, User
 from ...models.pbl import (
-    PBLClass, PBLGroup, PBLGroupMember, 
+    PBLClass, PBLGroup, PBLGroupMember, PBLClassMember,
     PBLClassTeacher, PBLClassCourse, PBLCourse,
-    PBLCourseEnrollment, PBLLearningProgress,
+    PBLLearningProgress,
     PBLTaskProgress, PBLTask, PBLUnit
 )
 from ...core.logging_config import get_logger
@@ -757,18 +757,12 @@ def get_class_courses(
     for cc in class_courses:
         course = db.query(PBLCourse).filter(PBLCourse.id == cc.course_id).first()
         if course:
-            # 统计已选课学生数
-            enrolled_count = db.query(PBLCourseEnrollment).filter(
-                PBLCourseEnrollment.course_id == course.id,
-                PBLCourseEnrollment.user_id.in_(
-                    db.query(User.id).filter(
-                        User.class_id == pbl_class.id,
-                        User.role == 'student',
-                        User.deleted_at == None
-                    )
-                )
+            # 统计班级成员数（所有班级成员自动拥有课程访问权限）
+            enrolled_count = db.query(PBLClassMember).filter(
+                PBLClassMember.class_id == pbl_class.id,
+                PBLClassMember.is_active == 1
             ).count()
-            
+
             result.append({
                 'id': cc.id,
                 'uuid': cc.uuid,
@@ -860,31 +854,13 @@ def assign_course_to_class(
     db.add(class_course)
     db.flush()
     
-    # 自动为班级中所有学生分配该课程
-    students = db.query(User).filter(
-        User.class_id == pbl_class.id,
-        User.role == 'student',
-        User.deleted_at == None
-    ).all()
-    
-    enrolled_count = 0
-    for student in students:
-        # 检查学生是否已经选了这门课
-        existing_enrollment = db.query(PBLCourseEnrollment).filter(
-            PBLCourseEnrollment.course_id == course_id,
-            PBLCourseEnrollment.user_id == student.id
-        ).first()
-        
-        if not existing_enrollment:
-            enrollment = PBLCourseEnrollment(
-                course_id=course_id,
-                user_id=student.id,
-                enrollment_status='enrolled',
-                enrolled_at=get_beijing_time_naive()
-            )
-            db.add(enrollment)
-            enrolled_count += 1
-    
+    # 注意：班级成员自动拥有班级课程的访问权限，无需创建选课记录
+    # 统计班级成员数量
+    enrolled_count = db.query(PBLClassMember).filter(
+        PBLClassMember.class_id == pbl_class.id,
+        PBLClassMember.is_active == 1
+    ).count()
+
     db.commit()
     db.refresh(class_course)
     
@@ -941,19 +917,7 @@ def remove_course_from_class(
             status_code=status.HTTP_404_NOT_FOUND
         )
     
-    # 可选：同时移除学生的选课记录
-    if remove_student_enrollments:
-        student_ids = db.query(User.id).filter(
-            User.class_id == pbl_class.id,
-            User.role == 'student',
-            User.deleted_at == None
-        ).all()
-        student_ids = [s[0] for s in student_ids]
-        
-        db.query(PBLCourseEnrollment).filter(
-            PBLCourseEnrollment.course_id == class_course.course_id,
-            PBLCourseEnrollment.user_id.in_(student_ids)
-        ).delete(synchronize_session=False)
+    # 注意：不再需要删除选课记录，因为访问控制已改为基于班级成员关系
     
     # 删除班级课程分配记录
     db.delete(class_course)
@@ -1023,15 +987,6 @@ def get_class_learning_progress(
         }
         
         for course in courses:
-            # 查询选课记录
-            enrollment = db.query(PBLCourseEnrollment).filter(
-                PBLCourseEnrollment.course_id == course.id,
-                PBLCourseEnrollment.user_id == student.id
-            ).first()
-            
-            if not enrollment:
-                continue
-            
             # 统计课程单元数
             total_units = db.query(PBLUnit).filter(
                 PBLUnit.course_id == course.id
@@ -1065,19 +1020,19 @@ def get_class_learning_progress(
             
             avg_score = float(avg_score_result) if avg_score_result else None
             
+            # 计算课程进度（基于完成的单元数）
+            course_progress_percent = int((completed_units / total_units * 100)) if total_units > 0 else 0
+            
             course_progress = {
                 'course_id': course.id,
                 'course_uuid': course.uuid,
                 'course_title': course.title,
-                'enrollment_status': enrollment.enrollment_status,
-                'progress': enrollment.progress,
+                'progress': course_progress_percent,
                 'total_units': total_units,
                 'completed_units': completed_units,
                 'total_tasks': total_tasks,
                 'completed_tasks': completed_tasks,
-                'avg_score': round(avg_score, 2) if avg_score else None,
-                'enrolled_at': enrollment.enrolled_at.isoformat() if enrollment.enrolled_at else None,
-                'completed_at': enrollment.completed_at.isoformat() if enrollment.completed_at else None
+                'avg_score': round(avg_score, 2) if avg_score else None
             }
             
             student_data['courses'].append(course_progress)

@@ -7,7 +7,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
 import time
 
-from app.api.endpoints import projects, admin_auth, admin_courses, admin_units, admin_resources, student_courses, student_auth, admin_tasks, student_tasks, admin_users, enrollments, classes_groups, learning_progress, assessments, assessment_templates, datasets, ethics, experts, social_activities, admin_outputs, portfolios, school_courses, schools, video_play, video_progress, club_classes, student_club, template_permissions, available_templates, class_analytics
+from app.api.endpoints import projects, admin_auth, admin_courses, admin_units, admin_resources, student_courses, student_auth, admin_tasks, student_tasks, admin_users, classes_groups, learning_progress, assessments, assessment_templates, datasets, ethics, experts, social_activities, admin_outputs, portfolios, school_courses, schools, video_play, video_progress, club_classes, student_club, template_permissions, available_templates, class_analytics
 from app.core.response import error_response
 from app.core.logging_config import setup_logging, get_logger
 from app.db.session import engine
@@ -71,7 +71,7 @@ logger.info("CORS 中间件配置完成")
 app.include_router(student_auth.router, prefix="/api/v1/student/auth", tags=["student-auth"])
 app.include_router(student_courses.router, prefix="/api/v1/student", tags=["student"])
 app.include_router(student_tasks.router, prefix="/api/v1/student", tags=["student-tasks"])
-app.include_router(enrollments.router, prefix="/api/v1/student/enrollments", tags=["enrollments"])
+# app.include_router(enrollments.router, prefix="/api/v1/student/enrollments", tags=["enrollments"])  # 已废弃：选课功能已移除
 app.include_router(learning_progress.router, prefix="/api/v1/student/learning-progress", tags=["learning-progress"])
 app.include_router(student_club.router, prefix="/api/v1/student/club", tags=["student-club"])
 
@@ -90,7 +90,7 @@ app.include_router(schools.router, prefix="/api/v1/admin/schools", tags=["school
 app.include_router(school_courses.router, prefix="/api/v1/admin/school-courses", tags=["school-courses"])
 app.include_router(template_permissions.router, prefix="/api/v1/admin", tags=["template-permissions"])
 app.include_router(available_templates.router, prefix="/api/v1/admin", tags=["available-templates"])
-app.include_router(enrollments.router, prefix="/api/v1/admin/enrollments", tags=["admin-enrollments"])
+# app.include_router(enrollments.router, prefix="/api/v1/admin/enrollments", tags=["admin-enrollments"])  # 已废弃：选课功能已移除
 app.include_router(learning_progress.router, prefix="/api/v1/admin/learning-progress", tags=["admin-learning-progress"])
 
 # PBL routers

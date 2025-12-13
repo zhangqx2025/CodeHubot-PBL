@@ -19,7 +19,7 @@ from ...core.deps import get_db, get_current_admin
 from ...models.admin import Admin, User
 from ...models.pbl import (
     PBLClass, PBLClassMember, PBLCourse, PBLCourseTemplate,
-    PBLCourseEnrollment, PBLUnit, PBLResource, PBLTask,
+    PBLUnit, PBLResource, PBLTask,
     PBLClassTeacher, PBLTaskProgress, PBLProjectOutput
 )
 from ...core.logging_config import get_logger
@@ -477,30 +477,7 @@ def add_members_to_class(
         # 更新班级成员数
         pbl_class.current_members = (pbl_class.current_members or 0) + 1
         
-        # 自动为该学生选上班级的所有课程
-        courses = db.query(PBLCourse).filter(
-            PBLCourse.class_id == pbl_class.id,
-            PBLCourse.status == 'published'
-        ).all()
-        
-        for course in courses:
-            # 检查是否已选课
-            existing_enrollment = db.query(PBLCourseEnrollment).filter(
-                PBLCourseEnrollment.course_id == course.id,
-                PBLCourseEnrollment.user_id == student_id
-            ).first()
-            
-            if not existing_enrollment:
-                enrollment = PBLCourseEnrollment(
-                    course_id=course.id,
-                    user_id=student_id,
-                    class_id=pbl_class.id,
-                    enrollment_status='enrolled',
-                    enrolled_at=get_beijing_time_naive()
-                )
-                db.add(enrollment)
-                if course.id not in auto_enrolled_courses:
-                    auto_enrolled_courses.append(course.id)
+        # 注意：班级成员自动拥有班级课程的访问权限，无需创建选课记录
     
     db.commit()
     
@@ -749,31 +726,14 @@ def create_course_from_template(
     resources_count = 0
     tasks_count = 0
     
-    # 自动为班级成员选课
+    # 注意：班级成员自动拥有班级课程的访问权限，无需创建选课记录
+    # 统计班级成员数量
     enrolled_count = 0
     if course_data.auto_enroll:
-        members = db.query(PBLClassMember).filter(
+        enrolled_count = db.query(PBLClassMember).filter(
             PBLClassMember.class_id == pbl_class.id,
             PBLClassMember.is_active == 1
-        ).all()
-        
-        for member in members:
-            # 检查是否已选课
-            existing = db.query(PBLCourseEnrollment).filter(
-                PBLCourseEnrollment.course_id == new_course.id,
-                PBLCourseEnrollment.user_id == member.student_id
-            ).first()
-            
-            if not existing:
-                enrollment = PBLCourseEnrollment(
-                    course_id=new_course.id,
-                    user_id=member.student_id,
-                    class_id=pbl_class.id,
-                    enrollment_status='enrolled',
-                    enrolled_at=get_beijing_time_naive()
-                )
-                db.add(enrollment)
-                enrolled_count += 1
+        ).count()
     
     # 更新模板使用次数
     template.usage_count += 1
@@ -840,31 +800,13 @@ def enroll_class_members_to_course(
                 status_code=status.HTTP_403_FORBIDDEN
             )
     
-    # 获取班级所有成员
-    members = db.query(PBLClassMember).filter(
+    # 注意：班级成员自动拥有班级课程的访问权限，无需创建选课记录
+    # 统计班级成员数量
+    enrolled_count = db.query(PBLClassMember).filter(
         PBLClassMember.class_id == course.class_id,
         PBLClassMember.is_active == 1
-    ).all()
-    
-    enrolled_count = 0
-    for member in members:
-        # 检查是否已选课
-        existing = db.query(PBLCourseEnrollment).filter(
-            PBLCourseEnrollment.course_id == course.id,
-            PBLCourseEnrollment.user_id == member.student_id
-        ).first()
-        
-        if not existing:
-            enrollment = PBLCourseEnrollment(
-                course_id=course.id,
-                user_id=member.student_id,
-                class_id=course.class_id,
-                enrollment_status='enrolled',
-                enrolled_at=get_beijing_time_naive()
-            )
-            db.add(enrollment)
-            enrolled_count += 1
-    
+    ).count()
+
     db.commit()
     
     logger.info(f"批量选课 - 课程ID: {course_id}, 班级ID: {course.class_id}, 选课人数: {enrolled_count}")
@@ -1485,17 +1427,7 @@ def get_class_progress(
     ).all()
     
     last_active_dict = {row.user_id: row.last_active for row in last_active_query}
-    
-    # 6. 批量获取选课记录（1次查询）
-    enrollments_query = db.query(
-        PBLCourseEnrollment
-    ).filter(
-        PBLCourseEnrollment.course_id == course.id,
-        PBLCourseEnrollment.user_id.in_(all_student_ids)
-    ).all()
-    
-    enrollments_dict = {e.user_id: e for e in enrollments_query}
-    
+
     # === 组装结果数据并应用状态筛选（内存计算） ===
     all_results = []
     for member, user in all_members:
@@ -2079,12 +2011,6 @@ def _get_class_progress_data(class_uuid: str, db: Session) -> List[Dict]:
     ).scalar() or 0
     
     for member, user in members:
-        # 获取选课记录
-        enrollment = db.query(PBLCourseEnrollment).filter(
-            PBLCourseEnrollment.course_id == course.id,
-            PBLCourseEnrollment.user_id == member.student_id
-        ).first()
-        
         # 统计已完成单元
         completed_units = 0
         if total_units > 0:

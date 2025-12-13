@@ -206,47 +206,6 @@ class SchoolCourseWithDetails(SchoolCourse):
     """学校课程详情（包含课程信息）"""
     course: Optional[Course] = None
 
-# --- Course Enrollment Schemas ---
-class EnrollmentStatus(str, Enum):
-    """学生选课状态"""
-    enrolled = 'enrolled'
-    dropped = 'dropped'
-    completed = 'completed'
-
-class CourseEnrollmentBase(BaseModel):
-    """学生选课基础模型"""
-    course_id: int
-    user_id: int
-    enrollment_status: Optional[EnrollmentStatus] = EnrollmentStatus.enrolled
-
-class CourseEnrollmentCreate(CourseEnrollmentBase):
-    """创建学生选课"""
-    pass
-
-class CourseEnrollmentUpdate(BaseModel):
-    """更新学生选课"""
-    enrollment_status: Optional[EnrollmentStatus] = None
-    progress: Optional[int] = None
-    final_score: Optional[int] = None
-
-class CourseEnrollment(CourseEnrollmentBase):
-    """学生选课返回模型"""
-    id: int
-    enrolled_at: Optional[datetime] = None
-    dropped_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
-    progress: int
-    final_score: Optional[int] = None
-    created_at: datetime
-    updated_at: datetime
-    
-    class Config:
-        from_attributes = True
-
-class CourseEnrollmentWithDetails(CourseEnrollment):
-    """学生选课详情（包含课程信息）"""
-    course: Optional[Course] = None
-
 # --- Learning Progress Schemas ---
 class LearningProgressTrack(BaseModel):
     """学习进度追踪请求"""

@@ -72,7 +72,8 @@ class Settings(BaseSettings):
     def model_post_init(self, __context):
         """初始化后处理"""
         # 构建数据库URL，添加时区参数以使用上海时间（东八区）
-        self.database_url = f"mysql+pymysql://{self.db_user}:{self.db_password}@{self.db_host}:{self.db_port}/{self.db_name}?charset=utf8mb4&init_command=SET time_zone = '+8:00'"
+        # 使用 %2B 来正确编码 + 号，避免被解析为空格
+        self.database_url = f"mysql+pymysql://{self.db_user}:{self.db_password}@{self.db_host}:{self.db_port}/{self.db_name}?charset=utf8mb4&init_command=SET time_zone = '%2B08:00'"
         
         # 验证安全配置
         self._validate_security_settings()

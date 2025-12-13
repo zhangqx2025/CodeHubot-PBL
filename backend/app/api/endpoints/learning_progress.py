@@ -8,7 +8,7 @@ from app.utils.timezone import get_beijing_time_naive
 from ...core.response import success_response, error_response
 from ...core.deps import get_db, get_current_user, get_current_admin
 from ...models.admin import User, Admin
-from ...models.pbl import PBLCourse, PBLUnit, PBLResource, PBLTask, PBLTaskProgress, PBLCourseEnrollment, PBLLearningProgress
+from ...models.pbl import PBLCourse, PBLUnit, PBLResource, PBLTask, PBLTaskProgress, PBLLearningProgress, PBLClassMember
 from ...schemas.pbl import LearningProgressTrack
 from ...core.logging_config import get_logger
 
@@ -21,17 +21,23 @@ def get_my_learning_progress(
     current_user: User = Depends(get_current_user)
 ):
     """获取我的学习进度概览"""
-    # 从选课表查询已选课程
-    enrollments = db.query(PBLCourseEnrollment).filter(
-        PBLCourseEnrollment.user_id == current_user.id,
-        PBLCourseEnrollment.enrollment_status == 'enrolled'
+    # 查询当前用户所在的所有活跃班级
+    class_members = db.query(PBLClassMember).filter(
+        PBLClassMember.student_id == current_user.id,
+        PBLClassMember.is_active == 1
     ).all()
     
-    if not enrollments:
+    if not class_members:
         return success_response(data=[])
     
-    course_ids = [e.course_id for e in enrollments]
-    courses = db.query(PBLCourse).filter(PBLCourse.id.in_(course_ids)).all()
+    # 获取所有班级ID
+    class_ids = [cm.class_id for cm in class_members]
+    
+    # 查询这些班级的所有已发布课程
+    courses = db.query(PBLCourse).filter(
+        PBLCourse.class_id.in_(class_ids),
+        PBLCourse.status == 'published'
+    ).all()
     
     result = []
     for course in courses:
@@ -258,40 +264,6 @@ def track_learning_activity(
         meta_data=track_data.metadata
     )
     db.add(learning_progress)
-    
-    # 更新选课表的进度
-    enrollment = db.query(PBLCourseEnrollment).filter(
-        PBLCourseEnrollment.course_id == course.id,
-        PBLCourseEnrollment.user_id == current_user.id,
-        PBLCourseEnrollment.enrollment_status == 'enrolled'
-    ).first()
-    
-    if enrollment:
-        # 如果是单元完成记录，重新计算整个课程的进度
-        if track_data.progress_type == 'unit_complete' and is_completed:
-            # 获取课程的所有单元
-            units = db.query(PBLUnit).filter(PBLUnit.course_id == course.id).all()
-            total_units = len(units)
-            
-            if total_units > 0:
-                # 查询该学生已完成的单元数量
-                unit_ids = [unit.id for unit in units]
-                completed_count = db.query(PBLLearningProgress).filter(
-                    PBLLearningProgress.user_id == current_user.id,
-                    PBLLearningProgress.unit_id.in_(unit_ids),
-                    PBLLearningProgress.progress_type == 'unit_complete',
-                    PBLLearningProgress.status == 'completed'
-                ).count()
-                
-                # 计算课程进度百分比
-                course_progress = int((completed_count / total_units * 100))
-                enrollment.progress = course_progress
-                
-                # 如果完成了所有单元，标记课程为已完成
-                if course_progress >= 100:
-                    enrollment.enrollment_status = 'completed'
-                    enrollment.completed_at = get_beijing_time_naive()
-    
     db.commit()
     
     logger.debug(f"学习行为追踪 - 用户: {current_user.id}, 课程: {track_data.course_uuid}, 类型: {track_data.progress_type}")
@@ -479,16 +451,20 @@ def get_course_students_progress(
                 status_code=status.HTTP_403_FORBIDDEN
             )
     
-    # 从选课表查询选课学生
-    enrollments = db.query(PBLCourseEnrollment).filter(
-        PBLCourseEnrollment.course_id == course_id,
-        PBLCourseEnrollment.enrollment_status == 'enrolled'
-    ).all()
-    
-    if not enrollments:
+    # 如果课程没有关联班级，返回空列表
+    if not course.class_id:
         return success_response(data={'students': []})
     
-    student_ids = [e.user_id for e in enrollments]
+    # 查询班级的所有活跃成员
+    class_members = db.query(PBLClassMember).filter(
+        PBLClassMember.class_id == course.class_id,
+        PBLClassMember.is_active == 1
+    ).all()
+    
+    if not class_members:
+        return success_response(data={'students': []})
+    
+    student_ids = [cm.student_id for cm in class_members]
     students = db.query(User).filter(
         User.id.in_(student_ids),
         User.role == 'student',

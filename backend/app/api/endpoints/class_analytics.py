@@ -16,7 +16,7 @@ from ...core.deps import get_db, get_current_admin
 from ...models.admin import Admin, User
 from ...models.pbl import (
     PBLClass, PBLClassMember, PBLCourse, PBLUnit, PBLTask,
-    PBLTaskProgress, PBLCourseEnrollment, PBLProjectOutput
+    PBLTaskProgress, PBLProjectOutput
 )
 from ...core.logging_config import get_logger
 

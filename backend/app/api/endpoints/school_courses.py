@@ -12,7 +12,7 @@ from ...db.session import SessionLocal
 from ...core.response import success_response, error_response
 from ...core.deps import get_db, get_current_admin
 from ...models.admin import Admin
-from ...models.pbl import PBLCourse, PBLSchoolCourse, PBLCourseEnrollment
+from ...models.pbl import PBLCourse, PBLSchoolCourse
 from ...models.school import School
 from ...schemas.pbl import SchoolCourseCreate, SchoolCourseUpdate, SchoolCourse, SchoolCourseWithDetails, Course
 from ...core.logging_config import get_logger

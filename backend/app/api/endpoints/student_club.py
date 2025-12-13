@@ -17,7 +17,7 @@ from ...core.response import success_response, error_response
 from ...core.deps import get_db, get_current_user
 from ...models.admin import User
 from ...models.pbl import (
-    PBLClass, PBLClassMember, PBLCourse, PBLCourseEnrollment
+    PBLClass, PBLClassMember, PBLCourse
 )
 from ...core.logging_config import get_logger
 
@@ -69,17 +69,26 @@ def get_my_courses(
     current_user: User = Depends(get_current_user)
 ):
     """获取学生自己的课程列表"""
-    # 查询学生选的课程
-    enrollments = db.query(PBLCourseEnrollment, PBLCourse).join(
-        PBLCourse, PBLCourseEnrollment.course_id == PBLCourse.id
-    ).filter(
-        PBLCourseEnrollment.user_id == current_user.id,
-        PBLCourseEnrollment.enrollment_status == 'enrolled',
-        PBLCourse.status == 'published'
+    # 查询学生所在班级的所有已发布课程
+    class_members = db.query(PBLClassMember).filter(
+        PBLClassMember.student_id == current_user.id,
+        PBLClassMember.is_active == 1
     ).all()
     
+    if not class_members:
+        return success_response(data=[])
+    
+    # 获取所有班级ID
+    class_ids = [cm.class_id for cm in class_members]
+    
+    # 查询这些班级的所有已发布课程
+    courses = db.query(PBLCourse).filter(
+        PBLCourse.class_id.in_(class_ids),
+        PBLCourse.status == 'published'
+    ).all()
+
     result = []
-    for enrollment, course in enrollments:
+    for course in courses:
         result.append({
             'id': course.id,
             'uuid': course.uuid,
@@ -88,9 +97,8 @@ def get_my_courses(
             'cover_image': course.cover_image,
             'class_name': course.class_name,
             'difficulty': course.difficulty,
-            'status': enrollment.enrollment_status,
-            'progress': enrollment.progress,
-            'enrolled_at': enrollment.enrolled_at.isoformat() if enrollment.enrolled_at else None
+            'status': 'published',  # 课程状态
+            'progress': 0  # 进度需要从 pbl_learning_progress 表计算
         })
     
     return success_response(data=result)
@@ -211,22 +219,10 @@ def join_class(
         PBLCourse.status == 'published'
     ).all()
     
+    # 注意：班级成员自动拥有班级课程的访问权限，无需创建选课记录
     enrolled_courses = []
     for course in courses:
-        # 检查是否已选课
-        existing_enrollment = db.query(PBLCourseEnrollment).filter(
-            PBLCourseEnrollment.course_id == course.id,
-            PBLCourseEnrollment.user_id == current_user.id
-        ).first()
-        
-        if not existing_enrollment:
-            enrollment = PBLCourseEnrollment(
-                course_id=course.id,
-                user_id=current_user.id,
-                class_id=pbl_class.id,
-                enrollment_status='enrolled',
-                enrolled_at=get_beijing_time_naive()
-            )
+        enrolled_courses.append({
             db.add(enrollment)
             enrolled_courses.append(course.id)
     
@@ -280,12 +276,6 @@ def get_class_detail(
     
     course_list = []
     for course in courses:
-        # 获取学生的选课记录
-        enrollment = db.query(PBLCourseEnrollment).filter(
-            PBLCourseEnrollment.course_id == course.id,
-            PBLCourseEnrollment.user_id == current_user.id
-        ).first()
-        
         course_list.append({
             'id': course.id,
             'uuid': course.uuid,
@@ -293,8 +283,8 @@ def get_class_detail(
             'description': course.description,
             'cover_image': course.cover_image,
             'difficulty': course.difficulty,
-            'progress': enrollment.progress if enrollment else 0,
-            'status': enrollment.enrollment_status if enrollment else None
+            'progress': 0,  # 进度需要从 pbl_learning_progress 表计算
+            'status': 'published'  # 课程状态
         })
     
     return success_response(data={

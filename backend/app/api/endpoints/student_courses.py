@@ -4,11 +4,11 @@ from typing import List, Optional
 
 from ...core.response import success_response, error_response
 from ...core.deps import get_db, get_current_user
-from ...models.pbl import PBLCourse, PBLUnit, PBLProject, PBLResource, PBLTask, PBLCourseEnrollment, PBLLearningProgress
+from ...models.pbl import PBLCourse, PBLUnit, PBLProject, PBLResource, PBLTask, PBLLearningProgress, PBLClassMember
 
 router = APIRouter()
 
-def serialize_course_list_item(course: PBLCourse, enrollment: PBLCourseEnrollment = None, db: Session = None, user_id: int = None) -> dict:
+def serialize_course_list_item(course: PBLCourse, db: Session = None, user_id: int = None) -> dict:
     """序列化课程列表项"""
     units = course.units
     total_units = len(units)
@@ -30,14 +30,6 @@ def serialize_course_list_item(course: PBLCourse, enrollment: PBLCourseEnrollmen
     # 计算课程进度
     progress = int((completed_units / total_units * 100) if total_units > 0 else 0)
     
-    # 如果有选课记录，获取选课信息
-    if enrollment:
-        enrollment_status = enrollment.enrollment_status
-        enrolled_at = enrollment.enrolled_at.isoformat() if enrollment.enrolled_at else None
-    else:
-        enrollment_status = None
-        enrolled_at = None
-    
     return {
         'id': course.id,
         'uuid': course.uuid,
@@ -48,8 +40,6 @@ def serialize_course_list_item(course: PBLCourse, enrollment: PBLCourseEnrollmen
         'difficulty': course.difficulty,
         'status': course.status,
         'progress': progress,
-        'enrollment_status': enrollment_status,
-        'enrolled_at': enrolled_at,
         'total_units': total_units,
         'completed_units': completed_units,
         'created_at': course.created_at.isoformat() if course.created_at else None,
@@ -216,23 +206,32 @@ def get_my_courses(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """获取我的课程列表（仅返回已选课的课程）"""
-    # 查询当前用户的选课记录
-    enrollments = db.query(PBLCourseEnrollment).filter(
-        PBLCourseEnrollment.user_id == current_user.id,
-        PBLCourseEnrollment.enrollment_status == 'enrolled'
+    """获取我的课程列表（基于班级成员关系）"""
+    # 查询当前用户所在的所有活跃班级
+    class_members = db.query(PBLClassMember).filter(
+        PBLClassMember.student_id == current_user.id,
+        PBLClassMember.is_active == 1
+    ).all()
+    
+    if not class_members:
+        return success_response(data={
+            'total': 0,
+            'items': []
+        })
+    
+    # 获取所有班级ID
+    class_ids = [cm.class_id for cm in class_members]
+    
+    # 查询这些班级的所有已发布课程
+    courses = db.query(PBLCourse).filter(
+        PBLCourse.class_id.in_(class_ids),
+        PBLCourse.status == 'published'
     ).offset(skip).limit(limit).all()
     
-    # 获取对应的课程信息
+    # 序列化课程信息
     result_items = []
-    for enrollment in enrollments:
-        course = db.query(PBLCourse).filter(
-            PBLCourse.id == enrollment.course_id,
-            PBLCourse.status == 'published'  # 只返回已发布的课程
-        ).first()
-        
-        if course:
-            result_items.append(serialize_course_list_item(course, enrollment, db, current_user.id))
+    for course in courses:
+        result_items.append(serialize_course_list_item(course, db, current_user.id))
     
     return success_response(data={
         'total': len(result_items),
@@ -255,24 +254,32 @@ def get_course_detail(
             status_code=status.HTTP_404_NOT_FOUND
         )
     
-    # 检查学生是否已选该课程
-    enrollment = db.query(PBLCourseEnrollment).filter(
-        PBLCourseEnrollment.course_id == course.id,
-        PBLCourseEnrollment.user_id == current_user.id,
-        PBLCourseEnrollment.enrollment_status == 'enrolled'
-    ).first()
-    
-    if not enrollment:
-        return error_response(
-            message="您未选修此课程，无权访问",
-            code=403,
-            status_code=status.HTTP_403_FORBIDDEN
-        )
-    
     # 检查课程是否已发布
     if course.status != 'published':
         return error_response(
             message="该课程暂未开放",
+            code=403,
+            status_code=status.HTTP_403_FORBIDDEN
+        )
+    
+    # 检查学生是否是该课程所属班级的成员
+    if course.class_id:
+        is_member = db.query(PBLClassMember).filter(
+            PBLClassMember.class_id == course.class_id,
+            PBLClassMember.student_id == current_user.id,
+            PBLClassMember.is_active == 1
+        ).first()
+        
+        if not is_member:
+            return error_response(
+                message="您不是该班级成员，无权访问此课程",
+                code=403,
+                status_code=status.HTTP_403_FORBIDDEN
+            )
+    else:
+        # 如果课程没有关联班级，则不允许学生访问
+        return error_response(
+            message="该课程未关联班级，无法访问",
             code=403,
             status_code=status.HTTP_403_FORBIDDEN
         )
@@ -295,16 +302,32 @@ def get_unit_detail(
             status_code=status.HTTP_404_NOT_FOUND
         )
     
-    # 检查学生是否已选该单元所属的课程
-    enrollment = db.query(PBLCourseEnrollment).filter(
-        PBLCourseEnrollment.course_id == unit.course_id,
-        PBLCourseEnrollment.user_id == current_user.id,
-        PBLCourseEnrollment.enrollment_status == 'enrolled'
-    ).first()
-    
-    if not enrollment:
+    # 获取单元所属课程
+    course = db.query(PBLCourse).filter(PBLCourse.id == unit.course_id).first()
+    if not course:
         return error_response(
-            message="您未选修此课程，无权访问该单元",
+            message="课程不存在",
+            code=404,
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    
+    # 检查学生是否是该课程所属班级的成员
+    if course.class_id:
+        is_member = db.query(PBLClassMember).filter(
+            PBLClassMember.class_id == course.class_id,
+            PBLClassMember.student_id == current_user.id,
+            PBLClassMember.is_active == 1
+        ).first()
+        
+        if not is_member:
+            return error_response(
+                message="您不是该班级成员，无权访问该单元",
+                code=403,
+                status_code=status.HTTP_403_FORBIDDEN
+            )
+    else:
+        return error_response(
+            message="该课程未关联班级，无法访问",
             code=403,
             status_code=status.HTTP_403_FORBIDDEN
         )
@@ -335,16 +358,23 @@ def get_course_units(
             status_code=status.HTTP_404_NOT_FOUND
         )
     
-    # 检查学生是否已选该课程
-    enrollment = db.query(PBLCourseEnrollment).filter(
-        PBLCourseEnrollment.course_id == course.id,
-        PBLCourseEnrollment.user_id == current_user.id,
-        PBLCourseEnrollment.enrollment_status == 'enrolled'
-    ).first()
-    
-    if not enrollment:
+    # 检查学生是否是该课程所属班级的成员
+    if course.class_id:
+        is_member = db.query(PBLClassMember).filter(
+            PBLClassMember.class_id == course.class_id,
+            PBLClassMember.student_id == current_user.id,
+            PBLClassMember.is_active == 1
+        ).first()
+        
+        if not is_member:
+            return error_response(
+                message="您不是该班级成员，无权访问此课程",
+                code=403,
+                status_code=status.HTTP_403_FORBIDDEN
+            )
+    else:
         return error_response(
-            message="您未选修此课程，无权访问",
+            message="该课程未关联班级，无法访问",
             code=403,
             status_code=status.HTTP_403_FORBIDDEN
         )
@@ -388,16 +418,32 @@ def get_unit_resources(
             status_code=status.HTTP_404_NOT_FOUND
         )
     
-    # 检查学生是否已选该单元所属的课程
-    enrollment = db.query(PBLCourseEnrollment).filter(
-        PBLCourseEnrollment.course_id == unit.course_id,
-        PBLCourseEnrollment.user_id == current_user.id,
-        PBLCourseEnrollment.enrollment_status == 'enrolled'
-    ).first()
-    
-    if not enrollment:
+    # 获取单元所属课程
+    course = db.query(PBLCourse).filter(PBLCourse.id == unit.course_id).first()
+    if not course:
         return error_response(
-            message="您未选修此课程，无权访问",
+            message="课程不存在",
+            code=404,
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    
+    # 检查学生是否是该课程所属班级的成员
+    if course.class_id:
+        is_member = db.query(PBLClassMember).filter(
+            PBLClassMember.class_id == course.class_id,
+            PBLClassMember.student_id == current_user.id,
+            PBLClassMember.is_active == 1
+        ).first()
+        
+        if not is_member:
+            return error_response(
+                message="您不是该班级成员，无权访问",
+                code=403,
+                status_code=status.HTTP_403_FORBIDDEN
+            )
+    else:
+        return error_response(
+            message="该课程未关联班级，无法访问",
             code=403,
             status_code=status.HTTP_403_FORBIDDEN
         )
@@ -433,16 +479,32 @@ def get_unit_tasks(
             status_code=status.HTTP_404_NOT_FOUND
         )
     
-    # 检查学生是否已选该单元所属的课程
-    enrollment = db.query(PBLCourseEnrollment).filter(
-        PBLCourseEnrollment.course_id == unit.course_id,
-        PBLCourseEnrollment.user_id == current_user.id,
-        PBLCourseEnrollment.enrollment_status == 'enrolled'
-    ).first()
-    
-    if not enrollment:
+    # 获取单元所属课程
+    course = db.query(PBLCourse).filter(PBLCourse.id == unit.course_id).first()
+    if not course:
         return error_response(
-            message="您未选修此课程，无权访问",
+            message="课程不存在",
+            code=404,
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    
+    # 检查学生是否是该课程所属班级的成员
+    if course.class_id:
+        is_member = db.query(PBLClassMember).filter(
+            PBLClassMember.class_id == course.class_id,
+            PBLClassMember.student_id == current_user.id,
+            PBLClassMember.is_active == 1
+        ).first()
+        
+        if not is_member:
+            return error_response(
+                message="您不是该班级成员，无权访问",
+                code=403,
+                status_code=status.HTTP_403_FORBIDDEN
+            )
+    else:
+        return error_response(
+            message="该课程未关联班级，无法访问",
             code=403,
             status_code=status.HTTP_403_FORBIDDEN
         )
