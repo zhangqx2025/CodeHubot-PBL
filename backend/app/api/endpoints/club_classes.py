@@ -388,20 +388,34 @@ def get_available_students(
         )
     
     # 权限检查
-    if current_admin.role not in ['platform_admin', 'school_admin']:
-        return error_response(
-            message="无权限操作",
-            code=403,
-            status_code=status.HTTP_403_FORBIDDEN
-        )
-    
-    if current_admin.role == 'school_admin':
+    if current_admin.role == 'teacher':
+        # 教师需要是该班级的授课教师
+        is_class_teacher = db.query(PBLClassTeacher).filter(
+            PBLClassTeacher.class_id == pbl_class.id,
+            PBLClassTeacher.teacher_id == current_admin.id
+        ).first()
+        
+        if not is_class_teacher:
+            return error_response(
+                message="无权限操作该班级",
+                code=403,
+                status_code=status.HTTP_403_FORBIDDEN
+            )
+    elif current_admin.role == 'school_admin':
+        # 学校管理员只能操作本校班级
         if pbl_class.school_id != current_admin.school_id:
             return error_response(
                 message="无权限查看该班级",
                 code=403,
                 status_code=status.HTTP_403_FORBIDDEN
             )
+    elif current_admin.role != 'platform_admin':
+        # 其他角色无权限
+        return error_response(
+            message="无权限操作",
+            code=403,
+            status_code=status.HTTP_403_FORBIDDEN
+        )
     
     # 获取已在班级中的学生ID列表
     existing_member_ids = db.query(PBLClassMember.student_id).filter(
