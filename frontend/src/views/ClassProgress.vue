@@ -170,20 +170,23 @@
           <el-table-column label="任务完成情况" min-width="400">
             <template #default="{ row }">
               <div class="task-progress-tags">
-                <el-tooltip 
-                  v-for="tp in row.task_progress" 
-                  :key="tp.task_id"
-                  :content="getTaskTooltip(tp)"
-                  placement="top"
-                >
-                  <el-tag 
-                    :type="getTaskStatusType(tp.status)"
-                    size="small"
-                    style="margin-right: 4px; margin-bottom: 4px"
+                <template v-if="getSubmittedTasks(row.task_progress).length > 0">
+                  <el-tooltip 
+                    v-for="tp in getSubmittedTasks(row.task_progress)" 
+                    :key="tp.task_id"
+                    :content="getTaskTooltip(tp)"
+                    placement="top"
                   >
-                    {{ tp.task_title.substring(0, 10) }}{{ tp.task_title.length > 10 ? '...' : '' }}
-                  </el-tag>
-                </el-tooltip>
+                    <el-tag 
+                      :type="getTaskStatusType(tp.status)"
+                      size="small"
+                      style="margin-right: 4px; margin-bottom: 4px"
+                    >
+                      {{ tp.task_title.substring(0, 10) }}{{ tp.task_title.length > 10 ? '...' : '' }}
+                    </el-tag>
+                  </el-tooltip>
+                </template>
+                <span v-else class="no-submission">暂无提交</span>
               </div>
             </template>
           </el-table-column>
@@ -315,6 +318,12 @@ const getTaskTooltip = (tp) => {
   const statusText = statusMap[tp.status] || tp.status
   const scoreText = tp.score ? ` - ${tp.score}分` : ''
   return `${tp.task_title}: ${statusText}${scoreText}`
+}
+
+// 过滤出已提交的任务（is_completed为true的任务）
+const getSubmittedTasks = (taskProgress) => {
+  if (!taskProgress) return []
+  return taskProgress.filter(tp => tp.is_completed === true)
 }
 
 const goBack = () => {
@@ -495,6 +504,12 @@ onMounted(async () => {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
+  
+  .no-submission {
+    font-size: 14px;
+    color: #c0c4cc;
+    font-style: italic;
+  }
 }
 
 :deep(.el-drawer__header) {
