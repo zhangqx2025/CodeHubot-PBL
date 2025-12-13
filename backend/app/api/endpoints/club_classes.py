@@ -99,14 +99,6 @@ def get_classes(
             PBLCourse.status == 'published'
         ).first()
         
-        # 统计选课人数（只统计enrolled状态）
-        enrolled_count = 0
-        if course:
-            enrolled_count = db.query(PBLCourseEnrollment).filter(
-                PBLCourseEnrollment.course_id == course.id,
-                PBLCourseEnrollment.enrollment_status == 'enrolled'
-            ).count()
-        
         result.append({
             'id': cls.id,
             'uuid': cls.uuid,
@@ -115,7 +107,7 @@ def get_classes(
             'description': cls.description,
             'school_id': cls.school_id,
             'max_students': cls.max_students,
-            'current_members': cls.current_members,
+            'current_members': cls.current_members or 0,  # 直接使用字段，性能更好
             'is_open': cls.is_open == 1,
             'is_active': cls.is_active == 1,
             'created_at': cls.created_at.isoformat() if cls.created_at else None,
@@ -132,7 +124,7 @@ def get_classes(
                 'teacher_name': course.teacher_name,
                 'start_date': course.start_date.isoformat() if course.start_date else None,
                 'end_date': course.end_date.isoformat() if course.end_date else None,
-                'enrolled_count': enrolled_count
+                'enrolled_count': cls.current_members or 0  # 使用班级成员数
             } if course else None
         })
     
@@ -237,38 +229,21 @@ def get_class_detail(
             'joined_at': member.joined_at.isoformat() if member.joined_at else None
         })
     
-    # 优化：批量获取班级课程及选课人数
-    # 使用子查询一次性获取所有课程的选课人数
-    
-    # 子查询：统计每个课程的选课人数
-    enrollment_subquery = select(
-        PBLCourseEnrollment.course_id,
-        func.count(PBLCourseEnrollment.id).label('enrolled_count')
-    ).group_by(
-        PBLCourseEnrollment.course_id
-    ).subquery()
-    
-    # 主查询：获取课程信息并关联选课人数
-    courses_with_count = db.query(
-        PBLCourse,
-        func.coalesce(enrollment_subquery.c.enrolled_count, 0).label('enrolled_count')
-    ).outerjoin(
-        enrollment_subquery,
-        PBLCourse.id == enrollment_subquery.c.course_id
-    ).filter(
+    # 获取班级课程
+    courses = db.query(PBLCourse).filter(
         PBLCourse.class_id == pbl_class.id,
         PBLCourse.status == 'published'
     ).all()
     
     course_list = []
-    for course, enrolled_count in courses_with_count:
+    for course in courses:
         course_list.append({
             'id': course.id,
             'uuid': course.uuid,
             'title': course.title,
             'description': course.description,
             'cover_image': course.cover_image,
-            'enrolled_count': enrolled_count
+            'enrolled_count': pbl_class.current_members or 0  # 使用班级成员数
         })
     
     return success_response(data={
@@ -278,7 +253,7 @@ def get_class_detail(
         'class_type': pbl_class.class_type,
         'description': pbl_class.description,
         'max_students': pbl_class.max_students,
-        'current_members': pbl_class.current_members,
+        'current_members': pbl_class.current_members or 0,  # 直接使用字段
         'is_open': pbl_class.is_open == 1,
         'is_active': pbl_class.is_active == 1,
         'members': member_list,
@@ -497,6 +472,9 @@ def add_members_to_class(
         db.add(member)
         added_count += 1
         
+        # 更新班级成员数
+        pbl_class.current_members = (pbl_class.current_members or 0) + 1
+        
         # 自动为该学生选上班级的所有课程
         courses = db.query(PBLCourse).filter(
             PBLCourse.class_id == pbl_class.id,
@@ -584,6 +562,11 @@ def remove_member_from_class(
     # 软删除（标记为非活跃）
     member.is_active = 0
     member.left_at = datetime.now()
+    
+    # 更新班级成员数
+    if pbl_class.current_members > 0:
+        pbl_class.current_members -= 1
+    
     db.commit()
     
     logger.info(f"从班级移除成员 - 班级UUID: {class_uuid}, 学生ID: {student_id}")

@@ -111,10 +111,10 @@
               </span>
             </div>
             
-            <!-- 选课人数 -->
+            <!-- 班级人数 -->
             <div class="info-item">
               <el-icon><Reading /></el-icon>
-              <span>选课人数：{{ cls.course?.enrolled_count || 0 }} 人</span>
+              <span>班级人数：{{ cls.current_members || 0 }} 人</span>
             </div>
             
             <div class="card-footer">
