@@ -7,7 +7,7 @@
 """
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Body
 from sqlalchemy.orm import Session
-from sqlalchemy import func, and_, or_
+from sqlalchemy import func, and_, or_, case, select
 from typing import List, Optional, Dict
 from datetime import datetime
 from pydantic import BaseModel
@@ -200,7 +200,7 @@ def get_class_detail(
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(get_current_admin)
 ):
-    """获取班级详情"""
+    """获取班级详情（优化版）"""
     pbl_class = db.query(PBLClass).filter(PBLClass.uuid == class_uuid).first()
     if not pbl_class:
         return error_response(
@@ -236,19 +236,31 @@ def get_class_detail(
             'joined_at': member.joined_at.isoformat() if member.joined_at else None
         })
     
-    # 获取班级课程
-    courses = db.query(PBLCourse).filter(
+    # 优化：批量获取班级课程及选课人数
+    # 使用子查询一次性获取所有课程的选课人数
+    
+    # 子查询：统计每个课程的选课人数
+    enrollment_subquery = select(
+        PBLCourseEnrollment.course_id,
+        func.count(PBLCourseEnrollment.id).label('enrolled_count')
+    ).group_by(
+        PBLCourseEnrollment.course_id
+    ).subquery()
+    
+    # 主查询：获取课程信息并关联选课人数
+    courses_with_count = db.query(
+        PBLCourse,
+        func.coalesce(enrollment_subquery.c.enrolled_count, 0).label('enrolled_count')
+    ).outerjoin(
+        enrollment_subquery,
+        PBLCourse.id == enrollment_subquery.c.course_id
+    ).filter(
         PBLCourse.class_id == pbl_class.id,
         PBLCourse.status == 'published'
     ).all()
     
     course_list = []
-    for course in courses:
-        # 统计选课人数
-        enrolled_count = db.query(PBLCourseEnrollment).filter(
-            PBLCourseEnrollment.course_id == course.id
-        ).count()
-        
+    for course, enrolled_count in courses_with_count:
         course_list.append({
             'id': course.id,
             'uuid': course.uuid,
@@ -1125,7 +1137,13 @@ def get_class_progress(
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(get_current_admin)
 ):
-    """获取班级学习进度"""
+    """获取班级学习进度（高性能优化版）
+    
+    性能优化：
+    1. 使用批量查询替代循环查询
+    2. 使用聚合函数一次性计算所有统计数据
+    3. 将N+1查询优化为固定的5-6次查询
+    """
     pbl_class = db.query(PBLClass).filter(PBLClass.uuid == class_uuid).first()
     if not pbl_class:
         return error_response(
@@ -1152,7 +1170,10 @@ def get_class_progress(
     if not courses:
         return success_response(data=[])
     
-    # 获取班级成员
+    # 假设一个班级对应一个主课程
+    course = courses[0]
+    
+    # 获取班级成员列表
     members = db.query(PBLClassMember, User).join(
         User, PBLClassMember.student_id == User.id
     ).filter(
@@ -1160,46 +1181,143 @@ def get_class_progress(
         PBLClassMember.is_active == 1
     ).all()
     
+    if not members:
+        return success_response(data=[])
+    
+    # 提取学生ID列表
+    student_ids = [member.student_id for member, _ in members]
+    
+    # === 优化策略：使用批量查询 ===
+    
+    # 1. 获取课程的总单元数（1次查询）
+    total_units = db.query(func.count(PBLUnit.id)).filter(
+        PBLUnit.course_id == course.id
+    ).scalar() or 0
+    
+    # 2. 批量获取每个单元的任务ID列表（1次查询）
+    unit_tasks = db.query(
+        PBLUnit.id.label('unit_id'),
+        func.group_concat(PBLTask.id).label('task_ids'),
+        func.count(PBLTask.id).label('task_count')
+    ).outerjoin(
+        PBLTask, PBLTask.unit_id == PBLUnit.id
+    ).filter(
+        PBLUnit.course_id == course.id
+    ).group_by(
+        PBLUnit.id
+    ).all()
+    
+    # 构建单元->任务映射
+    unit_task_map = {}
+    for row in unit_tasks:
+        task_ids = []
+        if row.task_ids:
+            task_ids = [int(tid) for tid in row.task_ids.split(',')]
+        unit_task_map[row.unit_id] = {
+            'task_ids': task_ids,
+            'task_count': row.task_count
+        }
+    
+    # 3. 批量获取所有学生的任务完成情况（1次查询）
+    task_progress_query = db.query(
+        PBLTaskProgress.user_id,
+        PBLTask.unit_id,
+        func.count(PBLTaskProgress.id).label('total_progress'),
+        func.sum(
+            case((PBLTaskProgress.status == 'completed', 1), else_=0)
+        ).label('completed_count')
+    ).join(
+        PBLTask, PBLTaskProgress.task_id == PBLTask.id
+    ).join(
+        PBLUnit, PBLTask.unit_id == PBLUnit.id
+    ).filter(
+        PBLUnit.course_id == course.id,
+        PBLTaskProgress.user_id.in_(student_ids)
+    ).group_by(
+        PBLTaskProgress.user_id,
+        PBLTask.unit_id
+    ).all()
+    
+    # 构建学生单元完成情况字典
+    student_unit_progress = {}
+    for row in task_progress_query:
+        user_id = row.user_id
+        unit_id = row.unit_id
+        
+        if user_id not in student_unit_progress:
+            student_unit_progress[user_id] = {}
+        
+        student_unit_progress[user_id][unit_id] = {
+            'completed_count': row.completed_count,
+            'total_progress': row.total_progress
+        }
+    
+    # 4. 批量获取提交作业数（1次查询）
+    submissions_query = db.query(
+        PBLTaskProgress.user_id,
+        func.count(PBLTaskProgress.id).label('submissions_count')
+    ).join(
+        PBLTask, PBLTaskProgress.task_id == PBLTask.id
+    ).join(
+        PBLUnit, PBLTask.unit_id == PBLUnit.id
+    ).filter(
+        PBLUnit.course_id == course.id,
+        PBLTaskProgress.user_id.in_(student_ids),
+        PBLTaskProgress.submission.isnot(None)
+    ).group_by(
+        PBLTaskProgress.user_id
+    ).all()
+    
+    submissions_dict = {row.user_id: row.submissions_count for row in submissions_query}
+    
+    # 5. 批量获取最后活跃时间（1次查询）
+    last_active_query = db.query(
+        PBLTaskProgress.user_id,
+        func.max(PBLTaskProgress.updated_at).label('last_active')
+    ).join(
+        PBLTask, PBLTaskProgress.task_id == PBLTask.id
+    ).join(
+        PBLUnit, PBLTask.unit_id == PBLUnit.id
+    ).filter(
+        PBLUnit.course_id == course.id,
+        PBLTaskProgress.user_id.in_(student_ids)
+    ).group_by(
+        PBLTaskProgress.user_id
+    ).all()
+    
+    last_active_dict = {row.user_id: row.last_active for row in last_active_query}
+    
+    # 6. 批量获取选课记录（1次查询）
+    enrollments_query = db.query(
+        PBLCourseEnrollment
+    ).filter(
+        PBLCourseEnrollment.course_id == course.id,
+        PBLCourseEnrollment.user_id.in_(student_ids)
+    ).all()
+    
+    enrollments_dict = {e.user_id: e for e in enrollments_query}
+    
+    # === 组装结果数据（内存计算，无额外查询） ===
     result = []
     for member, user in members:
-        # 获取第一个课程的进度（假设一个班级对应一个主课程）
-        course = courses[0]
+        student_id = member.student_id
         
-        # 获取选课记录
-        enrollment = db.query(PBLCourseEnrollment).filter(
-            PBLCourseEnrollment.course_id == course.id,
-            PBLCourseEnrollment.user_id == member.student_id
-        ).first()
-        
-        # 统计单元数量
-        total_units = db.query(func.count(PBLUnit.id)).filter(
-            PBLUnit.course_id == course.id
-        ).scalar() or 0
-        
-        # 统计已完成单元（通过任务完成情况判断）
+        # 计算完成的单元数
         completed_units = 0
-        if total_units > 0:
-            # 获取所有单元
-            units = db.query(PBLUnit).filter(PBLUnit.course_id == course.id).all()
-            for unit in units:
-                # 获取单元的所有任务
-                tasks = db.query(PBLTask).filter(PBLTask.unit_id == unit.id).all()
-                if not tasks:
-                    continue
-                
-                # 检查是否所有任务都已完成
-                all_completed = True
-                for task in tasks:
-                    task_progress = db.query(PBLTaskProgress).filter(
-                        PBLTaskProgress.task_id == task.id,
-                        PBLTaskProgress.user_id == member.student_id
-                    ).first()
-                    if not task_progress or task_progress.status != 'completed':
-                        all_completed = False
-                        break
-                
-                if all_completed:
-                    completed_units += 1
+        student_progress = student_unit_progress.get(student_id, {})
+        
+        for unit_id, unit_info in unit_task_map.items():
+            task_count = unit_info['task_count']
+            if task_count == 0:
+                continue
+            
+            # 获取该学生该单元的进度
+            unit_progress = student_progress.get(unit_id, {})
+            completed_count = unit_progress.get('completed_count', 0)
+            
+            # 如果该单元的所有任务都完成，则单元完成
+            if completed_count >= task_count:
+                completed_units += 1
         
         # 计算完成率
         completion_rate = 0
@@ -1213,36 +1331,17 @@ def get_class_progress(
         elif completion_rate > 0:
             learning_status = 'in_progress'
         
-        # 统计提交作业数
-        submissions_count = db.query(func.count(PBLTaskProgress.id)).filter(
-            PBLTaskProgress.user_id == member.student_id,
-            PBLTaskProgress.submission.isnot(None)
-        ).join(
-            PBLTask, PBLTaskProgress.task_id == PBLTask.id
-        ).join(
-            PBLUnit, PBLTask.unit_id == PBLUnit.id
-        ).filter(
-            PBLUnit.course_id == course.id
-        ).scalar() or 0
+        # 获取提交作业数
+        submissions_count = submissions_dict.get(student_id, 0)
         
-        # 获取最后活跃时间（最后一次任务提交或进度更新）
-        last_progress = db.query(PBLTaskProgress).filter(
-            PBLTaskProgress.user_id == member.student_id
-        ).join(
-            PBLTask, PBLTaskProgress.task_id == PBLTask.id
-        ).join(
-            PBLUnit, PBLTask.unit_id == PBLUnit.id
-        ).filter(
-            PBLUnit.course_id == course.id
-        ).order_by(PBLTaskProgress.updated_at.desc()).first()
-        
+        # 获取最后活跃时间
         last_active = None
-        if last_progress:
-            last_active = last_progress.updated_at.isoformat()
-        elif enrollment:
-            last_active = enrollment.updated_at.isoformat()
+        if student_id in last_active_dict:
+            last_active = last_active_dict[student_id].isoformat()
+        elif student_id in enrollments_dict:
+            last_active = enrollments_dict[student_id].updated_at.isoformat()
         
-        # 简化学习时长计算（这里可以根据实际情况从学习记录表获取）
+        # 简化学习时长计算
         learning_hours = submissions_count * 2  # 简单估算：每个作业2小时
         
         result.append({
@@ -1258,6 +1357,7 @@ def get_class_progress(
             'last_active': last_active
         })
     
+    logger.info(f"班级进度查询完成 - 班级: {class_uuid}, 学生数: {len(result)}, 使用6次数据库查询")
     return success_response(data=result)
 
 
