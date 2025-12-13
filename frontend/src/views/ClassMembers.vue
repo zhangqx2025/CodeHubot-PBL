@@ -53,12 +53,9 @@
       >
         <el-table-column prop="name" label="姓名" width="150" />
         <el-table-column prop="student_number" label="学号" width="180" />
-        <el-table-column prop="gender" label="性别" width="100" />
-        <el-table-column prop="role" label="角色" width="150">
+        <el-table-column prop="gender" label="性别" width="100">
           <template #default="{ row }">
-            <el-tag :type="getRoleTagType(row.role)" size="default">
-              {{ getRoleName(row.role) }}
-            </el-tag>
+            {{ getGenderName(row.gender) }}
           </template>
         </el-table-column>
         <el-table-column prop="joined_at" label="加入时间" width="200">
@@ -66,34 +63,16 @@
             {{ formatDateTime(row.joined_at) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="220" fixed="right">
+        <el-table-column label="操作" width="150" fixed="right">
           <template #default="{ row }">
-            <el-dropdown @command="(cmd) => handleMemberAction(cmd, row)">
-              <el-button link type="primary">
-                操作
-                <el-icon class="el-icon--right"><ArrowDown /></el-icon>
-              </el-button>
-              <template #dropdown>
-                <el-dropdown-menu>
-                  <el-dropdown-item command="leader" v-if="row.role !== 'leader'">
-                    <el-icon><User /></el-icon>
-                    设为班长
-                  </el-dropdown-item>
-                  <el-dropdown-item command="deputy" v-if="row.role !== 'deputy'">
-                    <el-icon><User /></el-icon>
-                    设为副班长
-                  </el-dropdown-item>
-                  <el-dropdown-item command="member" v-if="row.role !== 'member'">
-                    <el-icon><User /></el-icon>
-                    设为普通成员
-                  </el-dropdown-item>
-                  <el-dropdown-item command="remove" divided>
-                    <el-icon><Delete /></el-icon>
-                    移除成员
-                  </el-dropdown-item>
-                </el-dropdown-menu>
-              </template>
-            </el-dropdown>
+            <el-button 
+              link 
+              type="danger" 
+              @click="handleRemoveMember(row)"
+            >
+              <el-icon><Delete /></el-icon>
+              移除成员
+            </el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -111,19 +90,47 @@
     <el-dialog 
       v-model="addMemberDialogVisible" 
       title="添加成员" 
-      width="500px"
+      width="600px"
       :close-on-click-modal="false"
+      @open="handleDialogOpen"
     >
       <el-form label-width="100px">
-        <el-form-item label="学生ID" required>
+        <el-form-item label="搜索学生">
           <el-input
-            v-model="memberIdsText"
-            type="textarea"
-            :rows="10"
-            placeholder="请输入学生ID，每行一个"
-          />
+            v-model="studentSearchKeyword"
+            placeholder="输入姓名或学号搜索"
+            clearable
+            @input="searchAvailableStudents"
+          >
+            <template #prefix>
+              <el-icon><Search /></el-icon>
+            </template>
+          </el-input>
+        </el-form-item>
+        <el-form-item label="选择学生" required>
+          <el-select
+            v-model="selectedStudentIds"
+            multiple
+            filterable
+            placeholder="请选择要添加的学生"
+            style="width: 100%"
+            :loading="loadingStudents"
+            :multiple-limit="20"
+          >
+            <el-option
+              v-for="student in availableStudents"
+              :key="student.id"
+              :label="`${student.name} (${student.student_number})`"
+              :value="student.id"
+            >
+              <div style="display: flex; justify-content: space-between; align-items: center">
+                <span>{{ student.name }}</span>
+                <span style="color: #8492a6; font-size: 13px">{{ student.student_number }}</span>
+              </div>
+            </el-option>
+          </el-select>
           <div class="form-tip">
-            提示：每行输入一个学生ID，添加后将自动为其选上班级的所有课程
+            提示：从学校学生库中选择未在该班级的学生，添加后将自动为其选上班级的所有课程
           </div>
         </el-form-item>
       </el-form>
@@ -143,11 +150,11 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
-  ArrowLeft, Plus, Search, ArrowDown, User, Delete
+  ArrowLeft, Plus, Search, Delete
 } from '@element-plus/icons-vue'
 import {
-  getClubClassMembers, addMembersToClubClass, removeMemberFromClubClass,
-  updateMemberRole, getClubClassDetail
+  getClubClassMembers, addMembersToClubClass, removeMemberFromClubClass, getClubClassDetail,
+  getAvailableStudentsForClass
 } from '@/api/club'
 import dayjs from 'dayjs'
 
@@ -159,8 +166,13 @@ const members = ref([])
 const searchKeyword = ref('')
 const className = ref('')
 const addMemberDialogVisible = ref(false)
-const memberIdsText = ref('')
 const addingMembers = ref(false)
+
+// 可添加的学生列表
+const availableStudents = ref([])
+const selectedStudentIds = ref([])
+const studentSearchKeyword = ref('')
+const loadingStudents = ref(false)
 
 // 计算属性
 const filteredMembers = computed(() => {
@@ -195,28 +207,54 @@ const loadMembers = async () => {
   }
 }
 
+// 加载可添加的学生列表
+const loadAvailableStudents = async (search = '') => {
+  loadingStudents.value = true
+  try {
+    const res = await getAvailableStudentsForClass(route.params.uuid, {
+      search: search || undefined
+    })
+    availableStudents.value = res.data.data || []
+  } catch (error) {
+    console.error('加载学生列表失败:', error)
+    ElMessage.error('加载学生列表失败')
+  } finally {
+    loadingStudents.value = false
+  }
+}
+
+// 搜索可添加的学生
+let searchTimer = null
+const searchAvailableStudents = () => {
+  if (searchTimer) clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => {
+    loadAvailableStudents(studentSearchKeyword.value)
+  }, 300)
+}
+
+// 对话框打开时加载学生列表
+const handleDialogOpen = () => {
+  selectedStudentIds.value = []
+  studentSearchKeyword.value = ''
+  loadAvailableStudents()
+}
+
 // 显示添加成员对话框
 const showAddMemberDialog = () => {
-  memberIdsText.value = ''
   addMemberDialogVisible.value = true
 }
 
 // 提交添加成员
 const submitAddMembers = async () => {
-  const ids = memberIdsText.value
-    .split('\n')
-    .map(id => parseInt(id.trim()))
-    .filter(id => !isNaN(id))
-  
-  if (ids.length === 0) {
-    ElMessage.warning('请输入有效的学生ID')
+  if (selectedStudentIds.value.length === 0) {
+    ElMessage.warning('请选择要添加的学生')
     return
   }
   
   addingMembers.value = true
   try {
     const res = await addMembersToClubClass(route.params.uuid, {
-      student_ids: ids,
+      student_ids: selectedStudentIds.value,
       role: 'member'
     })
     ElMessage.success(`成功添加 ${res.data.added_count} 名成员`)
@@ -229,57 +267,36 @@ const submitAddMembers = async () => {
   }
 }
 
-// 处理成员操作
-const handleMemberAction = async (command, member) => {
-  if (command === 'remove') {
-    try {
-      await ElMessageBox.confirm(
-        `确定要移除成员"${member.name}"吗？`,
-        '确认移除',
-        {
-          confirmButtonText: '确定',
-          cancelButtonText: '取消',
-          type: 'warning'
-        }
-      )
-      
-      await removeMemberFromClubClass(route.params.uuid, member.student_id)
-      ElMessage.success('成员已移除')
-      loadMembers()
-    } catch (error) {
-      if (error !== 'cancel') {
-        ElMessage.error(error.message || '移除失败')
+// 处理移除成员
+const handleRemoveMember = async (member) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要移除成员"${member.name}"吗？`,
+      '确认移除',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
       }
-    }
-  } else {
-    // 更新角色
-    try {
-      await updateMemberRole(route.params.uuid, member.student_id, { role: command })
-      ElMessage.success('角色已更新')
-      loadMembers()
-    } catch (error) {
-      ElMessage.error(error.message || '更新失败')
+    )
+    
+    await removeMemberFromClubClass(route.params.uuid, member.student_id)
+    ElMessage.success('成员已移除')
+    loadMembers()
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(error.message || '移除失败')
     }
   }
 }
 
 // 工具方法
-const getRoleName = (role) => {
+const getGenderName = (gender) => {
   const map = {
-    member: '成员',
-    leader: '班长',
-    deputy: '副班长'
+    male: '男',
+    female: '女'
   }
-  return map[role] || role
-}
-
-const getRoleTagType = (role) => {
-  const map = {
-    member: 'info',
-    leader: 'danger',
-    deputy: 'warning'
-  }
-  return map[role] || 'info'
+  return map[gender] || gender
 }
 
 const formatDateTime = (dateStr) => {
