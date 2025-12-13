@@ -79,14 +79,28 @@ def get_classes(
 ):
     """获取班级列表（支持按类型筛选）"""
     # 权限控制
-    if current_admin.role != 'platform_admin':
-        school_id = current_admin.school_id
-    
-    # 构建查询
-    query = db.query(PBLClass).filter(PBLClass.is_active == 1)
-    
-    if school_id:
-        query = query.filter(PBLClass.school_id == school_id)
+    if current_admin.role == 'teacher':
+        # 教师只能查看自己教授的班级
+        teacher_class_ids = db.query(PBLClassTeacher.class_id).filter(
+            PBLClassTeacher.teacher_id == current_admin.id,
+            PBLClassTeacher.is_active == 1
+        ).all()
+        teacher_class_ids = [item[0] for item in teacher_class_ids]
+        
+        query = db.query(PBLClass).filter(
+            PBLClass.is_active == 1,
+            PBLClass.id.in_(teacher_class_ids) if teacher_class_ids else False
+        )
+    else:
+        # 平台管理员和学校管理员
+        if current_admin.role != 'platform_admin':
+            school_id = current_admin.school_id
+        
+        # 构建查询
+        query = db.query(PBLClass).filter(PBLClass.is_active == 1)
+        
+        if school_id:
+            query = query.filter(PBLClass.school_id == school_id)
     
     if class_type:
         query = query.filter(PBLClass.class_type == class_type)
