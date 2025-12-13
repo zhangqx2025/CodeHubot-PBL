@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, and_, or_, case
 from typing import List, Optional, Dict
 from datetime import datetime, timedelta
+from app.utils.timezone import get_beijing_time_naive
 from collections import defaultdict
 
 from ...db.session import SessionLocal
@@ -283,7 +284,7 @@ def get_completion_trend(
     course_ids = [c.id for c in courses]
     
     # 计算日期范围
-    end_date = datetime.now()
+    end_date = get_beijing_time_naive()
     start_date = end_date - timedelta(days=days)
     
     # 按日期统计提交和完成数量

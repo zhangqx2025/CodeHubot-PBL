@@ -590,7 +590,7 @@ async def upload_output_file(
     os.makedirs(upload_dir, exist_ok=True)
     
     # 生成唯一文件名
-    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    timestamp = get_beijing_time_naive().strftime("%Y%m%d%H%M%S")
     file_extension = os.path.splitext(file.filename)[1]
     filename = f"{current_user.id}_{timestamp}{file_extension}"
     file_path = os.path.join(upload_dir, filename)

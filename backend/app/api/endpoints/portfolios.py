@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import datetime
+from app.utils.timezone import get_beijing_time_naive
 
 from app.core.deps import get_db, get_current_user, get_current_admin
 from app.models.pbl import PBLStudentPortfolio, PBLUserAchievement, PBLAchievement
@@ -266,5 +267,5 @@ async def export_portfolio(
             "skill_assessment": portfolio.skill_assessment
         },
         "export_format": "json",
-        "export_time": datetime.now().isoformat()
+        "export_time": get_beijing_time_naive().isoformat()
     }

@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, and_, or_
 from typing import List, Optional
 from datetime import datetime
+from app.utils.timezone import get_beijing_time_naive
 
 from ...db.session import SessionLocal
 from ...core.response import success_response, error_response
@@ -879,7 +880,7 @@ def assign_course_to_class(
                 course_id=course_id,
                 user_id=student.id,
                 enrollment_status='enrolled',
-                enrolled_at=datetime.now()
+                enrolled_at=get_beijing_time_naive()
             )
             db.add(enrollment)
             enrolled_count += 1

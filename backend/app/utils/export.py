@@ -6,6 +6,7 @@ import csv
 import io
 from typing import List, Dict, Any
 from datetime import datetime
+from app.utils.timezone import get_beijing_time_naive
 
 
 def export_to_csv(data: List[Dict[str, Any]], headers: List[str]) -> str:
@@ -198,5 +199,5 @@ def generate_export_filename(prefix: str, extension: str = 'csv') -> str:
     Returns:
         文件名
     """
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    timestamp = get_beijing_time_naive().strftime('%Y%m%d_%H%M%S')
     return f"{prefix}_{timestamp}.{extension}"

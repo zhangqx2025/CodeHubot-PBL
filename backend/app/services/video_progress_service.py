@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, and_, or_
 from typing import Optional, Dict, Any, List
 from datetime import datetime
+from app.utils.timezone import get_beijing_time_naive
 import json
 import uuid
 
@@ -64,7 +65,7 @@ class VideoProgressService:
             device_type=device_type,
             status='playing',
             last_event='play',
-            last_event_time=datetime.now(),
+            last_event_time=get_beijing_time_naive(),
             watched_ranges=json.dumps([])  # 初始化为空数组
         )
         
@@ -116,7 +117,7 @@ class VideoProgressService:
         progress.current_position = current_position
         progress.status = status
         progress.last_event = event_type
-        progress.last_event_time = datetime.now()
+        progress.last_event_time = get_beijing_time_naive()
         
         # 计算完成率
         if progress.duration > 0:
@@ -178,7 +179,7 @@ class VideoProgressService:
         progress.seek_count += 1
         progress.current_position = to_position
         progress.last_event = 'seek'
-        progress.last_event_time = datetime.now()
+        progress.last_event_time = get_beijing_time_naive()
         
         db.commit()
         db.refresh(progress)
@@ -224,7 +225,7 @@ class VideoProgressService:
         progress.current_position = position
         progress.status = 'paused'
         progress.last_event = 'pause'
-        progress.last_event_time = datetime.now()
+        progress.last_event_time = get_beijing_time_naive()
         
         db.commit()
         db.refresh(progress)
@@ -268,8 +269,8 @@ class VideoProgressService:
         progress.current_position = position
         progress.status = 'ended'
         progress.last_event = 'ended'
-        progress.last_event_time = datetime.now()
-        progress.end_time = datetime.now()
+        progress.last_event_time = get_beijing_time_naive()
+        progress.end_time = get_beijing_time_naive()
         
         # 如果播放到90%以上，标记为完成
         if progress.duration > 0:

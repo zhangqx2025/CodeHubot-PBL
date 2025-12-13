@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import Optional
 from datetime import datetime
+from app.utils.timezone import get_beijing_time_naive
 
 from ...core.response import success_response, error_response
 from ...core.deps import get_db, get_current_user, get_current_admin
@@ -240,7 +241,7 @@ def track_learning_activity(
     
     # 判断完成状态
     is_completed = track_data.progress_value >= 100
-    completed_at = datetime.now() if is_completed else None
+    completed_at = get_beijing_time_naive() if is_completed else None
     
     # 插入学习进度记录
     learning_progress = PBLLearningProgress(
@@ -289,7 +290,7 @@ def track_learning_activity(
                 # 如果完成了所有单元，标记课程为已完成
                 if course_progress >= 100:
                     enrollment.enrollment_status = 'completed'
-                    enrollment.completed_at = datetime.now()
+                    enrollment.completed_at = get_beijing_time_naive()
     
     db.commit()
     

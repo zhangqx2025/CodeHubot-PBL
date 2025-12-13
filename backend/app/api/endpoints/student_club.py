@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import List, Optional
 from datetime import datetime
+from app.utils.timezone import get_beijing_time_naive
 from pydantic import BaseModel
 
 from ...db.session import SessionLocal
@@ -224,7 +225,7 @@ def join_class(
                 user_id=current_user.id,
                 class_id=pbl_class.id,
                 enrollment_status='enrolled',
-                enrolled_at=datetime.now()
+                enrolled_at=get_beijing_time_naive()
             )
             db.add(enrollment)
             enrolled_courses.append(course.id)

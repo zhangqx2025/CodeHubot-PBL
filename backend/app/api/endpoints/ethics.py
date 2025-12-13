@@ -475,7 +475,7 @@ async def submit_discussion(
         "student_id": current_user.id,
         "student_name": current_user.name,
         "viewpoint": discussion_data.get("viewpoint"),
-        "time": datetime.now().isoformat()
+        "time": get_beijing_time_naive().isoformat()
     })
     activity.discussion_records = discussion_records
     db.commit()

@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import Optional, Dict, Any
 from datetime import datetime
+from app.utils.timezone import get_beijing_time_naive
 
 from ..models.pbl import PBLResource, PBLVideoWatchRecord, PBLVideoUserPermission
 
@@ -100,7 +101,7 @@ class VideoWatchService:
         watch_count = VideoWatchService.get_watch_count(db, resource_id, user_id)
         
         # ========== 检查有效期 ==========
-        current_time = datetime.now()
+        current_time = get_beijing_time_naive()
         
         # 检查是否未到开始时间
         if effective_valid_from and current_time < effective_valid_from:

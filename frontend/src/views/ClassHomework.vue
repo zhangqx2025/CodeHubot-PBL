@@ -8,199 +8,427 @@
       </el-button>
     </div>
 
-    <!-- 页面标题和操作 -->
+    <!-- 页面标题 -->
     <el-card shadow="never" class="header-card">
       <div class="header-content">
         <div class="header-left">
           <h1 class="page-title">作业管理</h1>
           <p class="page-subtitle">{{ className }}</p>
         </div>
-        <div class="header-right">
-          <el-button type="primary" size="large" @click="createHomework">
-            <el-icon><Plus /></el-icon>
-            创建作业
-          </el-button>
-        </div>
       </div>
     </el-card>
 
-    <!-- 统计卡片 -->
-    <div class="stats-grid">
-      <el-card shadow="hover" class="stat-card">
-        <el-statistic title="总作业数" :value="homeworkStats.total" />
-      </el-card>
-      <el-card shadow="hover" class="stat-card">
-        <el-statistic title="进行中" :value="homeworkStats.ongoing" />
-      </el-card>
-      <el-card shadow="hover" class="stat-card">
-        <el-statistic title="已截止" :value="homeworkStats.ended" />
-      </el-card>
-      <el-card shadow="hover" class="stat-card">
-        <el-statistic title="待批改" :value="homeworkStats.toReview" />
-      </el-card>
-    </div>
-
-    <!-- 筛选和搜索 -->
-    <el-card shadow="never" class="filter-card">
-      <div class="filter-content">
-        <el-input
-          v-model="searchKeyword"
-          placeholder="搜索作业（标题、描述）"
-          style="width: 300px"
-          size="large"
-          clearable
+    <!-- 单元列表 -->
+    <el-card shadow="never" class="units-card">
+      <template #header>
+        <div class="card-header">
+          <span>学习单元列表</span>
+          <span class="unit-count">共 {{ unitList.length }} 个单元</span>
+        </div>
+      </template>
+      
+      <div v-loading="loading" class="units-grid">
+        <div 
+          v-for="unit in unitList" 
+          :key="unit.id" 
+          class="unit-card"
+          @click="selectUnit(unit)"
         >
-          <template #prefix>
-            <el-icon><Search /></el-icon>
-          </template>
-        </el-input>
-        
-        <div class="filter-right">
-          <el-select v-model="filterStatus" placeholder="状态筛选" style="width: 150px" size="large" clearable>
-            <el-option label="全部" value="" />
-            <el-option label="未发布" value="draft" />
-            <el-option label="进行中" value="ongoing" />
-            <el-option label="已截止" value="ended" />
-          </el-select>
+          <div class="unit-header">
+            <h3>{{ unit.title }}</h3>
+            <el-tag size="large" type="warning">{{ unit.task_count }} 个作业</el-tag>
+          </div>
+          <div class="unit-order">
+            <el-tag type="info" size="small">单元 {{ unit.order }}</el-tag>
+          </div>
+          <div class="unit-description">
+            {{ unit.description || '暂无描述' }}
+          </div>
+          <div class="unit-footer">
+            <el-button type="primary" link>
+              查看作业
+              <el-icon><ArrowRight /></el-icon>
+            </el-button>
+          </div>
         </div>
+        
+        <el-empty 
+          v-if="!loading && unitList.length === 0" 
+          description="暂无学习单元"
+          style="grid-column: 1 / -1;"
+        />
       </div>
     </el-card>
 
-    <!-- 作业列表 -->
-    <el-card shadow="never" class="table-card">
-      <el-table 
-        :data="filteredHomework" 
-        v-loading="loading" 
-        stripe
-        style="width: 100%"
-      >
-        <el-table-column prop="title" label="作业标题" width="250" fixed="left">
-          <template #default="{ row }">
-            <div class="homework-title">
-              <span>{{ row.title }}</span>
-              <el-tag v-if="row.is_required" type="danger" size="small" style="margin-left: 8px">
-                必做
-              </el-tag>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="状态" width="100">
-          <template #default="{ row }">
-            <el-tag :type="getStatusTagType(row.status)">
-              {{ getStatusName(row.status) }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="unit_name" label="所属单元" width="180" />
-        <el-table-column label="提交情况" width="150">
-          <template #default="{ row }">
-            <span>{{ row.submitted_count }} / {{ row.total_count }}</span>
-            <el-progress 
-              :percentage="getSubmissionRate(row)" 
-              :stroke-width="6"
-              style="margin-top: 4px"
-            />
-          </template>
-        </el-table-column>
-        <el-table-column label="待批改" width="100">
-          <template #default="{ row }">
-            <el-badge :value="row.to_review_count" :max="99" v-if="row.to_review_count > 0">
-              <el-button size="small" text>{{ row.to_review_count }}</el-button>
-            </el-badge>
-            <span v-else>-</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="start_time" label="开始时间" width="180">
-          <template #default="{ row }">
-            {{ formatDateTime(row.start_time) }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="deadline" label="截止时间" width="180">
-          <template #default="{ row }">
-            <span :class="getDeadlineClass(row.deadline)">
-              {{ formatDateTime(row.deadline) }}
-            </span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="created_at" label="创建时间" width="180">
-          <template #default="{ row }">
-            {{ formatDateTime(row.created_at) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="200" fixed="right">
-          <template #default="{ row }">
-            <el-button link type="primary" @click="viewHomework(row)">
-              <el-icon><View /></el-icon>
-              查看
-            </el-button>
-            <el-button link type="primary" @click="editHomework(row)" v-if="row.status === 'draft'">
-              <el-icon><Edit /></el-icon>
-              编辑
-            </el-button>
-            <el-button link type="danger" @click="deleteHomework(row)" v-if="row.status === 'draft'">
-              <el-icon><Delete /></el-icon>
-              删除
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+    <!-- 单元作业详情抽屉 -->
+    <el-drawer
+      v-model="drawerVisible"
+      :title="selectedUnit?.title + ' - 作业列表'"
+      size="90%"
+      direction="rtl"
+    >
+      <div v-loading="loadingDetail" class="drawer-content">
+        <!-- 单元信息 -->
+        <el-descriptions :column="2" border class="unit-info">
+          <el-descriptions-item label="单元名称">
+            {{ unitDetail?.unit.title }}
+          </el-descriptions-item>
+          <el-descriptions-item label="作业数量">
+            {{ unitDetail?.tasks.length || 0 }} 个
+          </el-descriptions-item>
+          <el-descriptions-item label="单元顺序">
+            第 {{ unitDetail?.unit.order }} 单元
+          </el-descriptions-item>
+          <el-descriptions-item label="学生人数">
+            {{ unitDetail?.total_students || 0 }} 人
+          </el-descriptions-item>
+          <el-descriptions-item label="描述" :span="2">
+            {{ unitDetail?.unit.description || '暂无描述' }}
+          </el-descriptions-item>
+        </el-descriptions>
 
-      <el-empty 
-        v-if="!loading && homeworkList.length === 0" 
-        description="暂无作业"
-        style="padding: 60px 0"
-      >
-        <el-button type="primary" @click="createHomework">创建第一个作业</el-button>
-      </el-empty>
-    </el-card>
+        <!-- 作业列表 -->
+        <el-divider content-position="left">
+          <h3>作业列表</h3>
+        </el-divider>
+
+        <el-table 
+          :data="unitDetail?.tasks || []" 
+          border
+          stripe
+          style="width: 100%"
+        >
+          <el-table-column prop="title" label="作业标题" width="250" fixed="left">
+            <template #default="{ row }">
+              <div class="task-title">
+                <span>{{ row.title }}</span>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="状态" width="100">
+            <template #default="{ row }">
+              <el-tag :type="getStatusTagType(row.status)">
+                {{ getStatusName(row.status) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="类型" width="100">
+            <template #default="{ row }">
+              <el-tag :type="getTypeTagType(row.type)" size="small">
+                {{ getTypeName(row.type) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="难度" width="100">
+            <template #default="{ row }">
+              <el-tag :type="getDifficultyTagType(row.difficulty)" size="small">
+                {{ getDifficultyName(row.difficulty) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="提交情况" width="150">
+            <template #default="{ row }">
+              <span>{{ row.submitted_count }} / {{ row.total_count }}</span>
+              <el-progress 
+                :percentage="getSubmissionRate(row)" 
+                :stroke-width="6"
+                style="margin-top: 4px"
+              />
+            </template>
+          </el-table-column>
+          <el-table-column label="待批改" width="100" align="center">
+            <template #default="{ row }">
+              <el-badge :value="row.to_review_count" :max="99" v-if="row.to_review_count > 0">
+                <el-tag type="danger" size="small">{{ row.to_review_count }}</el-tag>
+              </el-badge>
+              <span v-else>-</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="deadline" label="截止时间" width="180">
+            <template #default="{ row }">
+              <span :class="getDeadlineClass(row.deadline)">
+                {{ formatDateTime(row.deadline) }}
+              </span>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="150" fixed="right">
+            <template #default="{ row }">
+              <el-button link type="primary" @click="gradeHomework(row)">
+                <el-icon><Edit /></el-icon>
+                批改作业
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+
+        <el-empty 
+          v-if="!loadingDetail && (!unitDetail?.tasks || unitDetail.tasks.length === 0)" 
+          description="该单元暂无作业"
+          style="padding: 60px 0"
+        />
+      </div>
+    </el-drawer>
+
+    <!-- 批改作业抽屉 -->
+    <el-drawer
+      v-model="gradingDrawerVisible"
+      :title="selectedTask?.title + ' - 批改作业'"
+      size="95%"
+      direction="rtl"
+    >
+      <div v-loading="loadingSubmissions" class="grading-content">
+        <!-- 作业信息 -->
+        <el-descriptions :column="2" border class="task-info">
+          <el-descriptions-item label="作业标题" :span="2">
+            {{ selectedTask?.title }}
+          </el-descriptions-item>
+          <el-descriptions-item label="作业描述" :span="2">
+            {{ selectedTask?.description || '暂无描述' }}
+          </el-descriptions-item>
+        </el-descriptions>
+
+        <el-divider content-position="left">
+          <h3>学生提交列表</h3>
+        </el-divider>
+
+        <!-- 筛选 -->
+        <div class="filter-bar">
+          <el-select v-model="filterStatus" placeholder="筛选状态" style="width: 150px" clearable>
+            <el-option label="全部" value="" />
+            <el-option label="未提交" value="pending" />
+            <el-option label="已提交" value="review" />
+            <el-option label="已批改" value="completed" />
+          </el-select>
+          <span class="filter-tip">
+            找到 {{ filteredSubmissions.length }} 名学生
+          </span>
+        </div>
+
+        <!-- 提交列表 -->
+        <el-table 
+          :data="filteredSubmissions" 
+          border
+          stripe
+          style="width: 100%"
+          :max-height="600"
+        >
+          <el-table-column type="index" label="序号" width="80" align="center" fixed="left" />
+          <el-table-column prop="student_number" label="学号" width="150" sortable fixed="left" />
+          <el-table-column prop="student_name" label="姓名" width="120" sortable fixed="left" />
+          <el-table-column label="状态" width="100">
+            <template #default="{ row }">
+              <el-tag :type="getSubmissionStatusType(row.status)">
+                {{ getSubmissionStatusName(row.status) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="等级" width="100">
+            <template #default="{ row }">
+              <el-tag v-if="row.grade" :type="getGradeTagType(row.grade)">
+                {{ getGradeName(row.grade) }}
+              </el-tag>
+              <span v-else>-</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="score" label="分数" width="100" sortable>
+            <template #default="{ row }">
+              {{ row.score !== null ? row.score : '-' }}
+            </template>
+          </el-table-column>
+          <el-table-column prop="feedback" label="评语" min-width="200" show-overflow-tooltip />
+          <el-table-column prop="submitted_at" label="提交时间" width="180">
+            <template #default="{ row }">
+              {{ formatDateTime(row.submitted_at) }}
+            </template>
+          </el-table-column>
+          <el-table-column prop="graded_at" label="批改时间" width="180">
+            <template #default="{ row }">
+              {{ formatDateTime(row.graded_at) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="200" fixed="right">
+            <template #default="{ row }">
+              <el-button 
+                link 
+                type="primary" 
+                @click="openGradeDialog(row)"
+                v-if="row.submission_id"
+              >
+                <el-icon><Edit /></el-icon>
+                {{ row.graded_at ? '重新批改' : '批改' }}
+              </el-button>
+              <el-button 
+                link 
+                type="info" 
+                @click="viewSubmission(row)"
+                v-if="row.submission"
+              >
+                <el-icon><View /></el-icon>
+                查看提交
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+    </el-drawer>
+
+    <!-- 批改对话框 -->
+    <el-dialog
+      v-model="gradeDialogVisible"
+      title="批改作业"
+      width="700px"
+      :close-on-click-modal="false"
+    >
+      <el-form :model="gradeForm" label-width="100px">
+        <el-form-item label="学生">
+          <el-input :value="currentSubmission?.student_name + ' (' + currentSubmission?.student_number + ')'" disabled />
+        </el-form-item>
+        
+        <el-form-item label="等级" required>
+          <el-radio-group v-model="gradeForm.grade" @change="onGradeChange">
+            <el-radio value="excellent">
+              <el-tag type="success" size="large">优秀</el-tag>
+            </el-radio>
+            <el-radio value="good">
+              <el-tag type="success" effect="plain" size="large">良好</el-tag>
+            </el-radio>
+            <el-radio value="pass">
+              <el-tag type="warning" size="large">及格</el-tag>
+            </el-radio>
+            <el-radio value="fail">
+              <el-tag type="danger" size="large">不及格</el-tag>
+            </el-radio>
+          </el-radio-group>
+        </el-form-item>
+        
+        <el-form-item label="分数">
+          <el-input-number 
+            v-model="gradeForm.score" 
+            :min="0" 
+            :max="100" 
+            placeholder="0-100"
+            style="width: 200px"
+          />
+          <span style="margin-left: 12px; color: #909399;">分（可选）</span>
+        </el-form-item>
+        
+        <el-form-item label="评语模板">
+          <el-select 
+            v-model="selectedTemplate" 
+            placeholder="选择评语模板" 
+            style="width: 100%"
+            clearable
+            @change="onTemplateChange"
+          >
+            <el-option
+              v-for="template in filteredTemplates"
+              :key="template.id"
+              :label="template.title"
+              :value="template.id"
+            >
+              <div style="display: flex; justify-content: space-between;">
+                <span>{{ template.title }}</span>
+                <el-tag :type="getCategoryTagType(template.category)" size="small">
+                  {{ template.category }}
+                </el-tag>
+              </div>
+            </el-option>
+          </el-select>
+          <div class="form-tip">提示：选择模板后，评语会自动填充，你也可以自行修改</div>
+        </el-form-item>
+        
+        <el-form-item label="评语" required>
+          <el-input 
+            v-model="gradeForm.feedback" 
+            type="textarea" 
+            :rows="5"
+            placeholder="请输入评语"
+            maxlength="500"
+            show-word-limit
+          />
+        </el-form-item>
+      </el-form>
+      
+      <template #footer>
+        <el-button @click="gradeDialogVisible = false" size="large">取消</el-button>
+        <el-button type="primary" @click="submitGrade" :loading="submittingGrade" size="large">
+          提交批改
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 查看提交对话框 -->
+    <el-dialog
+      v-model="viewSubmissionDialogVisible"
+      title="查看提交内容"
+      width="800px"
+    >
+      <div class="submission-content">
+        <pre>{{ JSON.stringify(currentSubmission?.submission, null, 2) }}</pre>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import {
-  ArrowLeft, Plus, Search, View, Edit, Delete
+  ArrowLeft, ArrowRight, Edit, View
 } from '@element-plus/icons-vue'
 import { getClubClassDetail } from '@/api/club'
-import dayjs from 'dayjs'
 import request from '@/api/request'
+import dayjs from 'dayjs'
 
 const route = useRoute()
 const router = useRouter()
 
 const loading = ref(false)
-const homeworkList = ref([])
+const loadingDetail = ref(false)
+const loadingSubmissions = ref(false)
+const unitList = ref([])
 const className = ref('')
-const searchKeyword = ref('')
+const drawerVisible = ref(false)
+const gradingDrawerVisible = ref(false)
+const gradeDialogVisible = ref(false)
+const viewSubmissionDialogVisible = ref(false)
+const selectedUnit = ref(null)
+const unitDetail = ref(null)
+const selectedTask = ref(null)
+const submissions = ref([])
+const currentSubmission = ref(null)
 const filterStatus = ref('')
-const homeworkStats = ref({
-  total: 0,
-  ongoing: 0,
-  ended: 0,
-  toReview: 0
+const submittingGrade = ref(false)
+const feedbackTemplates = ref([])
+const selectedTemplate = ref(null)
+
+const gradeForm = ref({
+  grade: '',
+  score: null,
+  feedback: ''
 })
 
-// 计算属性
-const filteredHomework = computed(() => {
-  let result = homeworkList.value
+// 计算属性 - 过滤后的提交列表
+const filteredSubmissions = computed(() => {
+  if (!submissions.value) return []
+  if (!filterStatus.value) return submissions.value
+  return submissions.value.filter(s => s.status === filterStatus.value)
+})
+
+// 计算属性 - 根据等级过滤模板
+const filteredTemplates = computed(() => {
+  if (!gradeForm.value.grade) return feedbackTemplates.value
   
-  // 搜索过滤
-  if (searchKeyword.value) {
-    const keyword = searchKeyword.value.toLowerCase()
-    result = result.filter(item => 
-      item.title.toLowerCase().includes(keyword) || 
-      (item.description && item.description.toLowerCase().includes(keyword))
-    )
+  const gradeMap = {
+    'excellent': '优秀',
+    'good': '良好',
+    'pass': '及格',
+    'fail': '不及格'
   }
   
-  // 状态过滤
-  if (filterStatus.value) {
-    result = result.filter(item => item.status === filterStatus.value)
-  }
-  
-  return result
+  const category = gradeMap[gradeForm.value.grade]
+  return feedbackTemplates.value.filter(t => t.category === category)
 })
 
 // 加载班级名称
@@ -213,75 +441,157 @@ const loadClassName = async () => {
   }
 }
 
-// 加载作业列表
-const loadHomework = async () => {
+// 加载单元列表（极速）
+const loadUnitList = async () => {
   loading.value = true
   try {
     const res = await request({
-      url: `/admin/club/classes/${route.params.uuid}/homework`,
+      url: `/admin/club/classes/${route.params.uuid}/homework/units`,
       method: 'get'
     })
-    homeworkList.value = res.data.data || []
-    
-    // 计算统计数据
-    homeworkStats.value = {
-      total: homeworkList.value.length,
-      ongoing: homeworkList.value.filter(item => item.status === 'ongoing').length,
-      ended: homeworkList.value.filter(item => item.status === 'ended').length,
-      toReview: homeworkList.value.reduce((sum, item) => sum + (item.to_review_count || 0), 0)
-    }
+    unitList.value = res.data.data || []
   } catch (error) {
-    ElMessage.error(error.message || '加载作业列表失败')
+    ElMessage.error(error.message || '加载单元列表失败')
   } finally {
     loading.value = false
   }
 }
 
-// 创建作业
-const createHomework = () => {
-  ElMessage.info('创建作业功能开发中')
-}
-
-// 查看作业详情
-const viewHomework = (homework) => {
-  ElMessage.info(`查看作业"${homework.title}"的详情（功能开发中）`)
-}
-
-// 编辑作业
-const editHomework = (homework) => {
-  ElMessage.info(`编辑作业"${homework.title}"（功能开发中）`)
-}
-
-// 删除作业
-const deleteHomework = async (homework) => {
+// 加载评语模板
+const loadFeedbackTemplates = async () => {
   try {
-    await ElMessageBox.confirm(
-      `确定要删除作业"${homework.title}"吗？`,
-      '确认删除',
-      {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning'
-      }
-    )
-    
-    await request({
-      url: `/admin/club/homework/${homework.id}`,
-      method: 'delete'
+    const res = await request({
+      url: '/admin/feedback-templates',
+      method: 'get'
     })
-    ElMessage.success('作业已删除')
-    loadHomework()
+    feedbackTemplates.value = res.data.data || []
   } catch (error) {
-    if (error !== 'cancel') {
-      ElMessage.error(error.message || '删除失败')
-    }
+    console.error('加载评语模板失败:', error)
   }
 }
 
+// 选择单元
+const selectUnit = (unit) => {
+  selectedUnit.value = unit
+  drawerVisible.value = true
+  unitDetail.value = null
+  loadUnitDetail()
+}
+
+// 加载单元详情（按需）
+const loadUnitDetail = async () => {
+  if (!selectedUnit.value) return
+  
+  loadingDetail.value = true
+  try {
+    const res = await request({
+      url: `/admin/club/classes/${route.params.uuid}/homework/units/${selectedUnit.value.id}`,
+      method: 'get'
+    })
+    unitDetail.value = res.data.data
+  } catch (error) {
+    ElMessage.error(error.message || '加载单元详情失败')
+  } finally {
+    loadingDetail.value = false
+  }
+}
+
+// 批改作业
+const gradeHomework = (task) => {
+  selectedTask.value = task
+  gradingDrawerVisible.value = true
+  submissions.value = []
+  filterStatus.value = ''
+  loadTaskSubmissions()
+}
+
+// 加载作业提交列表
+const loadTaskSubmissions = async () => {
+  if (!selectedTask.value) return
+  
+  loadingSubmissions.value = true
+  try {
+    const res = await request({
+      url: `/admin/club/classes/${route.params.uuid}/homework/tasks/${selectedTask.value.id}/submissions`,
+      method: 'get'
+    })
+    submissions.value = res.data.data.submissions || []
+  } catch (error) {
+    ElMessage.error(error.message || '加载提交列表失败')
+  } finally {
+    loadingSubmissions.value = false
+  }
+}
+
+// 打开批改对话框
+const openGradeDialog = (submission) => {
+  currentSubmission.value = submission
+  gradeForm.value = {
+    grade: submission.grade || '',
+    score: submission.score,
+    feedback: submission.feedback || ''
+  }
+  selectedTemplate.value = null
+  gradeDialogVisible.value = true
+}
+
+// 等级变化时，重置模板选择
+const onGradeChange = () => {
+  selectedTemplate.value = null
+}
+
+// 模板变化时，填充评语
+const onTemplateChange = (templateId) => {
+  if (!templateId) return
+  const template = feedbackTemplates.value.find(t => t.id === templateId)
+  if (template) {
+    gradeForm.value.feedback = template.content
+  }
+}
+
+// 提交批改
+const submitGrade = async () => {
+  if (!gradeForm.value.grade) {
+    ElMessage.warning('请选择等级')
+    return
+  }
+  if (!gradeForm.value.feedback) {
+    ElMessage.warning('请输入评语')
+    return
+  }
+  
+  submittingGrade.value = true
+  try {
+    await request({
+      url: `/admin/club/classes/${route.params.uuid}/homework/submissions/${currentSubmission.value.submission_id}/review`,
+      method: 'put',
+      data: {
+        grade: gradeForm.value.grade,
+        score: gradeForm.value.score,
+        feedback: gradeForm.value.feedback,
+        status: 'completed'
+      }
+    })
+    ElMessage.success('批改成功')
+    gradeDialogVisible.value = false
+    loadTaskSubmissions() // 刷新列表
+  } catch (error) {
+    ElMessage.error(error.message || '批改失败')
+  } finally {
+    submittingGrade.value = false
+  }
+}
+
+// 查看提交内容
+const viewSubmission = (submission) => {
+  currentSubmission.value = submission
+  viewSubmissionDialogVisible.value = true
+}
+
 // 工具方法
-const getSubmissionRate = (homework) => {
-  if (homework.total_count === 0) return 0
-  return Math.round((homework.submitted_count / homework.total_count) * 100)
+const getSubmissionRate = (task) => {
+  if (task.total_count === 0) return 0
+  return Math.round((task.submitted_count / task.total_count) * 100)
 }
 
 const getStatusName = (status) => {
@@ -300,6 +610,94 @@ const getStatusTagType = (status) => {
     ended: 'danger'
   }
   return map[status] || 'info'
+}
+
+const getTypeName = (type) => {
+  const map = {
+    analysis: '分析',
+    coding: '编程',
+    design: '设计',
+    deployment: '部署'
+  }
+  return map[type] || type
+}
+
+const getTypeTagType = (type) => {
+  const map = {
+    analysis: '',
+    coding: 'success',
+    design: 'warning',
+    deployment: 'danger'
+  }
+  return map[type] || 'info'
+}
+
+const getDifficultyName = (difficulty) => {
+  const map = {
+    easy: '简单',
+    medium: '中等',
+    hard: '困难'
+  }
+  return map[difficulty] || difficulty
+}
+
+const getDifficultyTagType = (difficulty) => {
+  const map = {
+    easy: 'success',
+    medium: 'warning',
+    hard: 'danger'
+  }
+  return map[difficulty] || 'info'
+}
+
+const getSubmissionStatusName = (status) => {
+  const map = {
+    pending: '未提交',
+    'in-progress': '进行中',
+    review: '已提交',
+    completed: '已批改'
+  }
+  return map[status] || status
+}
+
+const getSubmissionStatusType = (status) => {
+  const map = {
+    pending: 'info',
+    'in-progress': 'warning',
+    review: '',
+    completed: 'success'
+  }
+  return map[status] || 'info'
+}
+
+const getGradeName = (grade) => {
+  const map = {
+    excellent: '优秀',
+    good: '良好',
+    pass: '及格',
+    fail: '不及格'
+  }
+  return map[grade] || grade
+}
+
+const getGradeTagType = (grade) => {
+  const map = {
+    excellent: 'success',
+    good: 'success',
+    pass: 'warning',
+    fail: 'danger'
+  }
+  return map[grade] || 'info'
+}
+
+const getCategoryTagType = (category) => {
+  const map = {
+    '优秀': 'success',
+    '良好': 'success',
+    '及格': 'warning',
+    '不及格': 'danger'
+  }
+  return map[category] || 'info'
 }
 
 const getDeadlineClass = (deadline) => {
@@ -322,9 +720,10 @@ const goBack = () => {
   router.push(`/admin/classes/${route.params.uuid}`)
 }
 
-onMounted(() => {
-  loadClassName()
-  loadHomework()
+onMounted(async () => {
+  await loadClassName()
+  await loadUnitList()
+  await loadFeedbackTemplates()
 })
 </script>
 
@@ -344,10 +743,6 @@ onMounted(() => {
   border-radius: 12px;
   
   .header-content {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    
     .header-left {
       .page-title {
         margin: 0 0 8px 0;
@@ -365,52 +760,106 @@ onMounted(() => {
   }
 }
 
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 24px;
-  margin-bottom: 24px;
-  
-  .stat-card {
-    border-radius: 12px;
-    
-    :deep(.el-statistic) {
-      .el-statistic__head {
-        font-size: 14px;
-        color: #909399;
-        margin-bottom: 8px;
-      }
-      
-      .el-statistic__content {
-        font-size: 28px;
-        font-weight: 600;
-        color: #303133;
-      }
-    }
-  }
-}
-
-.filter-card {
-  margin-bottom: 24px;
+.units-card {
   border-radius: 12px;
   
-  .filter-content {
+  .card-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    font-size: 16px;
+    font-weight: 600;
     
-    .filter-right {
-      display: flex;
-      gap: 12px;
+    .unit-count {
+      font-size: 14px;
+      color: #909399;
+      font-weight: normal;
     }
   }
 }
 
-.table-card {
-  border-radius: 12px;
+.units-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 20px;
+  padding: 20px 0;
 }
 
-.homework-title {
+.unit-card {
+  border: 2px solid #e4e7ed;
+  border-radius: 12px;
+  padding: 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: #fff;
+  
+  &:hover {
+    border-color: #409eff;
+    box-shadow: 0 4px 16px 0 rgba(64, 158, 255, 0.25);
+    transform: translateY(-4px);
+  }
+  
+  .unit-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 8px;
+    
+    h3 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 600;
+      color: #303133;
+      flex: 1;
+      margin-right: 12px;
+    }
+  }
+  
+  .unit-order {
+    margin-bottom: 12px;
+  }
+  
+  .unit-description {
+    font-size: 14px;
+    color: #606266;
+    line-height: 1.6;
+    min-height: 44px;
+    margin-bottom: 16px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+  
+  .unit-footer {
+    border-top: 1px solid #f0f0f0;
+    padding-top: 12px;
+    text-align: right;
+  }
+}
+
+.drawer-content, .grading-content {
+  padding: 0 24px 24px 24px;
+  
+  .unit-info, .task-info {
+    margin-bottom: 24px;
+  }
+  
+  .filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 16px;
+    
+    .filter-tip {
+      font-size: 14px;
+      color: #909399;
+    }
+  }
+}
+
+.task-title {
   display: flex;
   align-items: center;
 }
@@ -423,5 +872,40 @@ onMounted(() => {
 .deadline-passed {
   color: #f56c6c;
   font-weight: 600;
+}
+
+.submission-content {
+  padding: 16px;
+  background: #f5f7fa;
+  border-radius: 8px;
+  max-height: 500px;
+  overflow-y: auto;
+  
+  pre {
+    margin: 0;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+}
+
+.form-tip {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #909399;
+  line-height: 1.5;
+}
+
+:deep(.el-drawer__header) {
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e4e7ed;
+}
+
+:deep(.el-radio) {
+  margin-right: 20px;
+  margin-bottom: 12px;
 }
 </style>

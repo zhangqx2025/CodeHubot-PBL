@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime
+from app.utils.timezone import get_beijing_time_naive
 from pydantic import BaseModel
 
 from ...db.session import SessionLocal
@@ -83,7 +84,7 @@ def enroll_course(
             )
         # 如果是其他状态(如dropped),更新为enrolled
         existing_enrollment.enrollment_status = 'enrolled'
-        existing_enrollment.enrolled_at = datetime.now()
+        existing_enrollment.enrolled_at = get_beijing_time_naive()
         existing_enrollment.dropped_at = None
         enrollment = existing_enrollment
         is_new_enrollment = True  # 重新选课，需要更新计数
@@ -93,7 +94,7 @@ def enroll_course(
             course_id=course_id,
             user_id=current_user.id,
             enrollment_status='enrolled',
-            enrolled_at=datetime.now()
+            enrolled_at=get_beijing_time_naive()
         )
         db.add(enrollment)
         is_new_enrollment = True
@@ -154,7 +155,7 @@ def unenroll_course(
     
     # 更新选课状态为已退课
     enrollment.enrollment_status = 'dropped'
-    enrollment.dropped_at = datetime.now()
+    enrollment.dropped_at = get_beijing_time_naive()
     
     # ★ 新增：更新学校课程的当前学生数
     if current_user.school_id:
@@ -338,7 +339,7 @@ def batch_enroll_students(
                 continue
             # 如果是其他状态(如dropped),更新为enrolled
             existing_enrollment.enrollment_status = 'enrolled'
-            existing_enrollment.enrolled_at = datetime.now()
+            existing_enrollment.enrolled_at = get_beijing_time_naive()
             existing_enrollment.dropped_at = None
             enrolled_count += 1
         else:
@@ -347,7 +348,7 @@ def batch_enroll_students(
                 course_id=course_id,
                 user_id=student_id,
                 enrollment_status='enrolled',
-                enrolled_at=datetime.now()
+                enrolled_at=get_beijing_time_naive()
             )
             db.add(enrollment)
             enrolled_count += 1

@@ -4,6 +4,7 @@ from typing import List, Optional
 import csv
 import io
 from datetime import datetime
+from app.utils.timezone import get_beijing_time_naive
 
 from ...db.session import SessionLocal
 from ...core.response import success_response, error_response
@@ -329,7 +330,7 @@ def delete_user(
         )
     
     # 软删除
-    user.deleted_at = datetime.now()
+    user.deleted_at = get_beijing_time_naive()
     user.is_active = False
     db.commit()
     

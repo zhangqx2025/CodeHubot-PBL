@@ -1,8 +1,9 @@
-from sqlalchemy import Column, Integer, String, Text, Enum, ForeignKey, TIMESTAMP, JSON, DECIMAL, BigInteger, Date
+from sqlalchemy import Column, Integer, String, Text, Enum, ForeignKey, DateTime, JSON, DECIMAL, BigInteger, Date
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import uuid
 from ..db.base_class import Base
+from ..utils.timezone import get_beijing_time_naive
 
 def generate_uuid():
     return str(uuid.uuid4())
@@ -31,8 +32,8 @@ class PBLCourse(Base):
     school_id = Column(Integer)   # Foreign Key to core_schools
     start_date = Column(Date)  # 课程开始时间
     end_date = Column(Date)  # 课程结束时间
-    created_at = Column(TIMESTAMP, server_default=func.now())
-    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime, default=get_beijing_time_naive, nullable=False)
+    updated_at = Column(DateTime, default=get_beijing_time_naive, onupdate=get_beijing_time_naive, nullable=False)
 
     units = relationship("PBLUnit", back_populates="course", cascade="all, delete-orphan")
     projects = relationship("PBLProject", back_populates="course")
@@ -55,8 +56,8 @@ class PBLCourseTemplate(Base):
     is_public = Column(Integer, default=1)
     creator_id = Column(Integer)
     usage_count = Column(Integer, default=0)
-    created_at = Column(TIMESTAMP, server_default=func.now())
-    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime, default=get_beijing_time_naive, nullable=False)
+    updated_at = Column(DateTime, default=get_beijing_time_naive, onupdate=get_beijing_time_naive, nullable=False)
 
     units = relationship("PBLUnitTemplate", back_populates="course_template", cascade="all, delete-orphan")
 
@@ -75,8 +76,8 @@ class PBLUnitTemplate(Base):
     learning_objectives = Column(JSON)
     key_concepts = Column(JSON)
     estimated_duration = Column(String(50))
-    created_at = Column(TIMESTAMP, server_default=func.now())
-    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime, default=get_beijing_time_naive, nullable=False)
+    updated_at = Column(DateTime, default=get_beijing_time_naive, onupdate=get_beijing_time_naive, nullable=False)
 
     course_template = relationship("PBLCourseTemplate", back_populates="units")
     resources = relationship("PBLResourceTemplate", back_populates="unit_template", cascade="all, delete-orphan")
@@ -103,8 +104,8 @@ class PBLResourceTemplate(Base):
     default_max_views = Column(Integer, default=None)
     is_preview_allowed = Column(Integer, default=1)
     meta_data = Column(JSON)
-    created_at = Column(TIMESTAMP, server_default=func.now())
-    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime, default=get_beijing_time_naive, nullable=False)
+    updated_at = Column(DateTime, default=get_beijing_time_naive, onupdate=get_beijing_time_naive, nullable=False)
 
     unit_template = relationship("PBLUnitTemplate", back_populates="resources")
 
@@ -132,8 +133,8 @@ class PBLTaskTemplate(Base):
     hints = Column(JSON)
     reference_materials = Column(JSON)
     meta_data = Column(JSON)
-    created_at = Column(TIMESTAMP, server_default=func.now())
-    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime, default=get_beijing_time_naive, nullable=False)
+    updated_at = Column(DateTime, default=get_beijing_time_naive, onupdate=get_beijing_time_naive, nullable=False)
 
     unit_template = relationship("PBLUnitTemplate", back_populates="tasks")
 
@@ -149,8 +150,8 @@ class PBLUnit(Base):
     order = Column(Integer, default=0)
     status = Column(Enum('locked', 'available', 'completed'), default='locked')
     learning_guide = Column(JSON)
-    created_at = Column(TIMESTAMP, server_default=func.now())
-    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime, default=get_beijing_time_naive, nullable=False)
+    updated_at = Column(DateTime, default=get_beijing_time_naive, onupdate=get_beijing_time_naive, nullable=False)
 
     course = relationship("PBLCourse", back_populates="units")
     resources = relationship("PBLResource", back_populates="unit", cascade="all, delete-orphan")
@@ -173,10 +174,10 @@ class PBLResource(Base):
     video_id = Column(String(100))
     video_cover_url = Column(String(255))
     max_views = Column(Integer, default=None, comment='最大观看次数（NULL表示不限制，0表示禁止观看，大于0表示限制次数）')
-    valid_from = Column(TIMESTAMP, default=None, comment='全局有效开始时间（NULL表示立即生效）')
-    valid_until = Column(TIMESTAMP, default=None, comment='全局有效结束时间（NULL表示永久有效）')
-    created_at = Column(TIMESTAMP, server_default=func.now())
-    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+    valid_from = Column(DateTime, default=None, comment='全局有效开始时间（NULL表示立即生效）')
+    valid_until = Column(DateTime, default=None, comment='全局有效结束时间（NULL表示永久有效）')
+    created_at = Column(DateTime, default=get_beijing_time_naive, nullable=False)
+    updated_at = Column(DateTime, default=get_beijing_time_naive, onupdate=get_beijing_time_naive, nullable=False)
 
     unit = relationship("PBLUnit", back_populates="resources")
 
@@ -189,8 +190,8 @@ class PBLTask(Base):
     unit_id = Column(Integer, ForeignKey("pbl_units.id"), nullable=False)
     title = Column(String(200), nullable=False)
     description = Column(Text)
-    start_time = Column(TIMESTAMP, default=None, comment='任务开始时间')
-    deadline = Column(TIMESTAMP, default=None, comment='任务截止时间')
+    start_time = Column(DateTime, default=None, comment='任务开始时间')
+    deadline = Column(DateTime, default=None, comment='任务截止时间')
     is_required = Column(Integer, default=1, comment='是否必做：1-必做，0-选做')
     publish_status = Column(Enum('draft', 'published'), default='draft', comment='发布状态：draft-草稿，published-已发布')
     type = Column(Enum('analysis', 'coding', 'design', 'deployment'), default='analysis')
@@ -199,8 +200,8 @@ class PBLTask(Base):
     order = Column(Integer, default=0, nullable=False)  # 顺序（与资源统一排序）
     requirements = Column(JSON)
     prerequisites = Column(JSON)
-    created_at = Column(TIMESTAMP, server_default=func.now())
-    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime, default=get_beijing_time_naive, nullable=False)
+    updated_at = Column(DateTime, default=get_beijing_time_naive, onupdate=get_beijing_time_naive, nullable=False)
 
     unit = relationship("PBLUnit", back_populates="tasks")
     progress = relationship("PBLTaskProgress", back_populates="task")
@@ -218,8 +219,8 @@ class PBLProject(Base):
     status = Column(Enum('planning', 'in-progress', 'review', 'completed'), default='planning')
     progress = Column(Integer, default=0)
     repo_url = Column(String(500))
-    created_at = Column(TIMESTAMP, server_default=func.now())
-    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime, default=get_beijing_time_naive, nullable=False)
+    updated_at = Column(DateTime, default=get_beijing_time_naive, onupdate=get_beijing_time_naive, nullable=False)
 
     course = relationship("PBLCourse", back_populates="projects")
 
@@ -233,13 +234,13 @@ class PBLTaskProgress(Base):
     status = Column(Enum('pending', 'in-progress', 'blocked', 'review', 'completed'), default='pending')
     progress = Column(Integer, default=0)
     submission = Column(JSON)
-    submitted_at = Column(TIMESTAMP, default=None, comment='提交时间')
+    submitted_at = Column(DateTime, default=None, comment='提交时间')
     score = Column(Integer)
     feedback = Column(Text)
     graded_by = Column(Integer) # Foreign Key to core_users
-    graded_at = Column(TIMESTAMP)
-    created_at = Column(TIMESTAMP, server_default=func.now())
-    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+    graded_at = Column(DateTime)
+    created_at = Column(DateTime, default=get_beijing_time_naive, nullable=False)
+    updated_at = Column(DateTime, default=get_beijing_time_naive, onupdate=get_beijing_time_naive, nullable=False)
 
     task = relationship("PBLTask", back_populates="progress")
 
@@ -253,15 +254,15 @@ class PBLSchoolCourse(Base):
     school_id = Column(Integer, nullable=False)  # Foreign Key to core_schools
     course_id = Column(BigInteger, ForeignKey("pbl_courses.id"), nullable=False)
     assigned_by = Column(Integer)  # Foreign Key to core_users (平台管理员)
-    assigned_at = Column(TIMESTAMP, server_default=func.now())
+    assigned_at = Column(DateTime, default=get_beijing_time_naive)
     status = Column(Enum('active', 'inactive', 'archived'), default='active')
-    start_date = Column(TIMESTAMP)
-    end_date = Column(TIMESTAMP)
+    start_date = Column(DateTime)
+    end_date = Column(DateTime)
     max_students = Column(Integer)  # NULL表示无限制
     current_students = Column(Integer, default=0)
     remarks = Column(Text)
-    created_at = Column(TIMESTAMP, server_default=func.now())
-    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime, default=get_beijing_time_naive, nullable=False)
+    updated_at = Column(DateTime, default=get_beijing_time_naive, onupdate=get_beijing_time_naive, nullable=False)
 
 
 class PBLCourseEnrollment(Base):
@@ -273,13 +274,13 @@ class PBLCourseEnrollment(Base):
     user_id = Column(Integer, nullable=False) # Foreign Key to core_users
     class_id = Column(Integer)  # 通过哪个班级获得此课程
     enrollment_status = Column(Enum('enrolled', 'dropped', 'completed'), default='enrolled')
-    enrolled_at = Column(TIMESTAMP)
-    dropped_at = Column(TIMESTAMP)
-    completed_at = Column(TIMESTAMP)
+    enrolled_at = Column(DateTime)
+    dropped_at = Column(DateTime)
+    completed_at = Column(DateTime)
     progress = Column(Integer, default=0)
     final_score = Column(Integer)
-    created_at = Column(TIMESTAMP, server_default=func.now())
-    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime, default=get_beijing_time_naive, nullable=False)
+    updated_at = Column(DateTime, default=get_beijing_time_naive, onupdate=get_beijing_time_naive, nullable=False)
 
 
 class PBLProjectOutput(Base):
@@ -304,8 +305,8 @@ class PBLProjectOutput(Base):
     is_public = Column(Integer, default=0)
     view_count = Column(Integer, default=0)
     like_count = Column(Integer, default=0)
-    created_at = Column(TIMESTAMP, server_default=func.now())
-    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime, default=get_beijing_time_naive, nullable=False)
+    updated_at = Column(DateTime, default=get_beijing_time_naive, onupdate=get_beijing_time_naive, nullable=False)
 
 
 class PBLClass(Base):
@@ -324,8 +325,8 @@ class PBLClass(Base):
     current_members = Column(Integer, default=0)
     is_active = Column(Integer, default=1)
     is_open = Column(Integer, default=1)
-    created_at = Column(TIMESTAMP, server_default=func.now())
-    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime, default=get_beijing_time_naive, nullable=False)
+    updated_at = Column(DateTime, default=get_beijing_time_naive, onupdate=get_beijing_time_naive, nullable=False)
 
 
 class PBLClassMember(Base):
@@ -336,11 +337,11 @@ class PBLClassMember(Base):
     class_id = Column(Integer, ForeignKey("pbl_classes.id"), nullable=False)
     student_id = Column(Integer, nullable=False)  # Foreign Key to core_users
     role = Column(Enum('member', 'leader', 'deputy'), default='member')
-    joined_at = Column(TIMESTAMP, server_default=func.now())
-    left_at = Column(TIMESTAMP)
+    joined_at = Column(DateTime, default=get_beijing_time_naive)
+    left_at = Column(DateTime)
     is_active = Column(Integer, default=1)
-    created_at = Column(TIMESTAMP, server_default=func.now())
-    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime, default=get_beijing_time_naive, nullable=False)
+    updated_at = Column(DateTime, default=get_beijing_time_naive, onupdate=get_beijing_time_naive, nullable=False)
 
 
 class PBLClassTeacher(Base):
@@ -353,9 +354,9 @@ class PBLClassTeacher(Base):
     role = Column(Enum('main', 'assistant'), default='assistant')  # 教师角色：main-主讲教师，assistant-助教
     subject = Column(String(50))  # 教师在该班级教授的科目
     is_primary = Column(Integer, default=0)  # 是否为班主任
-    added_at = Column(TIMESTAMP, server_default=func.now())  # 添加时间
-    created_at = Column(TIMESTAMP, server_default=func.now())
-    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+    added_at = Column(DateTime, default=get_beijing_time_naive)  # 添加时间
+    created_at = Column(DateTime, default=get_beijing_time_naive, nullable=False)
+    updated_at = Column(DateTime, default=get_beijing_time_naive, onupdate=get_beijing_time_naive, nullable=False)
 
 
 class PBLClassCourse(Base):
@@ -368,13 +369,13 @@ class PBLClassCourse(Base):
     course_id = Column(BigInteger, ForeignKey("pbl_courses.id"), nullable=False)
     auto_enroll = Column(Integer, default=1)  # 是否自动为班级成员选课
     assigned_by = Column(Integer, nullable=False)  # Foreign Key to core_users
-    assigned_at = Column(TIMESTAMP, server_default=func.now())
-    start_date = Column(TIMESTAMP)
-    end_date = Column(TIMESTAMP)
+    assigned_at = Column(DateTime, default=get_beijing_time_naive)
+    start_date = Column(DateTime)
+    end_date = Column(DateTime)
     status = Column(Enum('active', 'inactive', 'completed'), default='active')
     remarks = Column(String(500))
-    created_at = Column(TIMESTAMP, server_default=func.now())
-    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime, default=get_beijing_time_naive, nullable=False)
+    updated_at = Column(DateTime, default=get_beijing_time_naive, onupdate=get_beijing_time_naive, nullable=False)
 
 
 class PBLGroup(Base):
@@ -389,8 +390,8 @@ class PBLGroup(Base):
     leader_id = Column(Integer)
     max_members = Column(Integer, default=6)
     is_active = Column(Integer, default=1)
-    created_at = Column(TIMESTAMP, server_default=func.now())
-    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime, default=get_beijing_time_naive, nullable=False)
+    updated_at = Column(DateTime, default=get_beijing_time_naive, onupdate=get_beijing_time_naive, nullable=False)
 
 
 class PBLGroupMember(Base):
@@ -400,10 +401,10 @@ class PBLGroupMember(Base):
     group_id = Column(Integer, ForeignKey("pbl_groups.id"), nullable=False)
     user_id = Column(Integer, nullable=False)
     role = Column(Enum('member', 'leader', 'deputy_leader'), default='member')
-    joined_at = Column(TIMESTAMP, server_default=func.now())
+    joined_at = Column(DateTime, default=get_beijing_time_naive)
     is_active = Column(Integer, default=1)
-    created_at = Column(TIMESTAMP, server_default=func.now())
-    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime, default=get_beijing_time_naive, nullable=False)
+    updated_at = Column(DateTime, default=get_beijing_time_naive, onupdate=get_beijing_time_naive, nullable=False)
 
 
 class PBLAssessment(Base):
@@ -426,8 +427,8 @@ class PBLAssessment(Base):
     improvements = Column(Text)
     tags = Column(JSON)
     is_public = Column(Integer, default=0)
-    created_at = Column(TIMESTAMP, server_default=func.now())
-    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime, default=get_beijing_time_naive, nullable=False)
+    updated_at = Column(DateTime, default=get_beijing_time_naive, onupdate=get_beijing_time_naive, nullable=False)
 
 
 class PBLAssessmentTemplate(Base):
@@ -443,8 +444,8 @@ class PBLAssessmentTemplate(Base):
     created_by = Column(Integer)
     is_system = Column(Integer, default=0)
     is_active = Column(Integer, default=1)
-    created_at = Column(TIMESTAMP, server_default=func.now())
-    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime, default=get_beijing_time_naive, nullable=False)
+    updated_at = Column(DateTime, default=get_beijing_time_naive, onupdate=get_beijing_time_naive, nullable=False)
 
 
 class PBLDataset(Base):
@@ -474,8 +475,8 @@ class PBLDataset(Base):
     school_id = Column(Integer)
     is_public = Column(Integer, default=1)
     quality_score = Column(DECIMAL(3, 2))
-    created_at = Column(TIMESTAMP, server_default=func.now())
-    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime, default=get_beijing_time_naive, nullable=False)
+    updated_at = Column(DateTime, default=get_beijing_time_naive, onupdate=get_beijing_time_naive, nullable=False)
 
 
 class PBLEthicsCase(Base):
@@ -497,8 +498,8 @@ class PBLEthicsCase(Base):
     is_published = Column(Integer, default=1)
     view_count = Column(Integer, default=0)
     like_count = Column(Integer, default=0)
-    created_at = Column(TIMESTAMP, server_default=func.now())
-    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime, default=get_beijing_time_naive, nullable=False)
+    updated_at = Column(DateTime, default=get_beijing_time_naive, onupdate=get_beijing_time_naive, nullable=False)
 
 
 class PBLEthicsActivity(Base):
@@ -519,10 +520,10 @@ class PBLEthicsActivity(Base):
     discussion_records = Column(JSON)
     conclusions = Column(Text)
     reflections = Column(JSON)
-    scheduled_at = Column(TIMESTAMP)
-    completed_at = Column(TIMESTAMP)
-    created_at = Column(TIMESTAMP, server_default=func.now())
-    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+    scheduled_at = Column(DateTime)
+    completed_at = Column(DateTime)
+    created_at = Column(DateTime, default=get_beijing_time_naive, nullable=False)
+    updated_at = Column(DateTime, default=get_beijing_time_naive, onupdate=get_beijing_time_naive, nullable=False)
 
 
 class PBLExternalExpert(Base):
@@ -541,8 +542,8 @@ class PBLExternalExpert(Base):
     is_active = Column(Integer, default=1)
     participated_projects = Column(Integer, default=0)
     avg_rating = Column(DECIMAL(3, 2))
-    created_at = Column(TIMESTAMP, server_default=func.now())
-    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime, default=get_beijing_time_naive, nullable=False)
+    updated_at = Column(DateTime, default=get_beijing_time_naive, onupdate=get_beijing_time_naive, nullable=False)
 
 
 class PBLSocialActivity(Base):
@@ -556,7 +557,7 @@ class PBLSocialActivity(Base):
     organizer = Column(String(200))
     partner_organization = Column(String(200))
     location = Column(String(500))
-    scheduled_at = Column(TIMESTAMP)
+    scheduled_at = Column(DateTime)
     duration = Column(Integer)
     max_participants = Column(Integer)
     current_participants = Column(Integer, default=0)
@@ -567,8 +568,8 @@ class PBLSocialActivity(Base):
     summary = Column(Text)
     feedback = Column(JSON)
     created_by = Column(Integer)
-    created_at = Column(TIMESTAMP, server_default=func.now())
-    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime, default=get_beijing_time_naive, nullable=False)
+    updated_at = Column(DateTime, default=get_beijing_time_naive, onupdate=get_beijing_time_naive, nullable=False)
 
 
 class PBLStudentPortfolio(Base):
@@ -590,8 +591,8 @@ class PBLStudentPortfolio(Base):
     teacher_comments = Column(Text)
     self_reflection = Column(Text)
     parent_feedback = Column(Text)
-    created_at = Column(TIMESTAMP, server_default=func.now())
-    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime, default=get_beijing_time_naive, nullable=False)
+    updated_at = Column(DateTime, default=get_beijing_time_naive, onupdate=get_beijing_time_naive, nullable=False)
 
 
 class PBLAchievement(Base):
@@ -603,8 +604,8 @@ class PBLAchievement(Base):
     description = Column(Text)
     icon = Column(String(255))
     condition = Column(JSON)
-    created_at = Column(TIMESTAMP, server_default=func.now())
-    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime, default=get_beijing_time_naive, nullable=False)
+    updated_at = Column(DateTime, default=get_beijing_time_naive, onupdate=get_beijing_time_naive, nullable=False)
 
 
 class PBLUserAchievement(Base):
@@ -613,8 +614,8 @@ class PBLUserAchievement(Base):
     id = Column(BigInteger, primary_key=True, index=True)
     user_id = Column(Integer, nullable=False)
     achievement_id = Column(BigInteger, ForeignKey("pbl_achievements.id"), nullable=False)
-    unlocked_at = Column(TIMESTAMP, server_default=func.now())
-    created_at = Column(TIMESTAMP, server_default=func.now())
+    unlocked_at = Column(DateTime, default=get_beijing_time_naive)
+    created_at = Column(DateTime, default=get_beijing_time_naive, nullable=False)
 
 
 class PBLLearningProgress(Base):
@@ -629,11 +630,11 @@ class PBLLearningProgress(Base):
     progress_type = Column(Enum('resource_view', 'video_watch', 'document_read', 'task_submit', 'unit_complete'), nullable=False)
     progress_value = Column(Integer, default=0)
     status = Column(Enum('in_progress', 'completed'), default='in_progress')
-    completed_at = Column(TIMESTAMP)
+    completed_at = Column(DateTime)
     time_spent = Column(Integer, default=0)
     meta_data = Column(JSON)
-    created_at = Column(TIMESTAMP, server_default=func.now())
-    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime, default=get_beijing_time_naive, nullable=False)
+    updated_at = Column(DateTime, default=get_beijing_time_naive, onupdate=get_beijing_time_naive, nullable=False)
 
 
 class PBLVideoWatchRecord(Base):
@@ -643,12 +644,12 @@ class PBLVideoWatchRecord(Base):
     id = Column(BigInteger, primary_key=True, index=True)
     resource_id = Column(BigInteger, ForeignKey("pbl_resources.id"), nullable=False)
     user_id = Column(Integer, nullable=False)  # Foreign Key to core_users
-    watch_time = Column(TIMESTAMP, server_default=func.now(), nullable=False)
+    watch_time = Column(DateTime, default=get_beijing_time_naive, nullable=False)
     duration = Column(Integer, default=0, comment='观看时长（秒）')
     completed = Column(Integer, default=0, comment='是否观看完成')
     ip_address = Column(String(45))
     user_agent = Column(String(500))
-    created_at = Column(TIMESTAMP, server_default=func.now())
+    created_at = Column(DateTime, default=get_beijing_time_naive, nullable=False)
 
 
 class PBLVideoUserPermission(Base):
@@ -660,13 +661,13 @@ class PBLVideoUserPermission(Base):
     resource_id = Column(BigInteger, ForeignKey("pbl_resources.id"), nullable=False)
     user_id = Column(Integer, nullable=False)  # Foreign Key to core_users
     max_views = Column(Integer, default=None, comment='该学生对该视频的最大观看次数')
-    valid_from = Column(TIMESTAMP, default=None, comment='有效开始时间')
-    valid_until = Column(TIMESTAMP, default=None, comment='有效结束时间')
+    valid_from = Column(DateTime, default=None, comment='有效开始时间')
+    valid_until = Column(DateTime, default=None, comment='有效结束时间')
     reason = Column(String(500), comment='设置原因')
     created_by = Column(Integer, nullable=False, comment='创建者ID')
     is_active = Column(Integer, default=1, comment='是否启用')
-    created_at = Column(TIMESTAMP, server_default=func.now())
-    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime, default=get_beijing_time_naive, nullable=False)
+    updated_at = Column(DateTime, default=get_beijing_time_naive, onupdate=get_beijing_time_naive, nullable=False)
 
 
 class PBLVideoPlayProgress(Base):
@@ -688,7 +689,7 @@ class PBLVideoPlayProgress(Base):
     # 播放状态
     status = Column(String(20), default='playing', comment='播放状态')
     last_event = Column(String(50), comment='最后一次事件')
-    last_event_time = Column(TIMESTAMP, comment='最后一次事件时间')
+    last_event_time = Column(DateTime, comment='最后一次事件时间')
     
     # 播放行为统计
     seek_count = Column(Integer, default=0, comment='拖动次数')
@@ -709,10 +710,10 @@ class PBLVideoPlayProgress(Base):
     device_type = Column(String(50), comment='设备类型')
     
     # 时间信息
-    start_time = Column(TIMESTAMP, server_default=func.now(), nullable=False, comment='开始播放时间')
-    end_time = Column(TIMESTAMP, comment='结束播放时间')
-    created_at = Column(TIMESTAMP, server_default=func.now())
-    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+    start_time = Column(DateTime, default=get_beijing_time_naive, nullable=False, comment='开始播放时间')
+    end_time = Column(DateTime, comment='结束播放时间')
+    created_at = Column(DateTime, default=get_beijing_time_naive, nullable=False)
+    updated_at = Column(DateTime, default=get_beijing_time_naive, onupdate=get_beijing_time_naive, nullable=False)
 
 
 class PBLVideoPlayEvent(Base):
@@ -726,7 +727,7 @@ class PBLVideoPlayEvent(Base):
     event_type = Column(String(50), nullable=False, comment='事件类型')
     event_data = Column(Text, comment='事件数据（JSON格式）')
     position = Column(Integer, default=0, comment='事件发生时的播放位置（秒）')
-    timestamp = Column(TIMESTAMP, server_default=func.now(), nullable=False)
+    timestamp = Column(DateTime, default=get_beijing_time_naive, nullable=False)
 
 
 class PBLTemplateSchoolPermission(Base):
@@ -749,14 +750,14 @@ class PBLTemplateSchoolPermission(Base):
     current_instances = Column(Integer, default=0, comment='当前已创建实例数')
     
     # 有效期设置
-    valid_from = Column(TIMESTAMP, default=None, comment='有效开始时间')
-    valid_until = Column(TIMESTAMP, default=None, comment='有效结束时间')
+    valid_from = Column(DateTime, default=None, comment='有效开始时间')
+    valid_until = Column(DateTime, default=None, comment='有效结束时间')
     
     # 管理信息
     granted_by = Column(Integer, nullable=False, comment='授权人ID')
-    granted_at = Column(TIMESTAMP, server_default=func.now(), comment='授权时间')
+    granted_at = Column(DateTime, default=get_beijing_time_naive, comment='授权时间')
     remarks = Column(Text, comment='备注说明')
     
     # 时间戳
-    created_at = Column(TIMESTAMP, server_default=func.now())
-    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime, default=get_beijing_time_naive, nullable=False)
+    updated_at = Column(DateTime, default=get_beijing_time_naive, onupdate=get_beijing_time_naive, nullable=False)

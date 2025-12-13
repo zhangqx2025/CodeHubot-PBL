@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, File, UploadFile, 
 from sqlalchemy.orm import Session
 import os
 from datetime import datetime
+from app.utils.timezone import get_beijing_time_naive
 
 from app.core.deps import get_db, get_current_user
 from app.models.pbl import PBLDataset
@@ -255,7 +256,7 @@ async def upload_dataset_file(
     os.makedirs(upload_dir, exist_ok=True)
     
     # 生成唯一文件名
-    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    timestamp = get_beijing_time_naive().strftime("%Y%m%d%H%M%S")
     file_extension = os.path.splitext(file.filename)[1]
     filename = f"{current_user.id}_{timestamp}{file_extension}"
     file_path = os.path.join(upload_dir, filename)

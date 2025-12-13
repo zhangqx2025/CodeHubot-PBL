@@ -106,19 +106,38 @@
     <el-dialog 
       v-model="addTeacherDialogVisible" 
       title="添加教师" 
-      width="500px"
+      width="600px"
       :close-on-click-modal="false"
+      @open="loadAvailableTeachers"
     >
       <el-form :model="teacherForm" label-width="100px">
-        <el-form-item label="教师ID" required>
-          <el-input
-            v-model="teacherIdsText"
-            type="textarea"
-            :rows="6"
-            placeholder="请输入教师ID，每行一个"
-          />
+        <el-form-item label="选择教师" required>
+          <el-select
+            v-model="teacherForm.teacher_ids"
+            multiple
+            filterable
+            placeholder="请选择教师"
+            :loading="loadingTeachers"
+            style="width: 100%"
+            size="large"
+            collapse-tags
+            collapse-tags-tooltip
+            :max-collapse-tags="3"
+          >
+            <el-option
+              v-for="teacher in availableTeachers"
+              :key="teacher.id"
+              :label="`${teacher.name} (${teacher.username})`"
+              :value="teacher.id"
+            >
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-weight: 500;">{{ teacher.name }}</span>
+                <span style="color: #8492a6; font-size: 13px; margin-left: 8px;">{{ teacher.username }}</span>
+              </div>
+            </el-option>
+          </el-select>
           <div class="form-tip">
-            提示：每行输入一个教师ID
+            提示：可以输入关键词快速筛选，支持多选。当前显示 {{ availableTeachers.length }} 位可选教师
           </div>
         </el-form-item>
         
@@ -159,9 +178,11 @@ const teachers = ref([])
 const searchKeyword = ref('')
 const className = ref('')
 const addTeacherDialogVisible = ref(false)
-const teacherIdsText = ref('')
 const addingTeachers = ref(false)
+const loadingTeachers = ref(false)
+const availableTeachers = ref([])
 const teacherForm = ref({
+  teacher_ids: [],
   role: 'assistant'
 })
 
@@ -201,22 +222,45 @@ const loadTeachers = async () => {
   }
 }
 
+// 加载可选教师列表
+const loadAvailableTeachers = async () => {
+  loadingTeachers.value = true
+  try {
+    const res = await request({
+      url: '/admin/users/list',
+      method: 'get',
+      params: {
+        role: 'teacher',
+        limit: 200  // 增加限制数量，一般学校教师不会超过这个数
+      }
+    })
+    
+    let teacherList = res.data.data.items || []
+    
+    // 过滤掉已经添加的教师
+    const existingTeacherIds = teachers.value.map(t => t.teacher_id)
+    teacherList = teacherList.filter(t => !existingTeacherIds.includes(t.id))
+    
+    availableTeachers.value = teacherList
+  } catch (error) {
+    console.error('加载教师列表失败:', error)
+    ElMessage.error(error.message || '加载教师列表失败')
+  } finally {
+    loadingTeachers.value = false
+  }
+}
+
 // 显示添加教师对话框
 const showAddTeacherDialog = () => {
-  teacherIdsText.value = ''
+  teacherForm.value.teacher_ids = []
   teacherForm.value.role = 'assistant'
   addTeacherDialogVisible.value = true
 }
 
 // 提交添加教师
 const submitAddTeachers = async () => {
-  const ids = teacherIdsText.value
-    .split('\n')
-    .map(id => parseInt(id.trim()))
-    .filter(id => !isNaN(id))
-  
-  if (ids.length === 0) {
-    ElMessage.warning('请输入有效的教师ID')
+  if (!teacherForm.value.teacher_ids || teacherForm.value.teacher_ids.length === 0) {
+    ElMessage.warning('请选择至少一位教师')
     return
   }
   
@@ -226,11 +270,11 @@ const submitAddTeachers = async () => {
       url: `/admin/club/classes/${route.params.uuid}/teachers`,
       method: 'post',
       data: {
-        teacher_ids: ids,
+        teacher_ids: teacherForm.value.teacher_ids,
         role: teacherForm.value.role
       }
     })
-    ElMessage.success(`成功添加 ${ids.length} 位教师`)
+    ElMessage.success(`成功添加 ${teacherForm.value.teacher_ids.length} 位教师`)
     addTeacherDialogVisible.value = false
     loadTeachers()
   } catch (error) {
@@ -389,5 +433,51 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+:deep(.el-select-dropdown__item) {
+  height: auto;
+  padding: 12px 20px;
+  line-height: 1.4;
+  
+  &:hover {
+    background-color: #f5f7fa;
+  }
+}
+
+:deep(.el-dialog__body) {
+  padding: 20px 30px;
+}
+
+:deep(.el-select) {
+  .el-select__wrapper {
+    min-height: 40px;
+  }
+  
+  .el-select__tags {
+    max-height: 150px;
+    overflow-y: auto;
+    
+    &::-webkit-scrollbar {
+      width: 6px;
+    }
+    
+    &::-webkit-scrollbar-thumb {
+      background-color: #dcdfe6;
+      border-radius: 3px;
+      
+      &:hover {
+        background-color: #c0c4cc;
+      }
+    }
+  }
+}
+
+:deep(.el-select-dropdown) {
+  max-height: 400px;
+  
+  .el-select-dropdown__wrap {
+    max-height: 380px;
+  }
 }
 </style>

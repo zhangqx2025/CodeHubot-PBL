@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
 from typing import Optional
 from datetime import datetime
+from app.utils.timezone import get_beijing_time_naive
 import uuid
 
 from ...core.deps import get_db, get_current_admin
@@ -46,7 +47,7 @@ async def list_available_templates(
     check_school_admin(current_user)
     
     # 查询开放给本学校的模板权限
-    now = datetime.now()
+    now = get_beijing_time_naive()
     permission_query = db.query(PBLTemplateSchoolPermission).filter(
         PBLTemplateSchoolPermission.school_id == current_user.school_id,
         PBLTemplateSchoolPermission.is_active == 1,
@@ -176,7 +177,7 @@ async def get_available_template_detail(
         raise HTTPException(status_code=404, detail="模板不存在")
     
     # 检查权限
-    now = datetime.now()
+    now = get_beijing_time_naive()
     permission = db.query(PBLTemplateSchoolPermission).filter(
         PBLTemplateSchoolPermission.template_id == template.id,
         PBLTemplateSchoolPermission.school_id == current_user.school_id,
@@ -258,7 +259,7 @@ async def create_course_from_template(
         raise HTTPException(status_code=404, detail="模板不存在")
     
     # 检查权限
-    now = datetime.now()
+    now = get_beijing_time_naive()
     permission = db.query(PBLTemplateSchoolPermission).filter(
         PBLTemplateSchoolPermission.template_id == template.id,
         PBLTemplateSchoolPermission.school_id == current_user.school_id,

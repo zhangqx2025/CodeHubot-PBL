@@ -219,7 +219,7 @@ def grade_task(
     progress.feedback = feedback
     progress.graded_by = current_admin.id
     from datetime import datetime
-    progress.graded_at = datetime.now()
+    progress.graded_at = get_beijing_time_naive()
     progress.status = 'completed'
     
     db.commit()
