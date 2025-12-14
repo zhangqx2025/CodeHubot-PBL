@@ -366,6 +366,7 @@ def get_course_full_detail(
             'description': unit.description,
             'order': unit.order,
             'status': unit.status,
+            'open_from': unit.open_from.isoformat() if unit.open_from else None,
             'created_at': unit.created_at.isoformat() if unit.created_at else None,
             'updated_at': unit.updated_at.isoformat() if unit.updated_at else None
         }

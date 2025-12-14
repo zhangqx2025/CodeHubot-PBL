@@ -177,6 +177,36 @@
           </el-select>
         </el-form-item>
         
+        <el-form-item label="选择课程" prop="template_id">
+          <el-select 
+            v-model="classForm.template_id" 
+            placeholder="请从可用模板库中选择课程" 
+            clearable
+            filterable
+            style="width: 100%"
+            @visible-change="handleTemplateSelectVisibleChange"
+            v-loading="loadingTemplates"
+          >
+            <el-option
+              v-for="template in availableTemplates"
+              :key="template.id"
+              :label="template.title"
+              :value="template.id"
+            >
+              <div style="display: flex; align-items: center; justify-content: space-between">
+                <span>{{ template.title }}</span>
+                <el-tag size="small" :type="getDifficultyTagType(template.difficulty)" effect="plain">
+                  {{ getDifficultyText(template.difficulty) }}
+                </el-tag>
+              </div>
+            </el-option>
+          </el-select>
+          <div v-if="classForm.template_id" style="margin-top: 8px; font-size: 12px; color: #909399">
+            <el-icon><InfoFilled /></el-icon>
+            选择课程后，将自动为班级创建该课程的实例（包括单元、资源和任务）
+          </div>
+        </el-form-item>
+        
         <el-form-item label="班级描述" prop="description">
           <el-input 
             v-model="classForm.description" 
@@ -206,10 +236,10 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Plus, School, Grid, Medal, FolderOpened, Star, Trophy,
   MoreFilled, View, Edit, Delete,
-  User, Reading, Clock
+  User, Reading, Clock, InfoFilled
 } from '@element-plus/icons-vue'
 import {
-  getClubClasses, createClubClass, deleteClubClass
+  getClubClasses, createClubClass, deleteClubClass, getAvailableTemplates
 } from '@/api/club'
 import { getCurrentAdmin } from '@/api/admin'
 import dayjs from 'dayjs'
@@ -233,8 +263,13 @@ const submitting = ref(false)
 const classForm = reactive({
   name: '',
   class_type: 'club',
+  template_id: null,
   description: ''
 })
+
+// 可用模板列表
+const availableTemplates = ref([])
+const loadingTemplates = ref(false)
 
 // 表单校验
 const classFormRef = ref(null)
@@ -245,6 +280,9 @@ const classRules = {
   ],
   class_type: [
     { required: true, message: '请选择班级类型', trigger: 'change' }
+  ],
+  template_id: [
+    { required: true, message: '请选择课程', trigger: 'change' }
   ]
 }
 
@@ -272,12 +310,59 @@ const showCreateDialog = () => {
   Object.assign(classForm, {
     name: '',
     class_type: 'club',
+    template_id: null,
     description: ''
   })
   dialogVisible.value = true
   nextTick(() => {
     classFormRef.value?.clearValidate()
   })
+}
+
+// 加载可用模板列表
+const loadAvailableTemplates = async () => {
+  if (availableTemplates.value.length > 0) {
+    return // 已加载过，不重复加载
+  }
+  
+  loadingTemplates.value = true
+  try {
+    const res = await getAvailableTemplates({ page: 1, page_size: 100 })
+    if (res.data && res.data.data) {
+      availableTemplates.value = res.data.data.items || []
+    }
+  } catch (error) {
+    console.error('加载可用模板失败:', error)
+  } finally {
+    loadingTemplates.value = false
+  }
+}
+
+// 处理模板选择器显示状态变化
+const handleTemplateSelectVisibleChange = (visible) => {
+  if (visible) {
+    loadAvailableTemplates()
+  }
+}
+
+// 获取难度标签类型
+const getDifficultyTagType = (difficulty) => {
+  const typeMap = {
+    'beginner': 'success',
+    'intermediate': 'warning',
+    'advanced': 'danger'
+  }
+  return typeMap[difficulty] || 'info'
+}
+
+// 获取难度文本
+const getDifficultyText = (difficulty) => {
+  const textMap = {
+    'beginner': '入门',
+    'intermediate': '进阶',
+    'advanced': '高级'
+  }
+  return textMap[difficulty] || difficulty
 }
 
 // 提交创建班级表单

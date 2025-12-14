@@ -241,7 +241,15 @@ const routes = [
         name: 'AvailableTemplates',
         component: () => import('../views/AvailableTemplates.vue'),
         meta: {
-          title: '可用模板库 - PBL系统管理后台'
+          title: '课程模板库 - PBL系统管理后台'
+        }
+      },
+      {
+        path: 'template-detail/:uuid',
+        name: 'TemplateDetail',
+        component: () => import('../views/TemplateDetail.vue'),
+        meta: {
+          title: '课程模板详情 - PBL系统管理后台'
         }
       },
       {
@@ -365,11 +373,27 @@ const routes = [
         }
       },
       {
+        path: 'classes/:classUuid/progress/units/:unitId',
+        name: 'ClassUnitDetail',
+        component: () => import('../views/ClassUnitDetail.vue'),
+        meta: {
+          title: '单元详情 - PBL系统管理后台'
+        }
+      },
+      {
         path: 'classes/:uuid/homework',
         name: 'ClassHomework',
         component: () => import('../views/ClassHomework.vue'),
         meta: {
           title: '作业管理 - PBL系统管理后台'
+        }
+      },
+      {
+        path: 'classes/:uuid/homework/units/:unitId',
+        name: 'ClassUnitHomework',
+        component: () => import('../views/ClassUnitHomework.vue'),
+        meta: {
+          title: '单元作业 - PBL系统管理后台'
         }
       },
       {

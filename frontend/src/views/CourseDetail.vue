@@ -83,12 +83,21 @@
                 <span class="unit-number">{{ index + 1 }}.</span>
                 {{ unit.title }}
               </h4>
-              <el-tag 
-                :type="getUnitStatusType(unit.status)" 
-                size="small"
-              >
-                {{ getUnitStatusText(unit.status) }}
-              </el-tag>
+              <div class="unit-tags">
+                <el-tag 
+                  :type="getUnitStatusType(unit.status)" 
+                  size="small"
+                >
+                  {{ getUnitStatusText(unit.status) }}
+                </el-tag>
+                <el-tag 
+                  v-if="unit.open_from && !unit.is_open" 
+                  type="warning" 
+                  size="small"
+                >
+                  {{ formatOpenTime(unit.open_from) }}
+                </el-tag>
+              </div>
             </div>
             
             <p class="unit-description">{{ unit.description }}</p>
@@ -121,12 +130,20 @@
             <!-- 单元操作 -->
             <div class="unit-actions">
               <el-button 
-                v-if="unit.status !== 'locked'" 
+                v-if="unit.status !== 'locked' && unit.is_open" 
                 type="primary" 
                 size="default"
                 @click="gotoUnitLearning(unit.id, unit.uuid)"
               >
                 {{ unit.status === 'completed' ? '回顾单元' : '开始学习' }}
+              </el-button>
+              <el-button 
+                v-else-if="unit.status !== 'locked' && !unit.is_open" 
+                disabled
+                size="default"
+              >
+                <el-icon><Clock /></el-icon>
+                {{ formatOpenTime(unit.open_from) }}
               </el-button>
               <el-button 
                 v-else 
@@ -287,6 +304,26 @@ const getProjectStatusText = (status) => {
     'completed': '已完成'
   }
   return map[status] || '未知'
+}
+
+// 格式化开放时间
+const formatOpenTime = (timeStr) => {
+  if (!timeStr) return ''
+  const openTime = new Date(timeStr)
+  const now = new Date()
+  
+  if (openTime > now) {
+    // 未开放
+    return `${openTime.toLocaleString('zh-CN', { 
+      month: 'numeric', 
+      day: 'numeric', 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    })} 开放`
+  } else {
+    // 已开放
+    return '已开放'
+  }
 }
 
 const handleImageError = (e) => {
@@ -493,6 +530,12 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 8px;
+}
+
+.unit-tags {
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 
 .unit-title {

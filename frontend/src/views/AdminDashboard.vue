@@ -191,16 +191,10 @@
               <template #title>项目式课程管理</template>
             </el-menu-item>
             
-            <!-- 学校课程库 -->
-            <el-menu-item index="/admin/school-course-library">
-              <el-icon><Reading /></el-icon>
-              <template #title>学校课程库</template>
-            </el-menu-item>
-            
-            <!-- 可用模板库 - 仅学校管理员 -->
+            <!-- 课程模板库 - 仅学校管理员 -->
             <el-menu-item index="/admin/available-templates" v-if="!isPlatformAdmin">
               <el-icon><Files /></el-icon>
-              <template #title>可用模板库</template>
+              <template #title>课程模板库</template>
             </el-menu-item>
           </template>
           
@@ -416,10 +410,10 @@ const pageTitle = computed(() => {
     '/admin/schools': '学校管理',
     '/admin/courses': '课程管理',
     '/admin/school-courses': '学校课程配置',
-    '/admin/school-course-library': '学校课程库',
     '/admin/course-templates': '课程模板管理',
     '/admin/template-permissions': '课程模板授权',
-    '/admin/available-templates': '可用模板库',
+    '/admin/available-templates': '课程模板库',
+    '/admin/template-detail': '课程模板详情',
     '/admin/units': '学习单元',
     '/admin/resources': '资料管理',
     '/admin/video-permissions': '视频权限管理',

@@ -19,12 +19,13 @@ from ...core.deps import get_db, get_current_admin
 from ...core.security import get_password_hash
 from ...models.admin import Admin, User
 from ...models.pbl import (
-    PBLClass, PBLClassMember, PBLCourse, PBLCourseTemplate,
+    PBLClass, PBLClassMember, PBLCourse, PBLCourseTemplate, PBLClassCourse,
     PBLUnit, PBLResource, PBLTask,
     PBLClassTeacher, PBLTaskProgress, PBLProjectOutput,
     PBLUnitTemplate, PBLResourceTemplate, PBLTaskTemplate
 )
 from ...core.logging_config import get_logger
+from ...models.school import School
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -36,6 +37,7 @@ class ClassCreate(BaseModel):
     class_type: str = 'club'  # club, project, interest, competition, regular
     description: Optional[str] = None
     max_students: int = 30
+    template_id: Optional[int] = None  # 课程模板ID
 
 class ClassUpdate(BaseModel):
     name: Optional[str] = None
@@ -159,7 +161,10 @@ def create_class(
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(get_current_admin)
 ):
-    """创建班级"""
+    """创建班级
+    
+    如果提供template_id，将从模板创建完整的课程实例并关联到班级
+    """
     # 权限检查
     if current_admin.role not in ['platform_admin', 'school_admin']:
         return error_response(
@@ -189,23 +194,99 @@ def create_class(
         is_open=1
     )
     db.add(new_class)
+    db.flush()  # 获取班级ID
+    
+    # 如果提供了template_id，从模板创建完整的课程
+    course_id = None
+    course_title = None
+    if class_data.template_id:
+        from ...services.template_service import copy_course_from_template, validate_template_permission
+        
+        try:
+            # 验证模板权限
+            template, permission = validate_template_permission(db, class_data.template_id, school_id)
+            
+            # 从模板复制完整的课程（包括单元、资源、任务）
+            new_course = copy_course_from_template(
+                db=db,
+                template_id=class_data.template_id,
+                school_id=school_id,
+                creator_id=current_admin.id,
+                class_id=new_class.id,
+                class_name=class_data.name,
+                permission_id=permission.id
+            )
+            
+            course_id = new_course.id
+            course_title = new_course.title
+            
+            # 创建班级课程关联记录
+            class_course = PBLClassCourse(
+                class_id=new_class.id,
+                course_id=course_id,
+                assigned_by=current_admin.id,
+                status='active'
+            )
+            db.add(class_course)
+            
+            # 更新权限的实例计数
+            instance_count = db.query(PBLCourse).filter(
+                PBLCourse.template_id == class_data.template_id,
+                PBLCourse.school_id == school_id
+            ).count()
+            permission.current_instances = instance_count
+            
+            logger.info(f"从模板创建完整课程 - 模板ID: {class_data.template_id}, 课程ID: {course_id}, 班级ID: {new_class.id}")
+            
+        except ValueError as e:
+            db.rollback()
+            return error_response(
+                message=str(e),
+                code=400,
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+        except Exception as e:
+            logger.error(f"从模板创建课程失败: {str(e)}", exc_info=True)
+            db.rollback()
+            return error_response(
+                message=f"从模板创建课程失败: {str(e)}",
+                code=500,
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
     db.commit()
     db.refresh(new_class)
     
-    logger.info(f"创建班级 - 名称: {class_data.name}, 类型: {class_data.class_type}, 学校ID: {school_id}")
+    log_message = f"创建班级 - 名称: {class_data.name}, 类型: {class_data.class_type}, 学校ID: {school_id}"
+    if course_title:
+        log_message += f", 关联课程: {course_title}"
+    logger.info(log_message)
+    
+    result_data = {
+        'id': new_class.id,
+        'uuid': new_class.uuid,
+        'name': new_class.name,
+        'class_type': new_class.class_type,
+        'description': new_class.description,
+        'max_students': new_class.max_students,
+        'current_members': new_class.current_members,
+        'created_at': new_class.created_at.isoformat() if new_class.created_at else None
+    }
+    
+    # 如果创建了课程，添加课程信息到返回数据
+    if course_id:
+        result_data['course'] = {
+            'id': course_id,
+            'title': course_title
+        }
+    
+    message = "班级创建成功"
+    if course_title:
+        message = f"班级创建成功，并已关联课程「{course_title}」"
     
     return success_response(
-        data={
-            'id': new_class.id,
-            'uuid': new_class.uuid,
-            'name': new_class.name,
-            'class_type': new_class.class_type,
-            'description': new_class.description,
-            'max_students': new_class.max_students,
-            'current_members': new_class.current_members,
-            'created_at': new_class.created_at.isoformat() if new_class.created_at else None
-        },
-        message="班级创建成功"
+        data=result_data,
+        message=message
     )
 
 
@@ -483,7 +564,7 @@ def get_class_members(
             code=404,
             status_code=status.HTTP_404_NOT_FOUND
         )
-    
+
     # 权限检查
     if current_admin.role != 'platform_admin':
         if pbl_class.school_id != current_admin.school_id:
@@ -492,26 +573,33 @@ def get_class_members(
                 code=403,
                 status_code=status.HTTP_403_FORBIDDEN
             )
-    
-    # 查询成员
-    members = db.query(PBLClassMember, User).join(
+
+    # 查询成员（关联School表获取school_code）
+    members = db.query(PBLClassMember, User, School).join(
         User, PBLClassMember.student_id == User.id
+    ).join(
+        School, User.school_id == School.id
     ).filter(
         PBLClassMember.class_id == pbl_class.id,
         PBLClassMember.is_active == 1
     ).all()
-    
+
     result = []
-    for member, user in members:
+    for member, user, school in members:
+        # 构建登录名：学号@学校代码
+        login_name = f"{user.student_number}@{school.school_code}" if user.student_number and school.school_code else None
+        
         result.append({
             'student_id': user.id,
             'name': user.name or user.real_name,
             'student_number': user.student_number,
+            'school_code': school.school_code,
+            'login_name': login_name,
             'gender': user.gender,
             'role': member.role,
             'joined_at': member.joined_at.isoformat() if member.joined_at else None
         })
-    
+
     return success_response(data=result)
 
 

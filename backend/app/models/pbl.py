@@ -149,7 +149,9 @@ class PBLUnit(Base):
     description = Column(Text)
     order = Column(Integer, default=0)
     status = Column(Enum('locked', 'available', 'completed'), default='locked')
+    open_from = Column(DateTime, default=None, comment='单元开放时间（NULL表示立即开放）')
     learning_guide = Column(JSON)
+    estimated_duration = Column(String(50))
     created_at = Column(DateTime, default=get_beijing_time_naive, nullable=False)
     updated_at = Column(DateTime, default=get_beijing_time_naive, onupdate=get_beijing_time_naive, nullable=False)
 

@@ -29,7 +29,7 @@
       <div class="filter-content">
         <el-input
           v-model="searchKeyword"
-          placeholder="搜索成员（姓名、学号）"
+          placeholder="搜索成员（姓名、学号、登录名）"
           style="width: 400px"
           size="large"
           clearable
@@ -52,7 +52,12 @@
         style="width: 100%"
       >
         <el-table-column prop="name" label="姓名" width="150" />
-        <el-table-column prop="student_number" label="学号" width="180" />
+        <el-table-column prop="student_number" label="学号" width="150" />
+        <el-table-column prop="login_name" label="登录名" width="220">
+          <template #default="{ row }">
+            {{ row.login_name || '-' }}
+          </template>
+        </el-table-column>
         <el-table-column prop="gender" label="性别" width="100">
           <template #default="{ row }">
             {{ getGenderName(row.gender) }}
@@ -188,7 +193,8 @@ const filteredMembers = computed(() => {
   const keyword = searchKeyword.value.toLowerCase()
   return members.value.filter(m => 
     m.name.toLowerCase().includes(keyword) || 
-    m.student_number.includes(keyword)
+    m.student_number.includes(keyword) ||
+    (m.login_name && m.login_name.toLowerCase().includes(keyword))
   )
 })
 

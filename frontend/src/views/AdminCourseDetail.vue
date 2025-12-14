@@ -63,6 +63,9 @@
                       <el-tag :type="getUnitStatusType(unit.status)" size="small">
                         {{ getUnitStatusText(unit.status) }}
                       </el-tag>
+                      <el-tag v-if="unit.open_from" type="warning" size="small">
+                        {{ formatOpenTime(unit.open_from) }}
+                      </el-tag>
                     </div>
                     <div class="unit-actions" @click.stop>
                       <el-button 
@@ -252,7 +255,7 @@
       :title="unitForm.uuid ? '编辑单元' : '添加单元'"
       width="600px"
     >
-      <el-form :model="unitForm" label-width="100px">
+      <el-form :model="unitForm" label-width="120px">
         <el-form-item label="单元标题">
           <el-input v-model="unitForm.title" />
         </el-form-item>
@@ -268,6 +271,18 @@
             <el-option label="可学习" value="available" />
             <el-option label="已完成" value="completed" />
           </el-select>
+        </el-form-item>
+        <el-form-item label="开放时间">
+          <el-date-picker
+            v-model="unitForm.open_from"
+            type="datetime"
+            placeholder="选择开放时间"
+            format="YYYY-MM-DD HH:mm:ss"
+            value-format="YYYY-MM-DD HH:mm:ss"
+            :clearable="true"
+            style="width: 100%"
+          />
+          <div class="form-tip">未设置时间则立即开放</div>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -403,6 +418,7 @@ const unitForm = ref({
   description: '',
   order: 0,
   status: 'locked',
+  open_from: null,
   course_uuid: ''
 })
 
@@ -585,6 +601,7 @@ const showAddUnitDialog = () => {
     description: '',
     order: (courseDetail.value.units?.length || 0) + 1,
     status: 'locked',
+    open_from: null,
     course_uuid: courseId.value
   }
   unitDialogVisible.value = true
@@ -597,6 +614,7 @@ const editUnit = (unit) => {
     description: unit.description,
     order: unit.order,
     status: unit.status,
+    open_from: unit.open_from,
     course_uuid: courseId.value
   }
   unitDialogVisible.value = true
@@ -610,7 +628,8 @@ const saveUnit = async () => {
         title: unitForm.value.title,
         description: unitForm.value.description,
         order: unitForm.value.order,
-        status: unitForm.value.status
+        status: unitForm.value.status,
+        open_from: unitForm.value.open_from
       })
       ElMessage.success('单元更新成功')
     } else {
@@ -620,6 +639,7 @@ const saveUnit = async () => {
         description: unitForm.value.description,
         order: unitForm.value.order,
         status: unitForm.value.status,
+        open_from: unitForm.value.open_from,
         course_uuid: courseId.value
       })
       ElMessage.success('单元创建成功')
@@ -852,6 +872,31 @@ const handleDeleteTask = (unit, task) => {
   }).catch(() => {})
 }
 
+// 格式化开放时间
+const formatOpenTime = (timeStr) => {
+  if (!timeStr) return ''
+  const openTime = new Date(timeStr)
+  const now = new Date()
+  
+  if (openTime > now) {
+    // 未开放
+    return `将于 ${openTime.toLocaleString('zh-CN', { 
+      month: 'numeric', 
+      day: 'numeric', 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    })} 开放`
+  } else {
+    // 已开放
+    return `已于 ${openTime.toLocaleString('zh-CN', { 
+      month: 'numeric', 
+      day: 'numeric', 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    })} 开放`
+  }
+}
+
 const goBack = () => {
   router.back()
 }
@@ -1045,6 +1090,14 @@ onMounted(() => {
 
 :deep(.el-collapse-item__wrap) {
   border-bottom: none;
+}
+
+/* 表单提示 */
+.form-tip {
+  color: #909399;
+  font-size: 12px;
+  margin-top: 4px;
+  line-height: 1.5;
 }
 
 /* 响应式 */

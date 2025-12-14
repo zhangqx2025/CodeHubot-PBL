@@ -137,6 +137,17 @@ export function getCourseTemplates(params) {
 }
 
 /**
+ * 获取学校可用的课程模板列表
+ */
+export function getAvailableTemplates(params) {
+  return request({
+    url: '/admin/available-templates',
+    method: 'get',
+    params
+  })
+}
+
+/**
  * 基于模板创建课程
  */
 export function createCourseFromTemplate(data) {

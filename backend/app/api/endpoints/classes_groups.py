@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Body
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_, or_
 from typing import List, Optional
 from datetime import datetime
+from pydantic import BaseModel
 from app.utils.timezone import get_beijing_time_naive
 
 from ...db.session import SessionLocal
@@ -19,6 +20,16 @@ from ...core.logging_config import get_logger
 
 router = APIRouter()
 logger = get_logger(__name__)
+
+# ===== 请求模型 =====
+
+class CreateClassRequest(BaseModel):
+    """创建班级请求模型"""
+    name: str
+    class_type: str = 'regular'
+    grade: Optional[str] = None
+    description: Optional[str] = None
+    template_id: Optional[int] = None
 
 # ===== 班级管理 =====
 
@@ -66,14 +77,14 @@ def get_classes(
 
 @router.post("/classes")
 def create_class(
-    name: str,
-    grade: Optional[str] = None,
+    request: CreateClassRequest,
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(get_current_admin)
 ):
     """创建班级
     
     学校ID自动从当前登录管理员中获取，无需前端传递
+    如果提供template_id，将从模板创建课程并关联到班级
     """
     # 权限检查
     if current_admin.role not in ['platform_admin', 'school_admin']:
@@ -92,29 +103,129 @@ def create_class(
             status_code=status.HTTP_400_BAD_REQUEST
         )
     
-    # 创建班级记录
-    new_class = PBLClass(
-        school_id=school_id,
-        name=name,
-        grade=grade,
-        is_active=True
-    )
-    db.add(new_class)
+    # 解构请求参数
+    name = request.name
+    class_type = request.class_type
+    grade = request.grade
+    description = request.description
+    template_id = request.template_id
+    
+    # 如果提供了template_id，从模板创建完整的课程
+    course_id = None
+    course_title = None
+    new_course = None
+    if template_id:
+        from ...services.template_service import copy_course_from_template, validate_template_permission
+        
+        try:
+            # 验证模板权限
+            template, permission = validate_template_permission(db, template_id, school_id)
+            
+            # 先创建班级（因为课程需要关联班级）
+            temp_class = PBLClass(
+                school_id=school_id,
+                name=name,
+                class_type=class_type,
+                grade=grade,
+                description=description,
+                is_active=True
+            )
+            db.add(temp_class)
+            db.flush()
+            
+            # 从模板复制完整的课程（包括单元、资源、任务）
+            new_course = copy_course_from_template(
+                db=db,
+                template_id=template_id,
+                school_id=school_id,
+                creator_id=current_admin.id,
+                class_id=temp_class.id,
+                class_name=name,
+                permission_id=permission.id
+            )
+            
+            course_id = new_course.id
+            course_title = new_course.title
+            
+            # 更新权限的实例计数
+            instance_count = db.query(PBLCourse).filter(
+                PBLCourse.template_id == template_id,
+                PBLCourse.school_id == school_id
+            ).count()
+            permission.current_instances = instance_count
+            
+            logger.info(f"从模板创建完整课程 - 模板ID: {template_id}, 课程ID: {course_id}, 学校ID: {school_id}")
+            
+            # 将temp_class赋值给new_class，后续不需要再创建
+            new_class = temp_class
+            
+        except ValueError as e:
+            return error_response(
+                message=str(e),
+                code=400,
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+        except Exception as e:
+            logger.error(f"从模板创建课程失败: {str(e)}", exc_info=True)
+            return error_response(
+                message=f"从模板创建课程失败: {str(e)}",
+                code=500,
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    else:
+        # 没有提供template_id，正常创建班级
+        new_class = None
+    
+    # 如果没有提供template_id，创建班级记录
+    if new_class is None:
+        new_class = PBLClass(
+            school_id=school_id,
+            name=name,
+            class_type=class_type,
+            grade=grade,
+            description=description,
+            is_active=True
+        )
+        db.add(new_class)
+        db.flush()
+    
+    # 如果创建了课程，创建班级课程关联记录
+    if course_id:
+        class_course = PBLClassCourse(
+            class_id=new_class.id,
+            course_id=course_id,
+            assigned_by=current_admin.id,
+            status='active'
+        )
+        db.add(class_course)
+    
     db.commit()
     db.refresh(new_class)
     
-    logger.info(f"创建班级 - 名称: {name}, 学校ID: {school_id}, 操作者: {current_admin.username}")
+    logger.info(f"创建班级 - 名称: {name}, 学校ID: {school_id}, 关联课程: {course_title or '无'}, 操作者: {current_admin.username}")
+    
+    result_data = {
+        'id': new_class.id,
+        'uuid': new_class.uuid,
+        'name': new_class.name,
+        'grade': new_class.grade,
+        'school_id': new_class.school_id,
+        'created_at': new_class.created_at.isoformat() if new_class.created_at else None
+    }
+    
+    if course_id:
+        result_data['course'] = {
+            'id': course_id,
+            'title': course_title
+        }
+    
+    message = "班级创建成功"
+    if course_title:
+        message = f"班级创建成功，并已关联课程「{course_title}」"
     
     return success_response(
-        data={
-            'id': new_class.id,
-            'uuid': new_class.uuid,
-            'name': new_class.name,
-            'grade': new_class.grade,
-            'school_id': new_class.school_id,
-            'created_at': new_class.created_at.isoformat() if new_class.created_at else None
-        },
-        message="班级创建成功"
+        data=result_data,
+        message=message
     )
 
 @router.get("/classes/{class_id}/students")

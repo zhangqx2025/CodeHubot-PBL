@@ -59,15 +59,16 @@
       </el-form>
 
       <!-- 模板卡片列表 -->
-      <el-row :gutter="20" v-loading="loading">
+      <el-row :gutter="24" v-loading="loading">
         <el-col 
           v-for="template in templates" 
           :key="template.id" 
           :xs="24" 
           :sm="12" 
           :md="8" 
-          :lg="6"
-          style="margin-bottom: 20px"
+          :lg="8"
+          :xl="8"
+          style="margin-bottom: 24px"
         >
           <el-card shadow="hover" class="template-card">
             <template #header>
@@ -83,7 +84,7 @@
               <el-image 
                 :src="template.cover_image" 
                 fit="cover"
-                style="width: 100%; height: 150px"
+                style="width: 100%; height: 180px"
               >
                 <template #error>
                   <div class="image-slot">
@@ -135,15 +136,6 @@
             
             <template #footer>
               <div class="template-actions">
-                <el-button 
-                  type="primary" 
-                  size="small" 
-                  @click="handleCreateCourse(template)"
-                  :disabled="!template.permission?.can_create_instance"
-                >
-                  <el-icon><Plus /></el-icon>
-                  创建课程
-                </el-button>
                 <el-button size="small" @click="handleViewDetails(template)">
                   <el-icon><View /></el-icon>
                   查看详情
@@ -171,7 +163,7 @@
         <el-pagination
           v-model:current-page="pagination.page"
           v-model:page-size="pagination.page_size"
-          :page-sizes="[12, 24, 48]"
+          :page-sizes="[9, 18, 30]"
           :total="pagination.total"
           layout="total, sizes, prev, pager, next, jumper"
           @size-change="loadTemplates"
@@ -311,9 +303,12 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Search, Refresh, Plus, View, Clock, Document, Picture } from '@element-plus/icons-vue'
 import axios from 'axios'
+
+const router = useRouter()
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -333,7 +328,7 @@ const filters = reactive({
 
 const pagination = reactive({
   page: 1,
-  page_size: 12,
+  page_size: 9,
   total: 0
 })
 
@@ -462,21 +457,8 @@ const handleCreateSubmit = async () => {
 }
 
 // 查看模板详情
-const handleViewDetails = async (template) => {
-  try {
-    const response = await axios.get(
-      `/api/v1/admin/available-templates/${template.uuid}`,
-      { headers: getAuthHeaders() }
-    )
-    
-    if (response.data && response.data.success) {
-      currentTemplate.value = response.data.data
-      detailDialogVisible.value = true
-    }
-  } catch (error) {
-    console.error('加载详情失败:', error)
-    ElMessage.error(error.response?.data?.message || '加载详情失败')
-  }
+const handleViewDetails = (template) => {
+  router.push(`/admin/template-detail/${template.uuid}`)
 }
 
 // 获取难度类型
@@ -536,6 +518,7 @@ onMounted(() => {
 
 .template-card {
   height: 100%;
+  min-height: 480px;
   display: flex;
   flex-direction: column;
   border-radius: 16px;

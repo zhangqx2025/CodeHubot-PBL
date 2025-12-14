@@ -14,7 +14,10 @@ from ...core.deps import get_db, get_current_admin
 from ...models.pbl import (
     PBLTemplateSchoolPermission, 
     PBLCourseTemplate,
-    PBLCourse
+    PBLCourse,
+    PBLUnitTemplate,
+    PBLResourceTemplate,
+    PBLTaskTemplate
 )
 from ...models.admin import Admin
 
@@ -205,6 +208,72 @@ async def get_available_template_detail(
     if permission.max_instances is not None:
         can_create_instance = instance_count < permission.max_instances
     
+    # 查询单元模板及其资源和任务
+    units = db.query(PBLUnitTemplate).filter(
+        PBLUnitTemplate.course_template_id == template.id
+    ).order_by(PBLUnitTemplate.order).all()
+    
+    units_data = []
+    for unit in units:
+        # 查询单元的资源
+        resources = db.query(PBLResourceTemplate).filter(
+            PBLResourceTemplate.unit_template_id == unit.id
+        ).order_by(PBLResourceTemplate.order).all()
+        
+        # 查询单元的任务
+        tasks = db.query(PBLTaskTemplate).filter(
+            PBLTaskTemplate.unit_template_id == unit.id
+        ).order_by(PBLTaskTemplate.order).all()
+        
+        units_data.append({
+            "id": unit.id,
+            "uuid": unit.uuid,
+            "template_code": unit.template_code,
+            "title": unit.title,
+            "description": unit.description,
+            "order": unit.order,
+            "learning_objectives": unit.learning_objectives,
+            "key_concepts": unit.key_concepts,
+            "estimated_duration": unit.estimated_duration,
+            "resources_count": len(resources),
+            "tasks_count": len(tasks),
+            "resources": [
+                {
+                    "id": res.id,
+                    "uuid": res.uuid,
+                    "template_code": res.template_code,
+                    "resource_type": res.type,
+                    "title": res.title,
+                    "description": res.description,
+                    "order": res.order,
+                    "url": res.url,
+                    "video_id": res.video_id,
+                    "video_cover_url": res.video_cover_url,
+                    "duration": res.duration,
+                    "is_preview_allowed": res.is_preview_allowed
+                }
+                for res in resources
+            ],
+            "tasks": [
+                {
+                    "id": task.id,
+                    "uuid": task.uuid,
+                    "template_code": task.template_code,
+                    "title": task.title,
+                    "description": task.description,
+                    "task_type": task.type,
+                    "difficulty": task.difficulty,
+                    "order": task.order,
+                    "requirements": task.requirements,
+                    "deliverables": task.deliverables,
+                    "evaluation_criteria": task.evaluation_criteria,
+                    "estimated_time": task.estimated_time,
+                    "estimated_hours": task.estimated_hours
+                }
+                for task in tasks
+            ]
+        })
+    
     return {
         "success": True,
         "data": {
@@ -230,6 +299,7 @@ async def get_available_template_detail(
                 "valid_until": permission.valid_until,
                 "remarks": permission.remarks
             },
+            "units": units_data,
             "created_at": template.created_at,
             "updated_at": template.updated_at
         }

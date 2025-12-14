@@ -1,10 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List, Optional
+from datetime import datetime
 
 from ...core.response import success_response, error_response
 from ...core.deps import get_db, get_current_user
 from ...models.pbl import PBLCourse, PBLUnit, PBLProject, PBLResource, PBLTask, PBLLearningProgress, PBLClassMember
+from ...utils.timezone import get_beijing_time_naive
 
 router = APIRouter()
 
@@ -57,6 +59,12 @@ def serialize_unit_summary(unit: PBLUnit, db: Session = None, user_id: int = Non
     completed_videos = 0
     completed_documents = 0
     completed_tasks = 0
+    
+    # 检查单元是否已开放
+    is_open = True
+    if unit.open_from:
+        current_time = get_beijing_time_naive()
+        is_open = current_time >= unit.open_from
     
     # 计算单元学习进度
     progress = 0
@@ -112,6 +120,8 @@ def serialize_unit_summary(unit: PBLUnit, db: Session = None, user_id: int = Non
         'description': unit.description,
         'order': unit.order,
         'status': unit.status,
+        'open_from': unit.open_from.isoformat() if unit.open_from else None,
+        'is_open': is_open,
         'resources_count': resources_count,
         'tasks_count': tasks_count,
         'progress': progress,
@@ -340,6 +350,16 @@ def get_unit_detail(
             status_code=status.HTTP_403_FORBIDDEN
         )
     
+    # 检查单元开放时间
+    if unit.open_from:
+        current_time = get_beijing_time_naive()
+        if current_time < unit.open_from:
+            return error_response(
+                message=f"该单元将于 {unit.open_from.strftime('%Y-%m-%d %H:%M:%S')} 开放",
+                code=403,
+                status_code=status.HTTP_403_FORBIDDEN
+            )
+    
     return success_response(data=serialize_unit_detail(unit))
 
 @router.get("/courses/{course_uuid}/units")
@@ -448,6 +468,16 @@ def get_unit_resources(
             status_code=status.HTTP_403_FORBIDDEN
         )
     
+    # 检查单元开放时间
+    if unit.open_from:
+        current_time = get_beijing_time_naive()
+        if current_time < unit.open_from:
+            return error_response(
+                message=f"该单元将于 {unit.open_from.strftime('%Y-%m-%d %H:%M:%S')} 开放",
+                code=403,
+                status_code=status.HTTP_403_FORBIDDEN
+            )
+    
     resources = sorted(unit.resources, key=lambda x: x.order)
     return success_response(data=[{
         'id': r.id,
@@ -508,6 +538,16 @@ def get_unit_tasks(
             code=403,
             status_code=status.HTTP_403_FORBIDDEN
         )
+    
+    # 检查单元开放时间
+    if unit.open_from:
+        current_time = get_beijing_time_naive()
+        if current_time < unit.open_from:
+            return error_response(
+                message=f"该单元将于 {unit.open_from.strftime('%Y-%m-%d %H:%M:%S')} 开放",
+                code=403,
+                status_code=status.HTTP_403_FORBIDDEN
+            )
     
     tasks = sorted(unit.tasks, key=lambda x: x.order)
     return success_response(data=[{

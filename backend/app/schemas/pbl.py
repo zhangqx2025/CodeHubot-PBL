@@ -67,6 +67,7 @@ class UnitBase(BaseModel):
     description: Optional[str] = None
     order: Optional[int] = 0
     status: Optional[str] = 'locked'
+    open_from: Optional[datetime] = None  # 单元开放时间
     learning_guide: Optional[Any] = None  # 支持 dict 或 list 类型
 
 class UnitCreate(UnitBase):
@@ -77,6 +78,7 @@ class UnitUpdate(BaseModel):
     description: Optional[str] = None
     order: Optional[int] = None
     status: Optional[str] = None
+    open_from: Optional[datetime] = None  # 单元开放时间
     learning_guide: Optional[Any] = None  # 支持 dict 或 list 类型
 
 class Unit(UnitBase):
