@@ -63,8 +63,16 @@
             {{ formatDateTime(row.joined_at) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="150" fixed="right">
+        <el-table-column label="操作" width="250" fixed="right">
           <template #default="{ row }">
+            <el-button 
+              link 
+              type="warning" 
+              @click="handleResetPassword(row)"
+            >
+              <el-icon><Lock /></el-icon>
+              重置密码
+            </el-button>
             <el-button 
               link 
               type="danger" 
@@ -150,11 +158,11 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
-  ArrowLeft, Plus, Search, Delete
+  ArrowLeft, Plus, Search, Delete, Lock
 } from '@element-plus/icons-vue'
 import {
   getClubClassMembers, addMembersToClubClass, removeMemberFromClubClass, getClubClassDetail,
-  getAvailableStudentsForClass
+  getAvailableStudentsForClass, resetMemberPassword
 } from '@/api/club'
 import dayjs from 'dayjs'
 
@@ -286,6 +294,43 @@ const handleRemoveMember = async (member) => {
   } catch (error) {
     if (error !== 'cancel') {
       ElMessage.error(error.message || '移除失败')
+    }
+  }
+}
+
+// 处理重置密码
+const handleResetPassword = async (member) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要重置成员"${member.name}"的密码吗？密码将被重置为默认密码 Aa123456，该学生下次登录后需强制修改密码。`,
+      '确认重置密码',
+      {
+        confirmButtonText: '确定重置',
+        cancelButtonText: '取消',
+        type: 'warning',
+        dangerouslyUseHTMLString: true
+      }
+    )
+    
+    const res = await resetMemberPassword(route.params.uuid, member.student_id)
+    
+    // 显示成功消息，包含默认密码
+    await ElMessageBox.alert(
+      `<p>密码重置成功！</p>
+       <p style="margin-top: 12px;">学生姓名：<strong>${member.name}</strong></p>
+       <p>学号：<strong>${member.student_number}</strong></p>
+       <p>新密码：<strong style="color: #409eff; font-size: 16px;">Aa123456</strong></p>
+       <p style="margin-top: 12px; color: #f56c6c;">请及时将新密码告知学生，学生下次登录后需强制修改密码。</p>`,
+      '密码重置成功',
+      {
+        confirmButtonText: '我知道了',
+        dangerouslyUseHTMLString: true,
+        type: 'success'
+      }
+    )
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(error.message || '重置密码失败')
     }
   }
 }

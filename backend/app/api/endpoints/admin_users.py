@@ -224,7 +224,8 @@ def create_user(
         student_number=user_data.student_number,
         subject=user_data.subject,
         gender=user_data.gender,
-        is_active=True
+        is_active=True,
+        need_change_password=True  # 首次登录需要修改密码
     )
     
     db.add(new_user)

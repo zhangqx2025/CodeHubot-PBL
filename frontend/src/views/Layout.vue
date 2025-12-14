@@ -79,6 +79,11 @@
             <template #title>我的课程</template>
           </el-menu-item>
           
+          <el-menu-item index="/my-tasks" class="menu-item">
+            <el-icon><Document /></el-icon>
+            <template #title>我提交的任务</template>
+          </el-menu-item>
+          
           <el-menu-item index="/profile" class="menu-item">
             <el-icon><User /></el-icon>
             <template #title>个人中心</template>

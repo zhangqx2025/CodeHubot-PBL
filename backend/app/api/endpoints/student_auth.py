@@ -154,7 +154,8 @@ def student_register(user_data: UserCreate, db: Session = Depends(get_db)):
         group_id=user_data.group_id,
         school_name=user_data.school_name,
         student_number=user_data.student_number,
-        is_active=True
+        is_active=True,
+        need_change_password=True  # 首次登录需要修改密码
     )
     
     db.add(new_user)
@@ -317,11 +318,18 @@ def change_password(
     
     # 更新密码
     current_user.password_hash = get_password_hash(request.new_password)
+    
+    # 清除强制修改密码标记
+    if current_user.need_change_password:
+        current_user.need_change_password = False
+    
     db.commit()
     
     logger.info(f"密码修改成功 - 用户: {current_user.username} (ID: {current_user.id})")
     
     return success_response(
-        data={},
+        data={
+            'need_change_password': current_user.need_change_password
+        },
         message="密码修改成功"
     )

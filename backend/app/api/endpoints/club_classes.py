@@ -16,11 +16,13 @@ from pydantic import BaseModel
 from ...db.session import SessionLocal
 from ...core.response import success_response, error_response
 from ...core.deps import get_db, get_current_admin
+from ...core.security import get_password_hash
 from ...models.admin import Admin, User
 from ...models.pbl import (
     PBLClass, PBLClassMember, PBLCourse, PBLCourseTemplate,
     PBLUnit, PBLResource, PBLTask,
-    PBLClassTeacher, PBLTaskProgress, PBLProjectOutput
+    PBLClassTeacher, PBLTaskProgress, PBLProjectOutput,
+    PBLUnitTemplate, PBLResourceTemplate, PBLTaskTemplate
 )
 from ...core.logging_config import get_logger
 
@@ -67,6 +69,11 @@ class TaskReview(BaseModel):
     grade: Optional[str] = None  # excellent, good, pass, fail
     feedback: Optional[str] = None
     status: str = 'review'  # review, completed
+
+class StudentPasswordReset(BaseModel):
+    """重置学生密码请求"""
+    student_id: int
+    new_password: str = "Aa123456"  # 默认密码
 
 # ===== 班级管理 =====
 
@@ -721,6 +728,113 @@ def update_member_role(
     return success_response(message=f"成员角色已更新为 {role_data.role}")
 
 
+@router.post("/classes/{class_uuid}/members/{student_id}/reset-password")
+def reset_member_password(
+    class_uuid: str,
+    student_id: int,
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(get_current_admin)
+):
+    """重置班级成员密码（教师专用）
+    
+    将学生密码重置为默认密码（Aa123456），并标记为需要强制修改密码
+    """
+    # 查找班级
+    pbl_class = db.query(PBLClass).filter(PBLClass.uuid == class_uuid).first()
+    if not pbl_class:
+        return error_response(
+            message="班级不存在",
+            code=404,
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    
+    # 权限检查：教师、学校管理员、平台管理员
+    if current_admin.role == 'teacher':
+        # 教师需要是该班级的授课教师
+        is_class_teacher = db.query(PBLClassTeacher).filter(
+            PBLClassTeacher.class_id == pbl_class.id,
+            PBLClassTeacher.teacher_id == current_admin.id
+        ).first()
+        
+        if not is_class_teacher:
+            return error_response(
+                message="无权限操作该班级",
+                code=403,
+                status_code=status.HTTP_403_FORBIDDEN
+            )
+    elif current_admin.role == 'school_admin':
+        # 学校管理员只能操作本校班级
+        if pbl_class.school_id != current_admin.school_id:
+            return error_response(
+                message="无权限操作该班级",
+                code=403,
+                status_code=status.HTTP_403_FORBIDDEN
+            )
+    elif current_admin.role != 'platform_admin':
+        # 其他角色无权限
+        return error_response(
+            message="无权限操作",
+            code=403,
+            status_code=status.HTTP_403_FORBIDDEN
+        )
+    
+    # 检查学生是否在班级中
+    member = db.query(PBLClassMember).filter(
+        PBLClassMember.class_id == pbl_class.id,
+        PBLClassMember.student_id == student_id,
+        PBLClassMember.is_active == 1
+    ).first()
+    
+    if not member:
+        return error_response(
+            message="学生不在该班级中",
+            code=404,
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    
+    # 查找学生用户
+    student = db.query(User).filter(
+        User.id == student_id,
+        User.role == 'student'
+    ).first()
+    
+    if not student:
+        return error_response(
+            message="学生用户不存在",
+            code=404,
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    
+    # 权限检查：学校管理员只能操作本校学生
+    if current_admin.role == 'school_admin':
+        if student.school_id != current_admin.school_id:
+            return error_response(
+                message="无权限操作该学生",
+                code=403,
+                status_code=status.HTTP_403_FORBIDDEN
+            )
+    
+    # 重置密码为默认密码
+    default_password = "Aa123456"
+    student.password_hash = get_password_hash(default_password)
+    
+    # 标记需要强制修改密码
+    student.need_change_password = True
+    
+    db.commit()
+    
+    logger.info(f"重置学生密码 - 班级UUID: {class_uuid}, 学生ID: {student_id}, 学生姓名: {student.name}, 操作者: {current_admin.username}")
+    
+    return success_response(
+        data={
+            'student_id': student.id,
+            'student_name': student.name or student.real_name,
+            'default_password': default_password
+        },
+        message=f"已重置学生 {student.name or student.real_name} 的密码为：{default_password}，该学生下次登录后需强制修改密码"
+    )
+
+
 # ===== 基于模板创建课程 =====
 
 @router.get("/course-templates")
@@ -825,10 +939,74 @@ def create_course_from_template(
     db.add(new_course)
     db.flush()
     
-    # TODO: 从模板复制单元、资源、任务（这里简化处理，实际需要完整的复制逻辑）
+    # 从模板复制单元、资源、任务
     units_count = 0
     resources_count = 0
     tasks_count = 0
+    
+    # 查询模板的所有单元（包括关联的资源和任务）
+    template_units = db.query(PBLUnitTemplate).filter(
+        PBLUnitTemplate.course_template_id == template.id
+    ).order_by(PBLUnitTemplate.order).all()
+    
+    # 复制单元、资源、任务
+    for template_unit in template_units:
+        # 创建单元副本，默认状态为 'locked'（关闭）
+        new_unit = PBLUnit(
+            course_id=new_course.id,
+            title=template_unit.title,
+            description=template_unit.description,
+            order=template_unit.order,
+            status='locked',  # 默认关闭
+            learning_guide=template_unit.learning_objectives  # 复制学习目标作为学习指南
+        )
+        db.add(new_unit)
+        db.flush()  # 获取新单元的ID
+        units_count += 1
+        
+        # 复制资源
+        template_resources = db.query(PBLResourceTemplate).filter(
+            PBLResourceTemplate.unit_template_id == template_unit.id
+        ).order_by(PBLResourceTemplate.order).all()
+        
+        for template_resource in template_resources:
+            new_resource = PBLResource(
+                unit_id=new_unit.id,
+                type=template_resource.type,
+                title=template_resource.title,
+                description=template_resource.description,
+                url=template_resource.url,
+                content=template_resource.content,
+                duration=template_resource.duration,
+                order=template_resource.order,
+                video_id=template_resource.video_id,
+                video_cover_url=template_resource.video_cover_url,
+                max_views=template_resource.default_max_views
+            )
+            db.add(new_resource)
+            resources_count += 1
+        
+        # 复制任务
+        template_tasks = db.query(PBLTaskTemplate).filter(
+            PBLTaskTemplate.unit_template_id == template_unit.id
+        ).order_by(PBLTaskTemplate.order).all()
+        
+        for template_task in template_tasks:
+            new_task = PBLTask(
+                unit_id=new_unit.id,
+                title=template_task.title,
+                description=template_task.description,
+                type=template_task.type,
+                difficulty=template_task.difficulty,
+                estimated_time=template_task.estimated_time,
+                order=template_task.order,
+                requirements=template_task.requirements,
+                prerequisites=template_task.prerequisites,
+                is_required=1,  # 默认必做
+                publish_status='draft'  # 默认草稿状态
+            )
+            db.add(new_task)
+            tasks_count += 1
     
     # 注意：班级成员自动拥有班级课程的访问权限，无需创建选课记录
     # 统计班级成员数量

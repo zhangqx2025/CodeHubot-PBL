@@ -224,7 +224,8 @@ def admin_register(admin_data: AdminCreate, db: Session = Depends(get_db), curre
         password_hash=get_password_hash(admin_data.password),
         name=admin_data.full_name,  # 使用 name 字段存储全名
         role='platform_admin',  # 设置为平台管理员角色
-        is_active=True
+        is_active=True,
+        need_change_password=True  # 首次登录需要修改密码
     )
     
     db.add(new_admin)

@@ -113,6 +113,16 @@ export function updateMemberRole(classUuid, studentId, data) {
   })
 }
 
+/**
+ * 重置成员密码
+ */
+export function resetMemberPassword(classUuid, studentId) {
+  return request({
+    url: `/admin/club/classes/${classUuid}/members/${studentId}/reset-password`,
+    method: 'post'
+  })
+}
+
 // ===== 课程模板 =====
 
 /**

@@ -256,34 +256,50 @@ def get_my_tasks(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """获取我的所有任务"""
+    """获取我提交的所有任务"""
+    from ...models.pbl import PBLUnit, PBLCourse
+    
+    # 只查询已提交的任务（status为review或completed）
     query = db.query(PBLTaskProgress).filter(
-        PBLTaskProgress.user_id == current_user.id
+        PBLTaskProgress.user_id == current_user.id,
+        PBLTaskProgress.status.in_(['review', 'completed'])
     )
     
     if status_filter:
         query = query.filter(PBLTaskProgress.status == status_filter)
     
-    progress_list = query.all()
+    progress_list = query.order_by(PBLTaskProgress.updated_at.desc()).all()
     
     result = []
     for progress in progress_list:
         task = db.query(PBLTask).filter(PBLTask.id == progress.task_id).first()
         if task:
-            result.append({
-                'task_id': task.id,
-                'task_uuid': task.uuid,
-                'task_title': task.title,
-                'task_type': task.type,
-                'task_difficulty': task.difficulty,
-                'estimated_time': task.estimated_time,
-                'progress_id': progress.id,
-                'status': progress.status,
-                'progress': progress.progress,
-                'score': progress.score,
-                'feedback': progress.feedback,
-                'submitted_at': progress.updated_at.isoformat() if progress.updated_at else None,
-                'graded_at': progress.graded_at.isoformat() if progress.graded_at else None
-            })
+            # 获取单元信息
+            unit = db.query(PBLUnit).filter(PBLUnit.id == task.unit_id).first()
+            if unit:
+                # 获取课程信息
+                course = db.query(PBLCourse).filter(PBLCourse.id == unit.course_id).first()
+                if course:
+                    result.append({
+                        'task_id': task.id,
+                        'task_uuid': task.uuid,
+                        'task_title': task.title,
+                        'task_type': task.type,
+                        'task_difficulty': task.difficulty,
+                        'estimated_time': task.estimated_time,
+                        'unit_id': unit.id,
+                        'unit_uuid': unit.uuid,
+                        'unit_title': unit.title,
+                        'course_id': course.id,
+                        'course_uuid': course.uuid,
+                        'course_title': course.title,
+                        'progress_id': progress.id,
+                        'status': progress.status,
+                        'progress': progress.progress,
+                        'score': progress.score,
+                        'feedback': progress.feedback,
+                        'submitted_at': progress.updated_at.isoformat() if progress.updated_at else None,
+                        'graded_at': progress.graded_at.isoformat() if progress.graded_at else None
+                    })
     
     return success_response(data=result)

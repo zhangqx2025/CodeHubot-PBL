@@ -220,11 +220,10 @@ def join_class(
     ).all()
     
     # 注意：班级成员自动拥有班级课程的访问权限，无需创建选课记录
-    enrolled_courses = []
-    for course in courses:
-        enrolled_courses.append({
-            db.add(enrollment)
-            enrolled_courses.append(course.id)
+    enrolled_courses = [course.id for course in courses]
+    
+    # 更新班级人数
+    pbl_class.current_members += 1
     
     db.commit()
     

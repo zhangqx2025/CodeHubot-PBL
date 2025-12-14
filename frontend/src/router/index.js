@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import Layout from '../views/Layout.vue'
 import Login from '../views/Login.vue'
+import ChangePassword from '../views/ChangePassword.vue'
 
 const routes = [
   {
@@ -10,6 +11,16 @@ const routes = [
     meta: {
       title: '学生登录 - 跨学科项目式学习平台',
       requiresAuth: false
+    }
+  },
+  {
+    path: '/change-password',
+    name: 'ChangePassword',
+    component: ChangePassword,
+    meta: {
+      title: '修改密码 - 跨学科项目式学习平台',
+      requiresAuth: true,
+      skipPasswordCheck: true  // 跳过密码检查，允许访问修改密码页面
     }
   },
   {
@@ -106,6 +117,15 @@ const routes = [
         component: () => import('../views/Profile.vue'),
         meta: {
           title: '个人中心 - 跨学科项目式学习平台',
+          requiresAuth: true
+        }
+      },
+      {
+        path: 'my-tasks',
+        name: 'MyTasks',
+        component: () => import('../views/MyTasks.vue'),
+        meta: {
+          title: '我提交的任务 - 跨学科项目式学习平台',
           requiresAuth: true
         }
       }
@@ -521,12 +541,12 @@ router.beforeEach(async (to, from, next) => {
       return
     }
     
+    // 动态导入认证store以避免循环依赖
+    const { useAuthStore } = await import('@/store/auth')
+    const authStore = useAuthStore()
+    
     // 学生路由检查
     if (to.meta.requiresAuth !== false) {
-      // 动态导入认证store以避免循环依赖
-      const { useAuthStore } = await import('@/store/auth')
-      const authStore = useAuthStore()
-      
       // 检查token是否存在且有效
       const token = localStorage.getItem('access_token') || localStorage.getItem('student_access_token')
       const isTokenValid = token && !isTokenExpired(token)
@@ -567,6 +587,21 @@ router.beforeEach(async (to, from, next) => {
       const isAdminTokenValid = adminToken && !isTokenExpired(adminToken)
       if (isAdminTokenValid) {
         next('/admin')
+        return
+      }
+    }
+    
+    // 检查是否需要强制修改密码（学生用户）
+    if (to.meta.requiresAuth && !to.meta.skipPasswordCheck && to.name !== 'ChangePassword') {
+      
+      // 确保用户信息已加载
+      if (!authStore.userInfo) {
+        await authStore.fetchUserInfo()
+      }
+      
+      // 如果用户需要修改密码，强制跳转到修改密码页面
+      if (authStore.userInfo && authStore.userInfo.need_change_password) {
+        next('/change-password')
         return
       }
     }
